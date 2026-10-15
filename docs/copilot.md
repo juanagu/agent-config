@@ -18,7 +18,7 @@ This writes `AGENTS.md`, `.github/hooks/git-guard.json`, `.github/agents/*.agent
 npx -y github:juanagu/agent-config -- --global --tool copilot
 ```
 
-It clones the repo to `~/Projects/agent-config` (or fast-forwards it), links `~/.copilot/agents` and `~/.copilot/skills/<name>` into the clone, writes `~/.copilot/hooks/git-guard.json`, and, when it is missing, writes `~/.copilot/copilot-instructions.md` as a copy of `AGENTS.md` (Copilot has no import syntax, so this copy is updated on each re-run only while you have not edited it).
+It clones the repo to `~/Projects/agent-config` (or fast-forwards it), links each agent into `~/.copilot/agents/` and each skill into `~/.copilot/skills/`, writes `~/.copilot/hooks/git-guard.json`, and writes `~/.copilot/copilot-instructions.md` as a copy of `AGENTS.md` (Copilot has no import syntax). The copy is refreshed by each run until you edit it; after that it is left alone and the installer says so.
 
 Reload VS Code afterwards.
 

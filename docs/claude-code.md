@@ -18,7 +18,7 @@ This writes `AGENTS.md`, `CLAUDE.md`, `.claude/settings.json`, `.claude/agents/`
 npx -y github:juanagu/agent-config -- --global --tool claude
 ```
 
-It clones the repo to `~/Projects/agent-config` (or fast-forwards it), then: writes a one-line `@` import into `~/.claude/CLAUDE.md`, links `~/.claude/agents` → the clone's `.claude/agents`, links each skill into `~/.claude/skills/`, creates `~/.claude/settings.json` from a template when it is missing (otherwise offers the git guard hook), and installs the third-party skills in `skills.txt`. Re-running updates everything. Flags: `--yes`, `--no-optional`, `--help`.
+It clones the repo to `~/Projects/agent-config` (or fast-forwards it), then: adds a one-line `@` import at the top of `~/.claude/CLAUDE.md` (the rest of the file is yours), links each agent into `~/.claude/agents/` and each skill into `~/.claude/skills/` (one entry each, so your own agents and skills stay beside them), creates `~/.claude/settings.json` from a template when it is missing (otherwise offers the git guard hook, or re-points an entry from an older install), and installs the third-party skills in `skills.txt`. Re-running updates everything. Flags: `--yes`, `--no-optional`, `--help`.
 
 Then start a new session: hooks and agents are read at session start.
 

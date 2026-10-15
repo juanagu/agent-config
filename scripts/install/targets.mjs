@@ -17,25 +17,29 @@ const PROJECT_FILES = {
   antigravity: [".agents/hooks.json", ".agents/agents"],
 };
 
+// The hook registration per tool: merged into a file the project already has, never compared.
+export const REGISTRATION_FILES = new Set([".claude/settings.json", ".cursor/hooks.json", ".github/hooks/git-guard.json", ".agents/hooks.json"]);
+
 export function projectFiles(tools) {
   return [...PROJECT_FILES.common, ...tools.flatMap((tool) => PROJECT_FILES[tool])];
 }
 
-// Global mode: where each tool keeps its user-level pieces. `hookFile` is the user-level hook
-// registration the clone's `hookSource` is merged into; `standards` is a user-level standards
-// file the tool reads, written as a copy when missing (Claude gets an import instead).
+// Global mode: where each tool keeps its user-level pieces. `agents` is the user agents folder
+// and the clone folder whose files are linked into it one by one; `hookFile` is the user-level
+// hook registration the clone's `hookSource` is merged into; `standards` is a user-level
+// standards file the tool reads, kept as a copy (Claude gets an import instead).
 export function globalTargets(tool, home) {
   switch (tool) {
     case "claude":
       return {
         dir: join(home, ".claude"),
-        agentsLink: { path: join(home, ".claude", "agents"), source: ".claude/agents" },
+        agents: { dir: join(home, ".claude", "agents"), source: ".claude/agents" },
         skillsDir: join(home, ".claude", "skills"),
       };
     case "cursor":
       return {
         dir: join(home, ".cursor"),
-        agentsLink: { path: join(home, ".cursor", "agents"), source: ".cursor/agents" },
+        agents: { dir: join(home, ".cursor", "agents"), source: ".cursor/agents" },
         skillsDir: join(home, ".cursor", "skills"),
         hookFile: join(home, ".cursor", "hooks.json"),
         hookSource: ".cursor/hooks.json",
@@ -43,7 +47,7 @@ export function globalTargets(tool, home) {
     case "copilot":
       return {
         dir: join(home, ".copilot"),
-        agentsLink: { path: join(home, ".copilot", "agents"), source: ".github/agents" },
+        agents: { dir: join(home, ".copilot", "agents"), source: ".github/agents" },
         skillsDir: join(home, ".copilot", "skills"),
         hookFile: join(home, ".copilot", "hooks", "git-guard.json"),
         hookSource: ".github/hooks/git-guard.json",
@@ -52,7 +56,7 @@ export function globalTargets(tool, home) {
     case "antigravity":
       return {
         dir: join(home, ".gemini"),
-        agentsLink: { path: join(home, ".gemini", "config", "agents"), source: ".agents/agents" },
+        agents: { dir: join(home, ".gemini", "config", "agents"), source: ".agents/agents" },
         skillsDir: join(home, ".gemini", "antigravity-cli", "skills"),
         hookFile: join(home, ".gemini", "config", "hooks.json"),
         hookSource: ".agents/hooks.json",

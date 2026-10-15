@@ -22,7 +22,7 @@
    npx -y github:juanagu/agent-config -- --global --tool claude
    ```
 
-   `~/.claude/CLAUDE.md` gets the new import line (the old one is removed; anything else in the file is left), `~/.claude/agents` and `~/.claude/skills/<name>` are re-pointed at the new clone, and the `git-guard` entry in `~/.claude/settings.json` is updated to the new path. Replaced files are moved to `~/.claude/backup-<timestamp>/` first.
+   `~/.claude/CLAUDE.md` gets the new import line in place of the old one (anything else in the file is left), the `~/.claude/agents` junction becomes a real folder with one link per agent (your own agents can live there too), `~/.claude/skills/<name>` links are re-pointed at the new clone, and the `git-guard` entry in `~/.claude/settings.json` is rewritten to the new path. Anything replaced is moved to `~/.claude/backup-<timestamp>/` first.
 2. Move `~/.claude/git-guard.json` to `~/.config/agent-config/git-guard.json` (optional; the old location keeps working).
 3. Start a new Claude Code session and check `/hooks` shows the new command path.
 4. Delete the old clone when you are sure nothing else points into it: `~/.claude` no longer does.

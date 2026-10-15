@@ -1,3 +1,4 @@
+import { createHash } from "node:crypto";
 import { readFileSync, writeFileSync } from "node:fs";
 
 const BYTE_ORDER_MARK = 0xfeff;
@@ -16,4 +17,8 @@ export function readJson(path) {
 
 export function writeJson(path, value) {
   writeFileSync(path, `${JSON.stringify(value, null, 2)}\n`);
+}
+
+export function sha256(content) {
+  return createHash("sha256").update(content).digest("hex");
 }

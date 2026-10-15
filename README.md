@@ -76,7 +76,7 @@ scripts/build.mjs    writes every generated file
 ## Making changes
 
 - Standards: edit `AGENTS.md`. Agents: edit `agents/<name>.md`, then `npm run build`. Skills: edit `.agents/skills/<name>/SKILL.md`, then `npm run build` (Claude Code reads a copy).
-- `npm test` checks all of it: frontmatter, cross-references, evals, the generated files, the installer, the hook in every tool's payload shape.
+- `npm test` checks all of it: frontmatter, cross-references, evals, the generated files, the installer, the hook in every tool's payload shape. The committed pre-push hook runs it before every push (`npm install` once installs the hook; there are no dependencies).
 - Ship it through a PR; the `open-pr` skill does it the way the standards describe.
 
 [CONTRIBUTING.md](CONTRIBUTING.md) has the details, including how to add support for another tool.

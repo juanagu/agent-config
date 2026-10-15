@@ -18,7 +18,7 @@ This writes `AGENTS.md`, `.agents/hooks.json`, `.agents/agents/`, `.agents/skill
 npx -y github:juanagu/agent-config -- --global --tool antigravity
 ```
 
-It clones the repo to `~/Projects/agent-config` (or fast-forwards it), links `~/.gemini/antigravity-cli/skills/<name>` into the clone, links `~/.gemini/config/agents` to the clone's `.agents/agents`, merges the git guard into `~/.gemini/config/hooks.json`, and, when it is missing, writes `~/.gemini/AGENTS.md` as a copy of the standards.
+It clones the repo to `~/Projects/agent-config` (or fast-forwards it), links each skill into `~/.gemini/antigravity-cli/skills/` and each agent into `~/.gemini/config/agents/`, merges the git guard into `~/.gemini/config/hooks.json`, and writes `~/.gemini/AGENTS.md` as a copy of the standards. The copy is refreshed by each run until you edit it; after that it is left alone and the installer says so.
 
 ## What loads where
 

@@ -12,6 +12,7 @@
     "node": ">=22"
   },
   "scripts": {
+    "prepare": "node -e \"import('./scripts/install-git-hooks.mjs').catch(e=>{if(e.code!=='ERR_MODULE_NOT_FOUND')throw e})\"",
     "build": "node scripts/build.mjs",
     "test": "node --test tests/*.test.mjs .agents/hooks/git-guard/*.test.mjs"
   }

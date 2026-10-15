@@ -7,7 +7,7 @@ import { readJson } from "./json.mjs";
 import { toPosix } from "./paths.mjs";
 import { GUARD_SCRIPT } from "./targets.mjs";
 
-export const GIT_GUARD_NEEDLE = "git-guard";
+export const GIT_GUARD_NEEDLE = "git-guard.mjs";
 export const GIT_GUARD_MATCHER = "Bash|PowerShell";
 export const RTK_NEEDLE = "rtk hook";
 export const RTK_MATCHER = "Bash";
@@ -64,6 +64,34 @@ export function absolutizeGuard(value, repoDir) {
 
 export function mentionsGitGuard(value) {
   return JSON.stringify(value ?? null).includes(GIT_GUARD_NEEDLE);
+}
+
+// Every string in a registration that runs the guard (the old ~/.claude/hooks path, a previous
+// clone, a project-relative form) becomes `command`; the structure around it is kept.
+export function rewriteGuard(value, command) {
+  if (typeof value === "string") return value.includes(GIT_GUARD_NEEDLE) ? command : value;
+  if (Array.isArray(value)) return value.map((item) => rewriteGuard(item, command));
+  if (isObject(value)) return Object.fromEntries(Object.entries(value).map(([k, v]) => [k, rewriteGuard(v, command)]));
+  return value;
+}
+
+// The guard command a registration carries: the first string that runs the script.
+export function guardCommandIn(value) {
+  if (typeof value === "string") return value.includes(GIT_GUARD_NEEDLE) ? value : null;
+  if (value === null || typeof value !== "object") return null;
+  for (const item of Object.values(value)) {
+    const found = guardCommandIn(item);
+    if (found) return found;
+  }
+  return null;
+}
+
+// A registration file brought up to date with the clone's: an existing guard entry is
+// re-pointed at the clone's command, a missing one is merged in. Returns the new value and
+// whether it differs from `current`.
+export function registerGuard(current, registration) {
+  const next = mentionsGitGuard(current) ? rewriteGuard(current, guardCommandIn(registration)) : mergeRegistration(current, registration);
+  return { value: next, changed: JSON.stringify(next) !== JSON.stringify(current) };
 }
 
 // The clone's registration merged into the user's file: objects recurse, arrays append, and a

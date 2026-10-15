@@ -1,7 +1,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { execFileSync, spawnSync } from "node:child_process";
-import { existsSync, readFileSync, realpathSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, readFileSync, realpathSync, writeFileSync } from "node:fs";
 import { dirname, join, sep } from "node:path";
 import { fileURLToPath } from "node:url";
 import { cloneTargetFromPackage, parseBootstrapArgs, sameRepo } from "../scripts/install/bootstrap.mjs";
@@ -63,6 +63,7 @@ test("bootstrap clones into --dir, installs there, updates on the second run, an
 
   const tmp = freshDir(t, "agent-config-bootstrap-");
   const clone = join(tmp, "clone");
+  mkdirSync(clone); // an empty directory is as good as a missing one, as it is for git clone
   const home = join(tmp, "home");
   const args = ["--repo", upstream, "--dir", clone, "--", "--global", "--tool", "claude", "--home", home, "--skip-skills", "--no-optional"];
   const bootstrapWith = (...extra) => spawnSync(process.execPath, [bootstrap, ...extra], { encoding: "utf8", env: cleanGitEnv() });
@@ -81,6 +82,13 @@ test("bootstrap clones into --dir, installs there, updates on the second run, an
   const other = bootstrapWith("--repo", "https://github.com/someone-else/other.git", "--dir", clone, "--global", "--home", home, "--skip-skills", "--no-optional");
   assert.equal(other.status, 1);
   assert.match(other.stderr, /is a clone of/);
+
+  const occupied = join(tmp, "occupied");
+  mkdirSync(occupied);
+  writeFileSync(join(occupied, "something.txt"), "x");
+  const refused = bootstrapWith("--repo", upstream, "--dir", occupied, "--global", "--home", home, "--skip-skills", "--no-optional");
+  assert.equal(refused.status, 1);
+  assert.match(refused.stderr, /is not empty and is not a git clone/);
 
   writeFileSync(join(clone, "AGENTS.md"), "edited");
   const dirty = bootstrapWith(...args);

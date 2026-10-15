@@ -2,11 +2,6 @@
   "env": {
     "ENABLE_TOOL_SEARCH": "auto"
   },
-  "permissions": {
-    "allow": [
-      "mcp__codegraph__*"
-    ]
-  },
   "hooks": {
     "PreToolUse": [
       {

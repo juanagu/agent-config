@@ -18,7 +18,7 @@ This writes `AGENTS.md`, `.cursor/hooks.json`, `.cursor/agents/`, `.agents/skill
 npx -y github:juanagu/agent-config -- --global --tool cursor
 ```
 
-It clones the repo to `~/Projects/agent-config` (or fast-forwards it), links `~/.cursor/agents` and `~/.cursor/skills/<name>` into the clone, and merges a `beforeShellExecution` entry into `~/.cursor/hooks.json`. Cursor keeps User Rules in the app rather than in a file, so the installer prints the step you do by hand: open **Cursor Settings → Rules → User Rules** and paste the contents of `AGENTS.md` (or the sections you want everywhere; the stack sections are the ones most people change).
+It clones the repo to `~/Projects/agent-config` (or fast-forwards it), links each agent into `~/.cursor/agents/` and each skill into `~/.cursor/skills/`, and merges a `beforeShellExecution` entry into `~/.cursor/hooks.json`. Cursor keeps User Rules in the app rather than in a file, so the installer prints the step you do by hand: open **Cursor Settings → Rules → User Rules** and paste the contents of `AGENTS.md` (or the sections you want everywhere; the stack sections are the ones most people change).
 
 Restart Cursor or reload the window afterwards: hooks are read on start.
 

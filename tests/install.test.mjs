@@ -7,11 +7,18 @@ import { FIXTURE_FILES, FIXTURE_SKILLS, freshDir, makeFixtureClone } from "./sup
 
 const posix = (path) => path.split(sep).join("/");
 const isLinkTo = (path, target) => lstatSync(path).isSymbolicLink() && realpathSync(path) === realpathSync(target);
+// An agent is installed as a file symlink where the platform allows one, else as a copy.
+const isAgentFrom = (path, target) => existsSync(path) && (isLinkTo(path, target) || (!lstatSync(path).isSymbolicLink() && readFileSync(path).equals(readFileSync(target))));
 const readJson = (path) => JSON.parse(readFileSync(path, "utf8"));
 const writeJson = (path, value) => writeFileSync(path, `${JSON.stringify(value, null, 2)}\n`);
 const backupsIn = (dir) => (existsSync(dir) ? readdirSync(dir).filter((name) => name.startsWith("backup-")) : []);
 const hookCommands = (settings) => (settings.hooks?.PreToolUse ?? []).flatMap((entry) => entry.hooks.map((hook) => hook.command));
 const answersFile = (home) => join(home, ".config", "agent-config", "config-install.json");
+// The answers without the copy hashes, which every run that copies an agent or a standards file records.
+const answers = (home) => {
+  const { copies, ...rest } = readJson(answersFile(home));
+  return rest;
+};
 
 // Every run skips npx, so the suite needs no network, and decides each optional piece by
 // flag, so it never waits on a prompt.
@@ -24,11 +31,13 @@ const project = (clone, dir, ...extra) => install(clone, ["--project", dir, ...e
 const claudeHome = (clone, home, ...extra) => global(clone, home, "--tool", "claude", ...extra);
 
 const guardCommand = (clone, tool) => `node "${posix(clone)}/.agents/hooks/git-guard/git-guard.mjs" --tool ${tool}`;
+const GUARD_RELATIVE = "node .agents/hooks/git-guard/git-guard.mjs";
 
 // ---- project mode ----
 
-test("project mode with every tool copies the whole drop-in, without the skills' evals", (t) => {
+test("project mode with every tool copies the whole drop-in, without the skills' evals or this repo's tests", (t) => {
   const clone = makeFixtureClone(t);
+  writeFileSync(join(clone, ".agents", "hooks", "git-guard", "git-guard.test.mjs"), "// tests\n");
   const dir = freshDir(t);
   const result = project(clone, dir);
   assert.equal(result.status, 0, result.stderr);
@@ -36,6 +45,7 @@ test("project mode with every tool copies the whole drop-in, without the skills'
     if (path.includes("/evals/")) assert.ok(!existsSync(join(dir, path)), `${path} should not be copied`);
     else assert.equal(readFileSync(join(dir, path), "utf8"), FIXTURE_FILES[path], path);
   }
+  assert.ok(!existsSync(join(dir, ".agents", "hooks", "git-guard", "git-guard.test.mjs")), "tests should not be copied");
   assert.match(result.stdout, /wrote {5}AGENTS\.md/);
   assert.match(result.stdout, /0 conflicting/);
 });
@@ -58,7 +68,7 @@ test("project mode leaves identical files alone, refuses a differing one without
   assert.equal(project(clone, dir, "--tool", "claude").status, 0);
   const again = project(clone, dir, "--tool", "claude");
   assert.equal(again.status, 0, again.stderr);
-  assert.match(again.stdout, /0 written/);
+  assert.match(again.stdout, /0 written, 0 merged/);
 
   writeFileSync(join(dir, "AGENTS.md"), "# mine\n");
   const conflict = project(clone, dir, "--tool", "claude");
@@ -69,6 +79,40 @@ test("project mode leaves identical files alone, refuses a differing one without
   const forced = project(clone, dir, "--tool", "claude", "--force");
   assert.equal(forced.status, 0, forced.stderr);
   assert.equal(readFileSync(join(dir, "AGENTS.md"), "utf8"), FIXTURE_FILES["AGENTS.md"]);
+});
+
+test("project mode merges the git-guard entry into a project's own settings.json and hooks files, keeping the rest", (t) => {
+  const clone = makeFixtureClone(t);
+  const dir = freshDir(t);
+  mkdirSync(join(dir, ".claude"));
+  writeJson(join(dir, ".claude", "settings.json"), { permissions: { allow: ["Bash(npm test)"] }, hooks: { PostToolUse: [{ matcher: "Edit", hooks: [{ type: "command", command: "prettier" }] }] } });
+  mkdirSync(join(dir, ".cursor"));
+  writeJson(join(dir, ".cursor", "hooks.json"), { version: 1, hooks: { beforeShellExecution: [{ command: "./mine.sh" }] } });
+  const result = project(clone, dir, "--tool", "claude", "--tool", "cursor");
+  assert.equal(result.status, 0, result.stderr);
+  assert.match(result.stdout, /merged {4}\.claude\/settings\.json/);
+  assert.match(result.stdout, /merged {4}\.cursor\/hooks\.json/);
+
+  const settings = readJson(join(dir, ".claude", "settings.json"));
+  assert.deepEqual(settings.permissions.allow, ["Bash(npm test)"]);
+  assert.equal(settings.hooks.PostToolUse[0].hooks[0].command, "prettier");
+  assert.deepEqual(hookCommands(settings), [`node "$CLAUDE_PROJECT_DIR/.agents/hooks/git-guard/git-guard.mjs" --tool claude`]);
+  const cursor = readJson(join(dir, ".cursor", "hooks.json"));
+  assert.deepEqual(cursor.hooks.beforeShellExecution.map((entry) => entry.command), ["./mine.sh", `${GUARD_RELATIVE} --tool cursor`]);
+
+  const again = project(clone, dir, "--tool", "claude", "--tool", "cursor");
+  assert.equal(again.status, 0, again.stderr);
+  assert.match(again.stdout, /0 written, 0 merged/);
+  assert.deepEqual(readJson(join(dir, ".claude", "settings.json")), settings);
+});
+
+test("project mode re-points a git-guard entry a project registered from an older path", (t) => {
+  const clone = makeFixtureClone(t);
+  const dir = freshDir(t);
+  mkdirSync(join(dir, ".cursor"));
+  writeJson(join(dir, ".cursor", "hooks.json"), { version: 1, hooks: { beforeShellExecution: [{ command: 'node "C:/old/hooks/git-guard.mjs"', timeout: 5 }] } });
+  assert.equal(project(clone, dir, "--tool", "cursor").status, 0);
+  assert.deepEqual(readJson(join(dir, ".cursor", "hooks.json")).hooks.beforeShellExecution, [{ command: `${GUARD_RELATIVE} --tool cursor`, timeout: 5 }]);
 });
 
 test("project mode refuses to run from a clone whose generated files are missing", (t) => {
@@ -82,17 +126,20 @@ test("project mode refuses to run from a clone whose generated files are missing
 
 // ---- global mode: Claude Code ----
 
-test("a fresh home gets the import, the links and settings from the template for Claude Code", (t) => {
+test("a fresh home gets the import, one entry per agent and skill, and settings from the template for Claude Code", (t) => {
   const clone = makeFixtureClone(t);
   const home = freshDir(t);
   const result = claudeHome(clone, home, "--no-optional");
   assert.equal(result.status, 0, result.stderr);
   const claude = join(home, ".claude");
-  assert.equal(readFileSync(join(claude, "CLAUDE.md"), "utf8").trim(), `@${posix(clone)}/CLAUDE.md`);
-  assert.ok(isLinkTo(join(claude, "agents"), join(clone, ".claude", "agents")));
+  assert.equal(readFileSync(join(claude, "CLAUDE.md"), "utf8"), `@${posix(clone)}/CLAUDE.md\n`);
+  assert.ok(!lstatSync(join(claude, "agents")).isSymbolicLink(), "the agents folder is a real directory");
+  assert.ok(isAgentFrom(join(claude, "agents", "demo.md"), join(clone, ".claude", "agents", "demo.md")));
   for (const skill of FIXTURE_SKILLS) assert.ok(isLinkTo(join(claude, "skills", skill), join(clone, ".agents", "skills", skill)), skill);
-  const commands = hookCommands(readJson(join(claude, "settings.json")));
-  assert.deepEqual(commands, [guardCommand(clone, "claude")]);
+  const settings = readJson(join(claude, "settings.json"));
+  assert.deepEqual(hookCommands(settings), [guardCommand(clone, "claude")]);
+  assert.equal(settings.permissions, undefined, "the template carries no optional piece");
+  assert.equal(settings.env.ENABLE_TOOL_SEARCH, "auto");
   assert.deepEqual(backupsIn(claude), []);
   for (const other of [".cursor", ".copilot", ".gemini"]) assert.ok(!existsSync(join(home, other)), other);
 });
@@ -105,23 +152,56 @@ test("a second run changes nothing and makes no backup", (t) => {
   const again = claudeHome(clone, home, "--no-optional");
   assert.equal(again.status, 0, again.stderr);
   assert.equal(readFileSync(join(home, ".claude", "settings.json"), "utf8"), before);
+  assert.doesNotMatch(again.stdout, /Updated the import/);
   assert.deepEqual(backupsIn(join(home, ".claude")), []);
 });
 
-test("a real agents directory and a different CLAUDE.md are moved to a backup", (t) => {
+test("the user's own agents and CLAUDE.md lines stay; only the import line and our agents are ours", (t) => {
   const clone = makeFixtureClone(t);
   const home = freshDir(t);
   const claude = join(home, ".claude");
   mkdirSync(join(claude, "agents"), { recursive: true });
   writeFileSync(join(claude, "agents", "mine.md"), "mine");
-  writeFileSync(join(claude, "CLAUDE.md"), "# mine\n");
+  writeFileSync(join(claude, "CLAUDE.md"), "@C:/Users/me/Projects/claude-code-config/CLAUDE.md\n\n# my own notes\nkeep me\n");
   assert.equal(claudeHome(clone, home, "--no-optional").status, 0);
-  const [backup, ...others] = backupsIn(claude);
-  assert.ok(backup);
-  assert.deepEqual(others, []);
-  assert.equal(readFileSync(join(claude, backup, "agents", "mine.md"), "utf8"), "mine");
-  assert.equal(readFileSync(join(claude, backup, "CLAUDE.md"), "utf8"), "# mine\n");
-  assert.ok(isLinkTo(join(claude, "agents"), join(clone, ".claude", "agents")));
+  assert.deepEqual(backupsIn(claude), []);
+  assert.equal(readFileSync(join(claude, "agents", "mine.md"), "utf8"), "mine");
+  assert.ok(isAgentFrom(join(claude, "agents", "demo.md"), join(clone, ".claude", "agents", "demo.md")));
+  assert.equal(readFileSync(join(claude, "CLAUDE.md"), "utf8"), `@${posix(clone)}/CLAUDE.md\n\n# my own notes\nkeep me\n`);
+});
+
+test("an agents folder that an older install linked whole becomes a real folder with one entry per agent", (t) => {
+  const clone = makeFixtureClone(t);
+  const home = freshDir(t);
+  const claude = join(home, ".claude");
+  const oldClone = join(home, "old-clone-agents");
+  mkdirSync(oldClone);
+  writeFileSync(join(oldClone, "old.md"), "old");
+  mkdirSync(claude);
+  symlinkSync(oldClone, join(claude, "agents"), "junction");
+  assert.equal(claudeHome(clone, home, "--no-optional").status, 0);
+  assert.ok(!lstatSync(join(claude, "agents")).isSymbolicLink());
+  assert.deepEqual(readdirSync(join(claude, "agents")), ["demo.md"]);
+  assert.equal(readFileSync(join(oldClone, "old.md"), "utf8"), "old", "the old clone is untouched");
+});
+
+test("an agent the clone no longer has is removed from the user folder; a user's file with the same name was backed up first", (t) => {
+  const clone = makeFixtureClone(t);
+  const home = freshDir(t);
+  const claude = join(home, ".claude");
+  mkdirSync(join(claude, "agents"), { recursive: true });
+  writeFileSync(join(claude, "agents", "demo.md"), "the user's own demo");
+  assert.equal(claudeHome(clone, home, "--no-optional").status, 0);
+  assert.ok(isAgentFrom(join(claude, "agents", "demo.md"), join(clone, ".claude", "agents", "demo.md")));
+  const [backup] = backupsIn(claude);
+  assert.ok(backup, "a differing file of the user's is kept in the backup");
+  assert.equal(readFileSync(join(claude, backup, "demo.md"), "utf8"), "the user's own demo");
+
+  rmSync(join(clone, ".claude", "agents", "demo.md"));
+  const result = claudeHome(clone, home, "--no-optional");
+  assert.equal(result.status, 0, result.stderr);
+  assert.ok(!existsSync(join(claude, "agents", "demo.md")));
+  assert.match(result.stdout, /Removed agents the clone no longer has: demo\.md/);
 });
 
 test("a skill link whose target is gone is removed", (t) => {
@@ -150,6 +230,24 @@ test("an existing settings.json that already has the hook is left byte for byte"
   assert.equal(readFileSync(join(claude, "settings.json"), "utf8"), before);
 });
 
+test("a git-guard entry from the old claude-code-config install is re-pointed at this clone, and its matcher kept", (t) => {
+  const clone = makeFixtureClone(t);
+  const home = freshDir(t);
+  const claude = join(home, ".claude");
+  mkdirSync(claude);
+  writeJson(join(claude, "settings.json"), {
+    model: "opus",
+    hooks: { PreToolUse: [{ matcher: "Bash|PowerShell", hooks: [{ type: "command", command: 'node "C:/Users/me/.claude/hooks/git-guard.mjs"' }] }, { matcher: "Bash", hooks: [{ type: "command", command: "rtk hook claude" }] }] },
+  });
+  const result = claudeHome(clone, home, "--no-optional");
+  assert.equal(result.status, 0, result.stderr);
+  const settings = readJson(join(claude, "settings.json"));
+  assert.equal(settings.model, "opus");
+  assert.deepEqual(hookCommands(settings), [guardCommand(clone, "claude"), "rtk hook claude"]);
+  assert.equal(settings.hooks.PreToolUse[0].matcher, "Bash|PowerShell");
+  assert.match(result.stdout, /Updated .*settings\.json/);
+});
+
 test("--no-optional adds only the git-guard hook to an existing settings.json, and keeps no answers", (t) => {
   const clone = makeFixtureClone(t);
   const home = freshDir(t);
@@ -161,7 +259,7 @@ test("--no-optional adds only the git-guard hook to an existing settings.json, a
   assert.equal(settings.model, "opus");
   assert.deepEqual(hookCommands(settings), [guardCommand(clone, "claude")]);
   assert.equal(settings.permissions, undefined);
-  assert.deepEqual(readJson(answersFile(home)), {});
+  assert.deepEqual(answers(home), {});
 });
 
 test("--yes merges the rtk hook and the CodeGraph rule once, and keeps no answers", (t) => {
@@ -176,10 +274,10 @@ test("--yes merges the rtk hook and the CodeGraph rule once, and keeps no answer
   assert.deepEqual(settings.permissions.allow, ["Read", "mcp__codegraph__*"]);
   assert.deepEqual(hookCommands(settings).filter((command) => command.includes("rtk")), ["rtk hook claude"]);
   assert.equal(hookCommands(settings).filter((command) => command.includes("git-guard")).length, 1);
-  assert.deepEqual(readJson(answersFile(home)), {});
+  assert.deepEqual(answers(home), {});
 });
 
-test("explicit --rtk and --no-codegraph beat the defaults and are remembered", (t) => {
+test("explicit --rtk and --no-codegraph beat the defaults and are remembered, on a fresh home too", (t) => {
   const clone = makeFixtureClone(t);
   const home = freshDir(t);
   const claude = join(home, ".claude");
@@ -189,7 +287,14 @@ test("explicit --rtk and --no-codegraph beat the defaults and are remembered", (
   const settings = readJson(join(claude, "settings.json"));
   assert.ok(hookCommands(settings).includes("rtk hook claude"));
   assert.equal(settings.permissions, undefined);
-  assert.deepEqual(readJson(answersFile(home)), { rtk: true, codegraph: false });
+  assert.deepEqual(answers(home), { rtk: true, codegraph: false });
+
+  const fresh = freshDir(t);
+  assert.equal(claudeHome(clone, fresh, "--no-rtk", "--no-codegraph").status, 0);
+  const created = readJson(join(fresh, ".claude", "settings.json"));
+  assert.equal(created.permissions, undefined, "--no-codegraph is honoured when settings.json is created");
+  assert.deepEqual(hookCommands(created), [guardCommand(clone, "claude")]);
+  assert.deepEqual(answers(fresh), { rtk: false, codegraph: false });
 });
 
 test("an earlier no to the git-guard hook is honoured under --no-optional", (t) => {
@@ -210,7 +315,7 @@ test("a settings.json with a BOM is read; one that is not JSON stops the run bef
   const claude = join(home, ".claude");
   mkdirSync(join(claude, "agents"), { recursive: true });
   writeFileSync(join(claude, "agents", "mine.md"), "mine");
-  writeFileSync(join(claude, "settings.json"), "﻿{}");
+  writeFileSync(join(claude, "settings.json"), "\ufeff{}");
   assert.equal(claudeHome(clone, home, "--no-optional").status, 0);
 
   const home2 = freshDir(t);
@@ -221,7 +326,7 @@ test("a settings.json with a BOM is read; one that is not JSON stops the run bef
   const result = claudeHome(clone, home2, "--no-optional");
   assert.equal(result.status, 1);
   assert.match(result.stderr, /settings\.json is not valid JSON/);
-  assert.ok(!lstatSync(join(claude2, "agents")).isSymbolicLink());
+  assert.deepEqual(readdirSync(join(claude2, "agents")), ["mine.md"]);
   assert.ok(!existsSync(join(claude2, "CLAUDE.md")));
   assert.deepEqual(backupsIn(claude2), []);
 });
@@ -246,7 +351,7 @@ test("--yes adds no rtk hook when rtk is not on PATH; an explicit --rtk adds it 
 
 // ---- global mode: the other tools ----
 
-test("Cursor gets the agents and skills links and an absolute beforeShellExecution hook, merged once", (t) => {
+test("Cursor gets one entry per agent and skill and an absolute beforeShellExecution hook, merged once", (t) => {
   const clone = makeFixtureClone(t);
   const home = freshDir(t);
   const cursor = join(home, ".cursor");
@@ -254,7 +359,7 @@ test("Cursor gets the agents and skills links and an absolute beforeShellExecuti
   writeJson(join(cursor, "hooks.json"), { version: 1, hooks: { beforeShellExecution: [{ command: "./mine.sh" }], stop: [{ command: "./done.sh" }] } });
   const result = global(clone, home, "--tool", "cursor");
   assert.equal(result.status, 0, result.stderr);
-  assert.ok(isLinkTo(join(cursor, "agents"), join(clone, ".cursor", "agents")));
+  assert.ok(isAgentFrom(join(cursor, "agents", "demo.md"), join(clone, ".cursor", "agents", "demo.md")));
   for (const skill of FIXTURE_SKILLS) assert.ok(isLinkTo(join(cursor, "skills", skill), join(clone, ".agents", "skills", skill)), skill);
   const hooks = readJson(join(cursor, "hooks.json"));
   assert.equal(hooks.version, 1);
@@ -268,29 +373,57 @@ test("Cursor gets the agents and skills links and an absolute beforeShellExecuti
   assert.ok(!existsSync(join(home, ".claude")));
 });
 
-test("Copilot gets a one-time copy of AGENTS.md, the links, and its own absolute hook file", (t) => {
+test("a hook registration from a previous clone location is re-pointed for Cursor, Copilot and Antigravity", (t) => {
+  const clone = makeFixtureClone(t);
+  const home = freshDir(t);
+  mkdirSync(join(home, ".cursor"));
+  writeJson(join(home, ".cursor", "hooks.json"), { version: 1, hooks: { beforeShellExecution: [{ command: 'node "C:/old/.agents/hooks/git-guard/git-guard.mjs" --tool cursor', timeout: 30 }] } });
+  mkdirSync(join(home, ".copilot", "hooks"), { recursive: true });
+  writeJson(join(home, ".copilot", "hooks", "git-guard.json"), { version: 1, hooks: { preToolUse: [{ type: "command", bash: 'node "C:/old/.agents/hooks/git-guard/git-guard.mjs" --tool copilot', powershell: 'node "C:/old/.agents/hooks/git-guard/git-guard.mjs" --tool copilot' }] } });
+  mkdirSync(join(home, ".gemini", "config"), { recursive: true });
+  writeJson(join(home, ".gemini", "config", "hooks.json"), { "git-guard": { PreToolUse: [{ matcher: "run_command", hooks: [{ type: "command", command: 'node "C:/old/.agents/hooks/git-guard/git-guard.mjs" --tool antigravity' }] }] } });
+  const result = global(clone, home, "--tool", "cursor", "--tool", "copilot", "--tool", "antigravity");
+  assert.equal(result.status, 0, result.stderr);
+  assert.deepEqual(readJson(join(home, ".cursor", "hooks.json")).hooks.beforeShellExecution, [{ command: guardCommand(clone, "cursor"), timeout: 30 }]);
+  const copilot = readJson(join(home, ".copilot", "hooks", "git-guard.json")).hooks.preToolUse[0];
+  assert.equal(copilot.bash, guardCommand(clone, "copilot"));
+  assert.equal(copilot.powershell, guardCommand(clone, "copilot"));
+  assert.equal(readJson(join(home, ".gemini", "config", "hooks.json"))["git-guard"].PreToolUse[0].hooks[0].command, guardCommand(clone, "antigravity"));
+});
+
+test("Copilot gets a copy of AGENTS.md that follows the clone until the user edits it, the agents and skills, and its hook file", (t) => {
   const clone = makeFixtureClone(t);
   const home = freshDir(t);
   const copilot = join(home, ".copilot");
+  const instructions = join(copilot, "copilot-instructions.md");
   assert.equal(global(clone, home, "--tool", "copilot").status, 0);
-  assert.equal(readFileSync(join(copilot, "copilot-instructions.md"), "utf8"), FIXTURE_FILES["AGENTS.md"]);
-  assert.ok(isLinkTo(join(copilot, "agents"), join(clone, ".github", "agents")));
+  assert.equal(readFileSync(instructions, "utf8"), FIXTURE_FILES["AGENTS.md"]);
+  assert.ok(isAgentFrom(join(copilot, "agents", "demo.agent.md"), join(clone, ".github", "agents", "demo.agent.md")));
   for (const skill of FIXTURE_SKILLS) assert.ok(isLinkTo(join(copilot, "skills", skill), join(clone, ".agents", "skills", skill)), skill);
   const hooks = readJson(join(copilot, "hooks", "git-guard.json"));
   assert.deepEqual(hooks, { version: 1, hooks: { preToolUse: [{ type: "command", bash: guardCommand(clone, "copilot"), powershell: guardCommand(clone, "copilot") }] } });
 
-  writeFileSync(join(copilot, "copilot-instructions.md"), "# mine\n");
-  assert.equal(global(clone, home, "--tool", "copilot").status, 0);
-  assert.equal(readFileSync(join(copilot, "copilot-instructions.md"), "utf8"), "# mine\n");
+  writeFileSync(join(clone, "AGENTS.md"), "# Standards v2\n");
+  const refreshed = global(clone, home, "--tool", "copilot");
+  assert.equal(refreshed.status, 0, refreshed.stderr);
+  assert.equal(readFileSync(instructions, "utf8"), "# Standards v2\n", "an unedited copy follows the clone");
+  assert.match(refreshed.stdout, /Updated .*copilot-instructions\.md/);
+
+  writeFileSync(instructions, "# mine\n");
+  writeFileSync(join(clone, "AGENTS.md"), "# Standards v3\n");
+  const kept = global(clone, home, "--tool", "copilot");
+  assert.equal(kept.status, 0, kept.stderr);
+  assert.equal(readFileSync(instructions, "utf8"), "# mine\n", "an edited copy is the user's");
+  assert.match(kept.stdout, /copilot-instructions\.md was edited by you and is left alone/);
 });
 
-test("Antigravity gets ~/.gemini/AGENTS.md, the config/agents link, antigravity-cli/skills links and the merged hook", (t) => {
+test("Antigravity gets ~/.gemini/AGENTS.md, one entry per agent under config/agents, antigravity-cli/skills links and the merged hook", (t) => {
   const clone = makeFixtureClone(t);
   const home = freshDir(t);
   const gemini = join(home, ".gemini");
   assert.equal(global(clone, home, "--tool", "antigravity").status, 0);
   assert.equal(readFileSync(join(gemini, "AGENTS.md"), "utf8"), FIXTURE_FILES["AGENTS.md"]);
-  assert.ok(isLinkTo(join(gemini, "config", "agents"), join(clone, ".agents", "agents")));
+  assert.ok(isAgentFrom(join(gemini, "config", "agents", "demo.md"), join(clone, ".agents", "agents", "demo.md")));
   for (const skill of FIXTURE_SKILLS) assert.ok(isLinkTo(join(gemini, "antigravity-cli", "skills", skill), join(clone, ".agents", "skills", skill)), skill);
   const hooks = readJson(join(gemini, "config", "hooks.json"));
   assert.deepEqual(hooks["git-guard"].PreToolUse[0].hooks[0].command, guardCommand(clone, "antigravity"));

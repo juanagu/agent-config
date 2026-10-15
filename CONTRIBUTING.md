@@ -7,10 +7,11 @@ Fixes to the mechanics (the build, the installer, the hook, the compatibility ma
 ```sh
 git clone https://github.com/juanagu/agent-config
 cd agent-config
+npm install   # no dependencies; it installs the pre-push hook
 npm test
 ```
 
-Node.js 22+ and `git` are the only requirements. There are no dependencies to install.
+Node.js 22+ and `git` are the only requirements. The pre-push hook (`.githooks/pre-push`, the repo's own copy of `templates/pre-push`) runs `npm test` before a push, because the repo has no CI and the local run is the gate.
 
 ## Where things live
 
