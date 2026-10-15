@@ -20,9 +20,10 @@ src/
     routes.ts               registration + schemas only (schemas.ts once they grow); a plugin whose body only registers routes
     controller.ts           handlers: read validated input → call a use-case → shape the reply
     service/                use-cases, framework-free
-    domain/                 entities and rules, when there are real ones
+    domain/                 entity types and the rules over them, when there are real ones; an entity holds only the fields a use-case reads, in the service's own words, never a storage or wire shape
     ports/                  interfaces the use-cases depend on, only the operations this feature uses, with their request/response types
-    adapters/               Mongo repositories, clients for other services, over the shared transport
+    adapters/               Mongo repositories, clients for other services, over the shared transport; a repository declares its `<Entity>Document` type beside its collection and maps it to the entity in one function
+    data/                   static reference data: catalogues, presets, seeds, migrations
     jobs/                   BullMQ queue, processor, worker
     feature_readme.md
 ```
@@ -30,6 +31,8 @@ src/
 File names are kebab-case: `adapters/http-core-api-auth.ts` exports `HttpCoreApiAuth`, `service/complete-google-sign-in.ts` exports `completeGoogleSignIn`, tests keep the dotted suffix (`bullmq-account-jobs.redis.test.ts`). ESLint enforces it with `unicorn/filename-case` (`kebabCase`).
 
 Folders appear when they have content: no empty `domain/`, no pass-through `service/` that only forwards. A plugin's options name the feature's port type, never a client with every operation in the system.
+
+`domain/` imports only `domain/` and `shared/` types: no driver, no Fastify, no adapter. Where the repo runs `eslint-plugin-boundaries`, that is a zone. `_id`, timestamps the database sets, leases, claims and schema versions belong to the document type in `adapters/`; a timestamp a rule reads (a retention window, an abandonment cutoff) is an entity field. Why: a domain folder of bare shapes that mirror the collection is a data layer under another name, and every later use-case reads the storage shape instead of the entity.
 
 ## 2. Rules that fail a review
 
@@ -40,6 +43,8 @@ Folders appear when they have content: no empty `domain/`, no pass-through `serv
 - Config and secrets from env vars; `.env` ignored, `.env.example` committed with keys and no values.
 - Logging is structured (the Fastify logger), never `console.log`, never secrets or PII.
 - Session checks make zero network calls; a stateless service verifies the request on its own.
+- A domain type carries no field that no use-case reads, and a domain file never describes itself as a document, a collection or a row: storage shapes are the adapter's, wire shapes the route schema's.
+- A service class exposes at most about eight public methods. Past that it is holding several use-cases: split it into `service/<use-case>.ts` modules, each exporting one function over the ports it needs. One reason to change per module is the principle; the method count is what a review can check.
 
 ## 3. BFF
 
@@ -54,6 +59,7 @@ Folders appear when they have content: no empty `domain/`, no pass-through `serv
 ## 4. MongoDB
 
 - Repositories are the only layer importing the driver or ODM. Explicit schema validation (Mongoose, Zod or JSON Schema).
+- The document type lives beside the repository (`UserDocument` next to `MongoUserRepository`), with `_id`, DB-set timestamps and bookkeeping fields; one function maps it to the entity, and nothing outside the adapter imports it.
 - Projections instead of full documents; index the fields you query or sort on and say so in the repository.
 - Never build queries from unsanitized user input (operator injection).
 - One logical database per service.
@@ -88,17 +94,19 @@ Before reporting work done: lint, typecheck, unit and fast integration tests, a 
 | `HttpCoreApiAuth.ts`, `sessionGuard.ts`: file named after its symbol | `http-core-api-auth.ts`, `session-guard.ts`; the export keeps its name |
 | A BFF with its own collection of source-of-truth data | It is a microservice now; flag the boundary |
 | `request.body` used without a schema | A schema on the route, input and output |
+| `domain/user.ts` typed as the Mongo document, `_id` and all, or commented as "the document shape" | `User` in `domain/` with what use-cases read; `UserDocument` beside the repository, mapped in one function |
+| One `PostService` with twenty public methods: reads, transitions, claims, events | One module per use-case under `service/`, each exporting one function over the ports it needs |
 | A processor that re-sends on retry | Dedupe key or an idempotent write |
 | Logging the request body with credentials | Structured log of ids and outcomes only |
 
 ## Checklist for a review brief
 
-1. Layering respected: no Fastify types in services, no data access in controllers, no feature importing another feature's internals, `shared/` importing no feature.
+1. Layering respected: no Fastify types in services, no data access in controllers, no feature importing another feature's internals, `shared/` importing no feature; `domain/` holds entities and rules only, with storage shapes beside the repositories and wire shapes in route schemas.
 2. Every route has input and output schemas.
 3. Errors thrown as typed errors and mapped centrally; envelope shapes unchanged unless the issue says so.
 4. Each feature's `ports/` declares only what it uses; plugins receive the narrow port type.
 5. Only repositories touch the driver; queries never built from raw input.
 6. Jobs are idempotent with explicit retry policy and payload validation.
 7. Tests: unit with mocked ports, repositories against a real MongoDB, routes via `inject`, jobs against real Redis.
-8. Files ~300 lines, functions ~40; a routes plugin that only registers is exempt.
+8. Files ~300 lines, functions ~40, service classes ~8 public methods; a routes plugin that only registers is exempt.
 9. File names kebab-case, test suffixes dotted; `unicorn/filename-case` green.
