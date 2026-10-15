@@ -1,0 +1,117 @@
+#!/bin/sh
+# Pre-push hook: the fast tier's cheap checks (minus build and Playwright), so a push
+# doesn't fail CI on something a local run catches. Copy to .githooks/pre-push;
+# scripts/install-git-hooks.mjs installs a shim, in the repo's shared hooks dir, that runs it.
+# Where the full unit suite is slow, switch `test` to: npx vitest run --changed origin/main
+
+# Sibling clone of the service whose contract this repo vendors; leave empty if none.
+PRODUCER_DIR=""
+
+# Paths CI ignores (mirror the `paths` filter in .github/workflows/ci.yml); a push touching only
+# these skips the checks. CI_RUNS_ANYWAY re-includes paths under them that CI does run on.
+# CI_IGNORED='^(README\.md|AGENTS\.md|CLAUDE\.md)$|(^|/)feature_readme\.md$|^docs/'
+# CI_RUNS_ANYWAY='^docs/contracts/'
+CI_IGNORED=''
+CI_RUNS_ANYWAY=''
+
+[ -n "$CI" ] && exit 0
+
+remote_name="$1"
+nonzero='*[!0]*'
+only_deletes=1
+tag_push=0
+run_all=0
+changed=''
+head_sha=$(git rev-parse HEAD)
+while read -r local_ref local_sha remote_ref remote_sha; do
+  case "$local_sha" in
+    $nonzero) ;;
+    *) continue ;;
+  esac
+  case "$remote_ref" in
+    refs/tags/*) tag_push=1; continue ;;
+  esac
+  only_deletes=0
+  # Checks run on this worktree, so fail closed for a branch that isn't checked out here.
+  if [ "$(git rev-parse "$local_sha^{commit}" 2>/dev/null)" != "$head_sha" ]; then
+    echo "pre-push: pushing $local_ref, which isn't checked out here; push it from its own worktree so the checks see its code" >&2
+    exit 1
+  fi
+  # Existing remote branch: diff the two trees (a backwards force-push is not empty).
+  # New branch or unknown remote sha: everything since main, on the pushed remote if it has one.
+  base="$remote_name/main"
+  git rev-parse -q --verify "$base" >/dev/null 2>&1 || base=origin/main
+  case "$remote_sha" in
+    $nonzero) git cat-file -e "$remote_sha^{commit}" 2>/dev/null && range="$remote_sha $local_sha" || range="$base...$local_sha" ;;
+    *) range="$base...$local_sha" ;;
+  esac
+  # shellcheck disable=SC2086
+  if diff=$(git -c core.quotePath=false diff --name-only --no-renames $range 2>/dev/null); then
+    changed="$changed
+$diff"
+  else
+    run_all=1
+  fi
+done
+if [ "$only_deletes" = 1 ]; then
+  [ "$tag_push" = 1 ] && echo "pre-push: tag push; the tag's CI run is the gate"
+  exit 0
+fi
+
+if [ "$run_all" = 0 ]; then
+  if [ -z "$(printf '%s' "$changed" | tr -d '[:space:]')" ]; then
+    echo "pre-push: nothing new to check"
+    exit 0
+  fi
+  if [ -n "$CI_IGNORED" ]; then
+    runs_ci=$(printf '%s\n' "$changed" | grep -v -E "$CI_IGNORED" | grep -v '^$')
+    [ -n "$CI_RUNS_ANYWAY" ] && runs_ci="$runs_ci$(printf '%s\n' "$changed" | grep -E "$CI_RUNS_ANYWAY")"
+    if [ -z "$runs_ci" ]; then
+      echo "pre-push: only files CI ignores changed; skipping checks"
+      exit 0
+    fi
+  fi
+fi
+
+# git exports these to hooks; they would point `git -C <producer>` at this repo.
+unset GIT_DIR GIT_WORK_TREE GIT_INDEX_FILE GIT_PREFIX
+
+# One read of package.json: a dependency flag, then the script names.
+meta="$(node -e 'const p=JSON.parse(require("fs").readFileSync("package.json","utf8"));const deps=Object.keys({...p.dependencies,...p.devDependencies}).length;console.log([deps?"@deps":"@nodeps",...Object.keys(p.scripts??{})].join(" "))')" \
+  || { echo "pre-push: cannot read package.json" >&2; exit 1; }
+
+# Without installed dependencies the checks fail for the wrong reason; a dependency-free repo has none to install.
+case " $meta " in *" @deps "*)
+  [ -d "$(git rev-parse --show-toplevel)/node_modules" ] || { echo "pre-push: run npm ci first" >&2; exit 1; } ;;
+esac
+
+if [ -n "$(git status --porcelain)" ]; then
+  echo "pre-push: note: uncommitted or untracked files present; checks run on the working tree, not only the pushed commits" >&2
+fi
+
+has_script() {
+  case " $meta " in *" $1 "*) return 0 ;; esac
+  return 1
+}
+
+run() {
+  echo "pre-push: npm run $1"
+  npm run --silent "$1" || { echo "pre-push: FAILED at 'npm run $1'" >&2; exit 1; }
+}
+
+for script in lint typecheck test; do
+  has_script "$script" && run "$script"
+done
+
+if has_script contracts:check; then
+  if [ -z "$PRODUCER_DIR" ]; then
+    echo "pre-push: PRODUCER_DIR not set in .githooks/pre-push; skipping contracts:check"
+  elif [ -e "$PRODUCER_DIR/.git" ]; then
+    GIT_TERMINAL_PROMPT=0 git -C "$PRODUCER_DIR" fetch -q origin \
+      || echo "pre-push: could not fetch $PRODUCER_DIR; contracts:check will run on stale refs" >&2
+    run contracts:check
+  else
+    echo "pre-push: producer clone $PRODUCER_DIR not found; skipping contracts:check"
+  fi
+fi
+exit 0

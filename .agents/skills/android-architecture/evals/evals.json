@@ -1,0 +1,45 @@
+{
+  "skill_name": "android-architecture",
+  "evals": [
+    {
+      "id": 1,
+      "name": "bookmarks-feature-module",
+      "prompt": "Add a Bookmarks screen to our Android app (Kotlin, Compose, Hilt, multi-module with core:* and feature:* modules). It shows the posts the user saved, newest first, with loading, empty and error states, and tapping a post opens the existing post detail screen in feature:post. `core:data` already has a `PostsRepository`; bookmarks are a new endpoint `GET /me/bookmarks`. Write the Kotlin and Gradle files you'd add, stubbing what you assume exists, and the tests.",
+      "expected_output": "A feature:bookmarks module that doesn't depend on feature:post (navigation through a NavKey wired in app), a BookmarksViewModel exposing one UiState as StateFlow via stateIn(WhileSubscribed) with ImmutableList, a stateful Route and stateless Screen collecting with collectAsStateWithLifecycle, stringResource copy, separate DTO and model, an injected dispatcher, a fake repository and a Turbine ViewModel test, PascalCase file names.",
+      "files": [],
+      "expectations": [
+        "feature:bookmarks does not depend on feature:post; navigation to post detail goes through a key/lambda wired in app",
+        "The ViewModel exposes one UiState as StateFlow via stateIn(..., WhileSubscribed(...))",
+        "Lists in the UiState are ImmutableList",
+        "A stateful Route composable obtains the ViewModel; the Screen composable below it is stateless",
+        "The Route collects with collectAsStateWithLifecycle",
+        "UI copy uses stringResource, no string literals in composables",
+        "Network DTO and the domain/UI model are separate types",
+        "No inline Dispatchers.IO; dispatcher injected",
+        "A ViewModel test uses a fake repository (Turbine or equivalent)",
+        "File names are PascalCase after their top-level declaration"
+      ]
+    },
+    {
+      "id": 2,
+      "name": "review-planted-violations",
+      "prompt": "Review this Android PR diff (files/review.diff) and tell me what needs to change before it merges.",
+      "expected_output": "Flags: ViewModel holding NavController and Context, collectAsState instead of collectAsStateWithLifecycle, a Channel of one-shot effects, Dispatchers.IO inline, List in UiState, token in SharedPreferences, hard-coded string, feature-to-feature dependency.",
+      "files": [
+        "evals/files/review.diff"
+      ],
+      "expectations": [
+        "Flags the ViewModel holding a NavController",
+        "Flags the ViewModel holding a Context",
+        "Flags collectAsState instead of collectAsStateWithLifecycle",
+        "Flags the Channel of one-shot errors (should be state consumed by the screen)",
+        "Flags Dispatchers.IO written inline instead of an injected dispatcher",
+        "Flags List<RecentAccount> in UiState (should be ImmutableList)",
+        "Flags the token stored in SharedPreferences (needs a Keystore-backed secure store)",
+        "Flags hard-coded strings in the composable/ViewModel",
+        "Flags feature:login depending on feature:home"
+      ]
+    }
+  ],
+  "sandbox": "Run as docs/skill-evals.md describes: skill-creator ignores this field. Copy evals/files/* into <work>/files/; build evals write their files under outputs/code/ and need no input."
+}

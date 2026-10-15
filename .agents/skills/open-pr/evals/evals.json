@@ -1,0 +1,52 @@
+{
+  "skill_name": "open-pr",
+  "sandbox": "Run as docs/skill-evals.md describes: skill-creator ignores this field. The runner builds <work> with `setup` (a path that does not exist yet) and never shows setup.sh to the agent. The agent works in <work>/repo as the main session (not a subagent), with push rights granted for the sandbox; origin is a local bare repo, so pushes are real but harmless. gh and /code-review are unavailable: gh-fixtures/ holds gh's output, and the agent lists in its final message every gh command and review pass it would run (each review assumed clean), plus the PR title and body. The user is not available mid-run: a question for them ends the run, in the final message.",
+  "evals": [
+    {
+      "id": 1,
+      "name": "happy-path-closes-issue",
+      "setup": "happy",
+      "prompt": "ok this branch is done, put up a PR for it please. it closes #42",
+      "expected_output": "Runs lint and test before pushing, pushes feat/unread-count with -u, runs (records) the review loop before creating the PR, writes a conventional title and a Summary/Changes/Testing/Related body from the diff with Closes #42 and no Feature flag section, creates it without --draft.",
+      "files": [],
+      "expectations": [
+        "Ran the lint and test scripts before pushing",
+        "Pushed feat/unread-count to origin (with upstream tracking); nothing pushed to main",
+        "Recorded a review pass before the PR-creation command",
+        "PR title follows type(scope): summary",
+        "PR body has Summary, Changes, Testing and Related sections",
+        "PR body contains 'Closes #42'",
+        "PR body has no Feature flag section",
+        "The gh pr create command does not use --draft"
+      ]
+    },
+    {
+      "id": 2,
+      "name": "on-trunk-with-dirty-tree",
+      "setup": "on-main-dirty",
+      "prompt": "ship this for review",
+      "expected_output": "Notices it is on main with uncommitted changes and stops before committing anything: tells the user a branch is needed and offers to create one, without committing to or pushing main.",
+      "files": [],
+      "expectations": [
+        "No new commit was made on main",
+        "Nothing was pushed to origin/main",
+        "Stopped before committing or branching, and told the user a branch is needed",
+        "The report tells the user it was on main with uncommitted changes"
+      ]
+    },
+    {
+      "id": 3,
+      "name": "failing-tests-block-the-pr",
+      "setup": "failing-tests",
+      "prompt": "open a PR for feat/unread-count, thanks",
+      "expected_output": "Runs the tests, sees the failure, and either fixes the wrong assertion (re-running to green) or stops and tells the user; never pushes or opens a PR on a red branch.",
+      "files": [],
+      "expectations": [
+        "Ran the tests and noticed the failure",
+        "Did not push a red branch and did not record a PR-creation command while tests were failing",
+        "Either fixed the wrong assertion and re-ran to green, or stopped and reported the failure"
+      ]
+    }
+  ],
+  "setup": "evals/files/setup.sh <new work path> <eval.setup>"
+}

@@ -1,0 +1,47 @@
+{
+  "skill_name": "react-native-architecture",
+  "evals": [
+    {
+      "id": 1,
+      "name": "bookmarks-screen",
+      "prompt": "Add a Bookmarks tab to our Expo app (Expo Router, TypeScript, TanStack Query, en+es dictionaries). It lists saved posts from `GET /me/bookmarks` -> `{ items: [{ id, title, author, savedAt }] }`, newest first, with loading, empty and error states and pull-to-refresh; tapping one opens `/post/[id]`. Write the files you'd add or change (stub what you assume exists) and the tests.",
+      "expected_output": "A thin route file in app/(app)/ rendering the feature screen; features/bookmarks with lib/ (Zod-parsed fetch, routes.ts hrefs, query key factory), a useQuery hook, presentational components that never fetch, FlashList with a memoised item, tokens via the theme and shared/ui primitives, copy in both dictionaries, kebab-case files, a feature_readme.md, component tests through MSW and a Maestro flow.",
+      "files": [],
+      "expectations": [
+        "The route file under app/ only renders the feature's screen",
+        "The fetch lives in features/bookmarks/lib and the response is parsed with Zod",
+        "Data is read through a TanStack Query hook with a key from a key factory",
+        "No component or screen calls fetch directly",
+        "The post href comes from a routes helper, not string concatenation in the component",
+        "The list uses FlashList with a memoised item component",
+        "Styling uses theme tokens / shared/ui primitives, no raw hex or magic numbers in the feature",
+        "Copy is added to both en and es dictionaries",
+        "Every new file name is kebab-case (Expo Router reserved names excepted)",
+        "A feature_readme.md is included",
+        "Tests: component tests through MSW, and a Maestro flow"
+      ]
+    },
+    {
+      "id": 2,
+      "name": "review-planted-violations",
+      "prompt": "Review this Expo PR (files/review.diff) and list what we must fix before merging.",
+      "expected_output": "Flags: route file fetching and holding layout, fetch in useEffect, unparsed `as Post[]`, token in AsyncStorage, inline style hex, string-built href, Platform.OS branch in a feature, string literal copy, sleep in Maestro, FlatList with an inline renderItem capturing state.",
+      "files": [
+        "evals/files/review.diff"
+      ],
+      "expectations": [
+        "Flags the route file fetching data and holding layout (should only render the feature screen)",
+        "Flags fetch inside useEffect (use a TanStack Query hook over lib/)",
+        "Flags `as Post[]` without runtime validation (parse with Zod)",
+        "Flags the token read from AsyncStorage (use expo-secure-store via the session store)",
+        "Flags inline style objects with raw hex/numbers instead of theme tokens",
+        "Flags the string-built href '/post/' + id (use a routes helper)",
+        "Flags Platform.OS branching inside a feature component",
+        "Flags hard-coded copy instead of dictionary strings",
+        "Flags sleep: 3000 in the Maestro flow (use extendedWaitUntil)",
+        "Flags FlatList with an inline renderItem capturing state (FlashList + memoised item)"
+      ]
+    }
+  ],
+  "sandbox": "Run as docs/skill-evals.md describes: skill-creator ignores this field. Copy evals/files/* into <work>/files/; build evals write their files under outputs/code/ and need no input."
+}

@@ -1,0 +1,151 @@
+name: CI
+
+# The two CI tiers the Workflow section of AGENTS.md (juanagu/agent-config) defines: `checks`
+# is the fast tier, `e2e-full` the full one. Copy this file into a new repo's
+# .github/workflows/. A service repo has no browser suite: delete, together,
+# the `schedule` trigger, the RUN_SMOKE env with the smoke steps in `checks`,
+# and the `e2e-full` and `report-full-tier` jobs, so `checks` runs alone and
+# whoever pushes a tag watches its run.
+#
+# Two things GitHub does that this file cannot change: a push the `paths`
+# filter excludes creates no run at all, so never make `checks` a required
+# status check (a doc a test reads must be re-included, `- 'docs/the-file.md'`
+# after the negation); and a schedule is disabled after 60 days without a
+# commit on main, so after a quiet spell run `gh workflow enable ci.yml`.
+on:
+  push:
+    branches: [main]
+    tags: ['v*']
+    paths:
+      - '**'
+      - '!docs/**'
+      - 'docs/contracts/**'
+      - '!**/feature_readme.md'
+      - '!README.md'
+      - '!AGENTS.md'
+      - '!CLAUDE.md'
+  pull_request:
+    paths:
+      - '**'
+      - '!docs/**'
+      - 'docs/contracts/**'
+      - '!**/feature_readme.md'
+      - '!README.md'
+      - '!AGENTS.md'
+      - '!CLAUDE.md'
+  schedule:
+    - cron: '0 6 * * 1'
+  workflow_dispatch:
+
+# The token is read-only for the jobs that run third-party code (`npm ci`, the
+# build, the browsers); only the report job gets more.
+permissions:
+  contents: read
+
+# Only a PR run is ever cancelled or replaced. GitHub replaces a pending run in
+# a group whatever cancel-in-progress says, so a push to main, a tag and the
+# weekly run each get a group of their own (the run id) and none can bump
+# another off the queue.
+concurrency:
+  group: ${{ github.event_name == 'pull_request' && format('{0}-{1}', github.workflow, github.ref) || github.run_id }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+env:
+  # The fast tier's smoke set; the full tier runs those specs with the rest.
+  RUN_SMOKE: ${{ github.event_name == 'pull_request' || (github.event_name == 'push' && !startsWith(github.ref, 'refs/tags/')) }}
+
+jobs:
+  checks:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: 'npm'
+      - run: npm ci
+      - run: npm run lint
+      - run: npm run typecheck
+      - run: npm test
+      - run: npm run build
+
+      # Web apps only: the describes tagged @smoke (sign-in, home, the header
+      # at 390, the route guards), `playwright test --grep @smoke`. Keep it
+      # under a few minutes. Delete these steps in a service repo.
+      # The Chromium download is cached by Playwright version (the installed
+      # package, hashed after `npm ci`); the system packages `--with-deps`
+      # installs are not, and take about half a minute.
+      - uses: actions/cache@v4
+        if: env.RUN_SMOKE == 'true'
+        with:
+          path: ~/.cache/ms-playwright
+          key: ms-playwright-${{ runner.os }}-${{ hashFiles('node_modules/@playwright/test/package.json', 'node_modules/playwright/package.json') }}
+      - run: npx playwright install --with-deps chromium
+        if: env.RUN_SMOKE == 'true'
+      - run: npm run test:e2e:smoke
+        if: env.RUN_SMOKE == 'true'
+
+  e2e-full:
+    if: ${{ startsWith(github.ref, 'refs/tags/') || github.event_name == 'schedule' || github.event_name == 'workflow_dispatch' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: 'npm'
+      - run: npm ci
+      - run: npm run build
+      # The Chromium download is cached by Playwright version (the installed
+      # package, hashed after `npm ci`); the system packages `--with-deps`
+      # installs are not, and take about half a minute.
+      - uses: actions/cache@v4
+        with:
+          path: ~/.cache/ms-playwright
+          key: ms-playwright-${{ runner.os }}-${{ hashFiles('node_modules/@playwright/test/package.json', 'node_modules/playwright/package.json') }}
+      - run: npx playwright install --with-deps chromium
+      - run: npm run test:e2e
+      - uses: actions/upload-artifact@v4
+        if: failure()
+        with:
+          name: playwright-report
+          path: |
+            playwright-report/
+            test-results/
+          retention-days: 7
+
+  # A red weekly or release-tag run has no PR to turn red, so it reports to an
+  # issue: one per regression, whichever trigger hit it (a comment on the open
+  # one, a new one otherwise). The workflow token has no project scope, so the
+  # issue goes on the board by hand. A `cancelled` job result is one killed by
+  # its timeout-minutes; a run someone cancels from the Actions tab skips this
+  # job (`!cancelled()`).
+  report-full-tier:
+    needs: [checks, e2e-full]
+    if: ${{ !cancelled() && (github.event_name == 'schedule' || startsWith(github.ref, 'refs/tags/')) && (contains(needs.*.result, 'failure') || contains(needs.*.result, 'cancelled')) }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      issues: write
+    env:
+      GH_TOKEN: ${{ github.token }}
+      GH_REPO: ${{ github.repository }}
+      RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+      PREFIX: "Full CI tier failed on"
+      WHERE: ${{ github.event_name == 'schedule' && 'main (weekly run)' || github.ref_name }}
+    steps:
+      - name: Open the issue, or comment on the open one
+        run: |
+          # Any open issue with the prefix is the same regression, whether the weekly run or
+          # a tag found it first. The match runs in jq from the environment: a tag name is not
+          # safe to splice into a jq program, and a phrase search also matches longer titles.
+          existing=$(gh issue list --state open --limit 200 --json number,title \
+            --jq '[.[] | select(.title | startswith($ENV.PREFIX + " "))][0].number // empty')
+          if [ -n "$existing" ]; then
+            gh issue comment "$existing" --body "Still red on $(date -u +%Y-%m-%d), $WHERE: $RUN_URL"
+          else
+            gh issue create --title "$PREFIX $WHERE ($(date -u +%Y-%m-%d))" \
+              --body "The full tier failed: $RUN_URL. Add this issue to the project board."
+          fi

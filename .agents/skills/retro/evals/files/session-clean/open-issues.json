@@ -1,0 +1,6 @@
+{
+  "juanagu/claude-code-config": [
+    { "number": 37, "title": "Playwright: subagents run only the desktop project; make the default test:e2e command run both projects", "body": "" }
+  ],
+  "acme/core-api": []
+}

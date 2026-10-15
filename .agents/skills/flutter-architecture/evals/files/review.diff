@@ -1,0 +1,92 @@
+diff --git a/lib/src/features/edit_profile/data/remote/ProfileRepositoryImpl.dart b/lib/src/features/edit_profile/data/remote/ProfileRepositoryImpl.dart
+new file mode 100644
+--- /dev/null
++++ b/lib/src/features/edit_profile/data/remote/ProfileRepositoryImpl.dart
+@@ -0,0 +1,26 @@
++import 'package:cloud_firestore/cloud_firestore.dart';
++import 'package:firebase_auth/firebase_auth.dart';
++import '../../domain/repositories/profile_repository.dart';
++
++class ProfileRepositoryImpl implements ProfileRepository {
++  Future<void>? _ready;
++
++  Future<void> _init() async {
++    await FirebaseFirestore.instance.enableNetwork();
++  }
++
++  @override
++  Future<Map<String, dynamic>> load() async {
++    _ready ??= _init();
++    await _ready;
++    final uid = FirebaseAuth.instance.currentUser!.uid;
++    final snap = await FirebaseFirestore.instance.doc('users/$uid').get();
++    return snap.data()!;
++  }
++
++  @override
++  Future<void> save(String displayName, String bio) async {
++    final uid = FirebaseAuth.instance.currentUser!.uid;
++    await FirebaseFirestore.instance.doc('users/$uid').update({'displayName': displayName, 'bio': bio});
++  }
++}
+diff --git a/lib/src/features/edit_profile/presentation/cubits/edit_profile_cubit.dart b/lib/src/features/edit_profile/presentation/cubits/edit_profile_cubit.dart
+new file mode 100644
+--- /dev/null
++++ b/lib/src/features/edit_profile/presentation/cubits/edit_profile_cubit.dart
+@@ -0,0 +1,21 @@
++import 'dart:async';
++import 'package:flutter_bloc/flutter_bloc.dart';
++import '../../domain/repositories/profile_repository.dart';
++
++class EditProfileCubit extends Cubit<String> {
++  EditProfileCubit(this._repo) : super('idle');
++  final ProfileRepository _repo;
++  final _changes = StreamController<String>.broadcast();
++  Stream<String> get changes => _changes.stream;
++
++  Future<void> save(String name, String bio) async {
++    emit('saving');
++    try {
++      await _repo.save(name, bio);
++      _changes.add(name);
++      emit('saved');
++    } catch (e) {
++      emit('error');
++    }
++  }
++}
+diff --git a/lib/src/features/edit_profile/presentation/pages/edit_profile_page.dart b/lib/src/features/edit_profile/presentation/pages/edit_profile_page.dart
+new file mode 100644
+--- /dev/null
++++ b/lib/src/features/edit_profile/presentation/pages/edit_profile_page.dart
+@@ -0,0 +1,30 @@
++import 'package:flutter/material.dart';
++import 'package:flutter_bloc/flutter_bloc.dart';
++import '../cubits/edit_profile_cubit.dart';
++
++class EditProfilePage extends StatelessWidget {
++  const EditProfilePage({super.key});
++
++  @override
++  Widget build(BuildContext context) {
++    final name = TextEditingController();
++    final bio = TextEditingController();
++    return Scaffold(
++      appBar: AppBar(title: const Text('Edit profile')),
++      body: BlocBuilder<EditProfileCubit, String>(
++        builder: (context, state) {
++          if (state == 'saving') return const Center(child: CircularProgressIndicator());
++          return Column(children: [
++            TextField(controller: name),
++            TextField(controller: bio),
++            if (state == 'error') const Text('Something went wrong', style: TextStyle(color: Color(0xFFE4572E))),
++            ElevatedButton(
++              onPressed: () => context.read<EditProfileCubit>().save(name.text, bio.text),
++              child: const Text('Save'),
++            ),
++          ]);
++        },
++      ),
++    );
++  }
++}

@@ -1,0 +1,43 @@
+{
+  "skill_name": "retro",
+  "sandbox": "Run as docs/skill-evals.md describes: skill-creator ignores this field. The runner copies each eval's files into the agent's work dir and adds config-repo/, a read-only snapshot of this repo's trunk without any skill's evals, which hold this eval's answers (`mkdir -p <work>/config-repo && git archive origin/main ':(exclude)skills/*/evals' | tar -x -C <work>/config-repo`). The session log stands in for the conversation and open-issues.json for `gh issue list`. The agent edits nothing in config-repo/ and gives, in its final message, the full text of each issue it would open and each comment it would post, then its message to the user.",
+  "evals": [
+    {
+      "id": 1,
+      "name": "slips-with-a-duplicate",
+      "files": [
+        "evals/files/session-slips/session-log.md",
+        "evals/files/session-slips/open-issues.json"
+      ],
+      "prompt": "That notification bell session was rough. Let's do a retro: session-log.md has what happened.",
+      "expected_output": "Classifies the slips (desktop-only Playwright run, missing filename-case lint, designer stage skipped / misplaced preferences, skill not invoked), skips the commit typo, comments on config-repo#37 instead of duplicating it, proposes a lint rule in web-app rather than a CLAUDE.md sentence for file names, names the file and literal change for each fix, and edits nothing in config-repo/.",
+      "expectations": [
+        "Identifies the desktop-only Playwright run by the subagent as a slip",
+        "Comments on config repo #37 instead of opening a duplicate issue for the Playwright slip",
+        "Proposes adding unicorn/filename-case to the web-app ESLint config (a lint rule, not a prose rule)",
+        "Addresses the skipped designer stage / preferences placed in account settings",
+        "Addresses the brief not carrying the nextjs-architecture skill",
+        "Does not file anything for the commit-message typo",
+        "Each proposed fix names the file and the concrete change",
+        "Classifies each slip with a cause category (no rule, rule not reached, rule ignored, check not run, missing access, navigation)",
+        "Made no edits under config-repo/"
+      ]
+    },
+    {
+      "id": 2,
+      "name": "nothing-worth-filing",
+      "files": [
+        "evals/files/session-clean/session-log.md",
+        "evals/files/session-clean/open-issues.json"
+      ],
+      "prompt": "quick retro on the rate-limit session before we move on? log is in session-log.md",
+      "expected_output": "Finds no slip worth an issue (the script typo is a one-off fixed in seconds) and says so plainly, filing nothing rather than inventing fixes.",
+      "expectations": [
+        "Opens no issues",
+        "Does not treat the `npm run tset` typo as worth fixing",
+        "Says plainly that nothing slipped that is worth filing",
+        "Made no edits under config-repo/"
+      ]
+    }
+  ]
+}

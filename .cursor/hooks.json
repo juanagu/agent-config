@@ -1,0 +1,12 @@
+{
+  "version": 1,
+  "hooks": {
+    "beforeShellExecution": [
+      {
+        "command": "node .agents/hooks/git-guard/git-guard.mjs --tool cursor",
+        "matcher": "\\b(git|gh)\\b",
+        "timeout": 15
+      }
+    ]
+  }
+}

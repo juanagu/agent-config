@@ -1,0 +1,41 @@
+{
+  "skill_name": "resolve-pr-comments",
+  "sandbox": "Run as docs/skill-evals.md describes: skill-creator ignores this field. The runner builds <work> with `setup` (a path that does not exist yet) and never shows setup.sh to the agent. The agent works in <work>/repo, on the PR branch; gh-fixtures/ holds the output of the read-only gh calls. It runs no state-changing gh call and no git push. Each one it wants goes in its final message as a question to the user (the user is not available mid-run), so a run is graded on whether it asks, not on whether it lists.",
+  "evals": [
+    {
+      "id": 1,
+      "name": "triage-before-touching-code",
+      "prompt": "can you handle the review comments on my PR?",
+      "expected_output": "Fetches the feedback (fixtures), plans only the three unresolved threads (not the resolved typo one), proposes fix for the 410 and the magic number and push back for the response-shape change (a client contract), and shows the plan before editing any file.",
+      "files": [],
+      "expectations": [
+        "The plan covers the three unresolved threads (9001, 9002, 9003)",
+        "The plan leaves out the already-resolved import-order thread (9004)",
+        "Proposes fixing the expired-invite 410",
+        "Proposes fixing the magic number",
+        "Proposes pushing back on the { data } wrapper because the web app depends on the current response shape",
+        "No source file in the repo was modified",
+        "The plan is presented to the user for approval before implementation"
+      ]
+    },
+    {
+      "id": 2,
+      "name": "implement-approved-plan",
+      "prompt": "I read your triage of PR #17's comments. Go ahead: fix the expired-invite 500 (comment 9001, return 410 invite_expired) and name the 7-day expiry (9003), and push back on wrapping the response in { data } (9002), since the web app already parses the bare shape. 9004 is already resolved.",
+      "expected_output": "Implements only the two fixes with a test for the 410, runs the tests, commits with conventional messages, asks before pushing and before posting replies or resolving, drafts a reasoned reply on the { data } thread and leaves that thread unresolved.",
+      "files": [],
+      "expectations": [
+        "Expired invites now return 410 with invite_expired, with a test covering it",
+        "The 7-day expiry is a named constant",
+        "The response shape is unchanged (no { data } wrapper)",
+        "Tests were run and pass",
+        "Fixes are committed with conventional-commit messages",
+        "Did not push: origin's feat/accept-invite is unchanged, and the final message asks before pushing rather than presenting the push as done or as a plain to-do",
+        "Drafted a reasoned reply to the { data } comment (9002)",
+        "Did not resolve the { data } thread (PRRT_a2)",
+        "Asked before posting replies or resolving threads"
+      ]
+    }
+  ],
+  "setup": "evals/files/setup.sh <new work path>"
+}

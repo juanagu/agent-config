@@ -1,0 +1,14 @@
+{
+  "version": 1,
+  "hooks": {
+    "preToolUse": [
+      {
+        "type": "command",
+        "matcher": "bash|powershell",
+        "bash": "node .agents/hooks/git-guard/git-guard.mjs --tool copilot",
+        "powershell": "node .agents/hooks/git-guard/git-guard.mjs --tool copilot",
+        "timeoutSec": 15
+      }
+    ]
+  }
+}

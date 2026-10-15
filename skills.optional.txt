@@ -1,0 +1,5 @@
+# Third-party skills scripts/install.mjs offers one by one; nothing in AGENTS.md depends on them.
+# <github repo> <skill name> <description shown when asking>
+vercel-labs/skills find-skills finds and installs other skills from their repos
+tt-a1i/archify archify architecture, sequence and data-flow diagrams as HTML, how the README diagrams were made
+anthropics/skills skill-creator writes, evaluates and tunes skills; skip it if your account already has anthropic-skills:skill-creator

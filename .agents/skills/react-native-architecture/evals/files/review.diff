@@ -1,0 +1,58 @@
+diff --git a/app/(app)/feed.tsx b/app/(app)/feed.tsx
+--- a/app/(app)/feed.tsx
++++ b/app/(app)/feed.tsx
+@@ -1,2 +1,41 @@
+-import { FeedScreen } from "@/features/feed/screens/feed-screen";
+-export default FeedScreen;
++import { useEffect, useState } from "react";
++import { FlatList, Platform, Pressable, Text, View } from "react-native";
++import AsyncStorage from "@react-native-async-storage/async-storage";
++import { router } from "expo-router";
++
++type Post = { id: string; title: string; author: string };
++
++export default function Feed() {
++  const [posts, setPosts] = useState<Post[]>([]);
++  const [liked, setLiked] = useState<Record<string, boolean>>({});
++
++  useEffect(() => {
++    (async () => {
++      const token = await AsyncStorage.getItem("token");
++      const res = await fetch("https://api.example.com/feed", { headers: { Authorization: `Bearer ${token}` } });
++      setPosts((await res.json()) as Post[]);
++    })();
++  }, []);
++
++  return (
++    <View style={{ flex: 1, padding: 12, backgroundColor: "#FAF7F2" }}>
++      <Text style={{ fontSize: 22, color: "#333" }}>Your feed</Text>
++      <FlatList
++        data={posts}
++        keyExtractor={(p) => p.id}
++        ListEmptyComponent={<Text>Nothing here yet</Text>}
++        renderItem={({ item }) => (
++          <Pressable
++            onPress={() => router.push("/post/" + item.id)}
++            style={{ paddingVertical: Platform.OS === "ios" ? 14 : 10 }}
++          >
++            <Text>{item.title}</Text>
++            <Text onPress={() => setLiked({ ...liked, [item.id]: !liked[item.id] })}>
++              {liked[item.id] ? "Liked" : "Like"}
++            </Text>
++          </Pressable>
++        )}
++      />
++    </View>
++  );
++}
+diff --git a/.maestro/feed.yaml b/.maestro/feed.yaml
+new file mode 100644
+--- /dev/null
++++ b/.maestro/feed.yaml
+@@ -0,0 +1,6 @@
++appId: com.acme.app
++---
++- launchApp
++- tapOn: "Feed"
++- sleep: 3000
++- assertVisible: "Your feed"

@@ -1,0 +1,45 @@
+{
+  "skill_name": "flutter-architecture",
+  "evals": [
+    {
+      "id": 1,
+      "name": "bookmarks-feature",
+      "prompt": "Our Flutter app (a Twitter-like feed, Firebase backend, cubits) needs a Bookmarks screen: it lists the tweets the signed-in user bookmarked, stored in Firestore at users/{uid}/bookmarks/{tweetId}, newest first, with loading, empty and error states. Write the Dart files for the feature (stub what you assume already exists in the app) and the tests you'd add.",
+      "expected_output": "features/bookmarks/ in snake_case with a BookmarksFeature composition root, a repository port in domain/, Firestore only under integrations/ plus an in-memory adapter, Either over a sealed failure, a cubit with a sealed state switched exhaustively, copy in both dictionaries, a feature_readme.md, and cubit tests with a fake repository.",
+      "files": [],
+      "expectations": [
+        "Files live under lib/src/features/bookmarks/ with snake_case names",
+        "A BookmarksFeature class acts as the composition root",
+        "The repository port is an abstract class under the feature's domain/",
+        "cloud_firestore is imported only under integrations/ (or main.dart), never in features/",
+        "An in-memory adapter is provided for the port",
+        "The repository returns Either over a sealed failure type",
+        "The cubit's state is a sealed class and the UI switches over it exhaustively",
+        "Copy is added to both dictionaries through I18n, no string literals in widgets",
+        "A feature_readme.md is included",
+        "A cubit test uses a fake repository"
+      ]
+    },
+    {
+      "id": 2,
+      "name": "review-planted-violations",
+      "prompt": "Please review this Flutter PR before merge, the diff is at files/review.diff. Point out anything that breaks how we build features.",
+      "expected_output": "Flags: Firestore called directly from the feature, PascalCase file name, StreamController never closed, spinner replacing the form, hard-coded copy, `_ready ??= _init()` caching a failed future, raw Color hex, TextEditingControllers created in build() of a StatelessWidget, String used as the cubit state.",
+      "files": [
+        "evals/files/review.diff"
+      ],
+      "expectations": [
+        "Flags FirebaseFirestore/FirebaseAuth used directly in the feature (vendor code belongs in integrations/ behind a port)",
+        "Flags ProfileRepositoryImpl.dart as violating snake_case file naming",
+        "Flags the StreamController that is never closed",
+        "Flags the spinner replacing the form while saving (inputs should survive; progress in the button)",
+        "Flags hard-coded copy instead of I18n",
+        "Flags `_ready ??= _init()` caching a failed future so retries can't recover",
+        "Flags the raw Color(0xFF...) instead of theme tokens",
+        "Flags TextEditingControllers created in build() of a StatelessWidget",
+        "Flags String used as cubit state instead of a sealed state class"
+      ]
+    }
+  ],
+  "sandbox": "Run as docs/skill-evals.md describes: skill-creator ignores this field. Copy evals/files/* into <work>/files/; build evals write their files under outputs/code/ and need no input."
+}

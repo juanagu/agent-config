@@ -1,0 +1,41 @@
+{
+  "skill_name": "fastify-architecture",
+  "evals": [
+    {
+      "id": 1,
+      "name": "bff-aggregating-endpoint",
+      "prompt": "In our BFF (Fastify + TypeScript, sits between the Next.js web app and core-api) add `GET /me/notifications`. It should call core-api's `GET /users/:id/notifications` and `GET /users/:id/notification-preferences`, drop notifications whose type the user muted in preferences, and return `{ unreadCount, items }`. The user id comes from the session (`request.session.userId`). There's no repo checked out here, so scaffold just the files this feature needs (plus whatever shared bits you assume exist, stubbed) and a unit test.",
+      "expected_output": "A notifications feature folder: routes with input/output schemas, a thin controller, a service that does the muting/aggregation, a port declaring only the two upstream calls, an adapter over the shared transport that throws a typed upstream error, kebab-case files, a feature_readme.md, a unit test of the service with the port faked.",
+      "files": [],
+      "expectations": [
+        "The route declares a response schema, not only input",
+        "The muted-type filtering and unread count live in a service/use-case, not in the controller or route",
+        "A feature-owned port declares exactly the two upstream calls this feature makes",
+        "The adapter signals upstream failure by throwing a typed error, never by returning { ok, status }",
+        "The controller does not catch errors to map them to HTTP statuses",
+        "Every new file name is kebab-case",
+        "A feature_readme.md is included for the feature",
+        "A unit test exercises the service with a fake port, no server and no network"
+      ]
+    },
+    {
+      "id": 2,
+      "name": "review-planted-violations",
+      "prompt": "Review this PR diff for our core-api service before I merge it. Be specific about what to change. The diff is in files/review.diff.",
+      "expected_output": "A review that flags: inline error-to-status mapping in the controller, request.body used without a schema, the adapter returning { ok, status }, the non-idempotent email processor, console.log of the body with the password, the PascalCase file name, and the cross-service database read.",
+      "files": [
+        "evals/files/review.diff"
+      ],
+      "expectations": [
+        "Flags the controller mapping errors to statuses inline (should throw typed errors to a central handler)",
+        "Flags POST /workspaces/:workspaceId/invites reading request.body with no schema",
+        "Flags the billing adapter returning { ok, status } instead of throwing",
+        "Flags the email processor as not idempotent across its 5 retry attempts",
+        "Flags console.log of the request body, which can carry a password",
+        "Flags InvitesController.ts as violating kebab-case file naming",
+        "Flags the repository reading the billing service's database directly"
+      ]
+    }
+  ],
+  "sandbox": "Run as docs/skill-evals.md describes: skill-creator ignores this field. Copy evals/files/* into <work>/files/; build evals write their files under outputs/code/ and need no input."
+}

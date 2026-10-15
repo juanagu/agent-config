@@ -1,0 +1,29 @@
+{
+  "env": {
+    "ENABLE_TOOL_SEARCH": "auto"
+  },
+  "permissions": {
+    "allow": [
+      "mcp__codegraph__*"
+    ]
+  },
+  "hooks": {
+    "PreToolUse": [
+      {
+        "matcher": "Bash|PowerShell",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node \"__REPO_DIR__/.agents/hooks/git-guard/git-guard.mjs\" --tool claude"
+          }
+        ]
+      }
+    ]
+  },
+  "autoUpdatesChannel": "latest",
+  "attribution": {
+    "commit": "",
+    "pr": "",
+    "sessionUrl": false
+  }
+}

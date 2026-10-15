@@ -1,0 +1,44 @@
+{
+  "skill_name": "nextjs-architecture",
+  "evals": [
+    {
+      "id": 1,
+      "name": "notifications-page",
+      "prompt": "Add a /notifications page to our Next.js 16 app (App Router, Tailwind v4, en+es dictionaries in src/i18n, primitives like Button already in src/shared/ui). It lists the signed-in user's notifications from the BFF (`GET /api/notifications` -> `{ unreadCount, items: [{ id, title, createdAt, read }] }`), shows an empty state, and has a 'Mark all as read' button (`POST /api/notifications/read-all`). No repo here: write the files you'd add or change, stubbing what you assume exists, and say which tests you'd add.",
+      "expected_output": "A notifications feature: thin app/(app)/notifications/page.tsx, server-only read in features/notifications/lib, presentational components that never fetch, the mutation followed by router.refresh(), copy in both dictionaries, Button primitive and tokens (no raw hex), kebab-case files, a feature_readme.md, vitest for lib logic and a Playwright spec in both projects.",
+      "files": [],
+      "expectations": [
+        "app/.../notifications/page.tsx is thin: it calls the feature's lib and renders feature components",
+        "The page sits under a route group whose layout holds the signed-in chrome (e.g. app/(app)/), not the root layout",
+        "The server read lives in features/notifications/lib/ and is marked server-only",
+        "No component calls fetch directly",
+        "After mark-all-read, Server Component output is refreshed (router.refresh() after the mutation, or revalidatePath in a server action)",
+        "All copy comes from the en and es dictionaries, both updated, no hard-coded strings in components",
+        "Uses the shared Button primitive and token utility classes; no raw hex or arbitrary px values",
+        "Every new file name is kebab-case (framework-reserved names excepted)",
+        "A feature_readme.md is included",
+        "Proposes vitest for lib logic and a Playwright spec covering both desktop and ~390px mobile projects"
+      ]
+    },
+    {
+      "id": 2,
+      "name": "review-planted-violations",
+      "prompt": "can you review this diff from our web app before i merge? files/review.diff",
+      "expected_output": "Flags: component fetching in useEffect, session-dependent header in the root layout, router.refresh() before router.push(), PascalCase file names, hard-coded copy, raw hex class, a Playwright spec that only tests a lib function, a class string duplicated instead of a primitive.",
+      "files": [
+        "evals/files/review.diff"
+      ],
+      "expectations": [
+        "Flags AccountMenu fetching in useEffect (reads belong in the feature's lib/, called from a server component)",
+        "Flags session-dependent header in the root layout (belongs in a route-group layout)",
+        "Flags router.refresh() before router.push() (push first, then refresh)",
+        "Flags PascalCase file names AccountMenu.tsx / UpgradeBanner.tsx",
+        "Flags hard-coded UI copy instead of dictionary strings",
+        "Flags raw hex / arbitrary values in class names instead of tokens",
+        "Flags the duplicated button class string: extract a shared/ui primitive (or use Button)",
+        "Flags plan-label.spec.ts as a unit test that belongs in vitest, not Playwright"
+      ]
+    }
+  ],
+  "sandbox": "Run as docs/skill-evals.md describes: skill-creator ignores this field. Copy evals/files/* into <work>/files/; build evals write their files under outputs/code/ and need no input."
+}
