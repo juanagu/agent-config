@@ -9,11 +9,12 @@ const envModule = new URL("../scripts/install/env.mjs", import.meta.url).href;
 const warnsOnShellArgs = Number(process.versions.node.split(".")[0]) >= 24;
 const unlessWarns = warnsOnShellArgs ? false : "DEP0190 is not a runtime warning before Node 24";
 
-const runChild = (script) => spawnSync(process.execPath, ["--throw-deprecation", "--input-type=module", "-e", script], { encoding: "utf8" });
+// NODE_OPTIONS is cleared so a --no-deprecation in the environment cannot mute the warning.
+const runChild = (script) => spawnSync(process.execPath, ["--throw-deprecation", "--input-type=module", "-e", script], { encoding: "utf8", env: { ...process.env, NODE_OPTIONS: "" } });
 const probe = (name) => runChild(`import { hasCommand } from ${JSON.stringify(envModule)}; console.log(hasCommand(${JSON.stringify(name)}));`);
 
 test("hasCommand finds a command on PATH", () => {
-  const result = probe("git");
+  const result = probe("node");
   assert.equal(result.status, 0, result.stderr);
   assert.equal(result.stdout.trim(), "true");
 });
