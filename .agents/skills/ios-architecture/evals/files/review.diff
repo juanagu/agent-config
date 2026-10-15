@@ -1,0 +1,66 @@
+diff --git a/Packages/Features/Sources/Profile/ProfileViewModel.swift b/Packages/Features/Sources/Profile/ProfileViewModel.swift
+new file mode 100644
+--- /dev/null
++++ b/Packages/Features/Sources/Profile/ProfileViewModel.swift
+@@ -0,0 +1,20 @@
++import SwiftUI
++import Core
++
++final class ProfileViewModel: ObservableObject {
++    @Published var profile: Profile?
++    @Published var isLoading = false
++    @Published var showingEditor = false
++    @Published var showingAvatarPicker = false
++    @Published var path = NavigationPath()
++
++    func load() async {
++        isLoading = true
++        profile = try? await ProfileService.shared.fetchProfile()
++        isLoading = false
++    }
++
++    func openFollowers() {
++        path.append(ProfileRoute.followers)
++    }
++}
+diff --git a/Packages/Features/Sources/Profile/ProfileView.swift b/Packages/Features/Sources/Profile/ProfileView.swift
+new file mode 100644
+--- /dev/null
++++ b/Packages/Features/Sources/Profile/ProfileView.swift
+@@ -0,0 +1,20 @@
++import SwiftUI
++
++struct ProfileView: View {
++    @StateObject private var model = ProfileViewModel()
++
++    var body: some View {
++        NavigationStack(path: $model.path) {
++            VStack(spacing: 13) {
++                if model.isLoading { ProgressView() }
++                Text(model.profile?.name ?? "Unknown user")
++                    .foregroundStyle(Color(hex: "#E4572E"))
++                Button("Edit profile") { model.showingEditor = true }
++            }
++            .padding(13)
++            .onAppear { Task { await model.load() } }
++            .sheet(isPresented: $model.showingEditor) { EditProfileView() }
++            .sheet(isPresented: $model.showingAvatarPicker) { AvatarPicker() }
++        }
++    }
++}
+diff --git a/UITests/ProfileUITests.swift b/UITests/ProfileUITests.swift
+new file mode 100644
+--- /dev/null
++++ b/UITests/ProfileUITests.swift
+@@ -0,0 +1,11 @@
++import XCTest
++
++final class ProfileUITests: XCTestCase {
++    func testShowsName() {
++        let app = XCUIApplication()
++        app.launch()
++        app.tabBars.buttons["Profile"].tap()
++        sleep(2)
++        XCTAssertTrue(app.staticTexts["Ada Lovelace"].exists)
++    }
++}

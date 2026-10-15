@@ -1,0 +1,19 @@
+{
+  "name": "agent-config",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Engineering standards, an agent roster, skills and a git guard hook for Claude Code, Cursor, GitHub Copilot and Antigravity CLI, from one source. `npx -y github:juanagu/agent-config` installs it.",
+  "type": "module",
+  "repository": "github:juanagu/agent-config",
+  "bin": {
+    "agent-config": "bin/bootstrap.mjs"
+  },
+  "engines": {
+    "node": ">=22"
+  },
+  "scripts": {
+    "prepare": "node -e \"import('./scripts/install-git-hooks.mjs').catch(e=>{if(e.code!=='ERR_MODULE_NOT_FOUND')throw e})\"",
+    "build": "node scripts/build.mjs",
+    "test": "node --test tests/*.test.mjs .agents/hooks/git-guard/*.test.mjs"
+  }
+}

@@ -1,0 +1,45 @@
+{
+  "skill_name": "ios-architecture",
+  "evals": [
+    {
+      "id": 1,
+      "name": "bookmarks-feature-package",
+      "prompt": "We need a Bookmarks screen in our iOS app (Swift 6, SwiftUI, local Swift packages per layer). It lists the posts the user saved (`GET /me/bookmarks`), newest first, with loading, empty and error states and pull to refresh; tapping a row opens the existing post detail. Write the Swift files and Package.swift changes you'd make, stubbing what you assume exists, plus tests.",
+      "expected_output": "A Bookmarks feature with a BookmarksFeature composition root and narrow dependencies protocol, an @MainActor @Observable view model that imports no SwiftUI and owns no navigation, one State enum switched exhaustively, typed throws over a feature error enum, .task/.refreshable rather than Task in onAppear, navigation via closures to the host Router, String Catalog keys, an in-memory fake, Swift Testing tests of the state sequence.",
+      "files": [],
+      "expectations": [
+        "A BookmarksFeature composition root takes a narrow dependencies protocol",
+        "The view model is @MainActor @Observable and does not import SwiftUI",
+        "The view model owns no navigation; row taps go out through a closure/router owned by the host",
+        "Screen state is one enum switched exhaustively in the view",
+        "Repository/use case use typed throws over a feature error enum",
+        "Loading uses .task / .refreshable, not Task {} in onAppear",
+        "Copy uses String Catalog keys, no bare literals",
+        "An in-memory fake backs previews and tests",
+        "Tests use Swift Testing to assert the state sequence with the fake",
+        "File names are PascalCase after their one primary type"
+      ]
+    },
+    {
+      "id": 2,
+      "name": "review-planted-violations",
+      "prompt": "Review this iOS diff (files/review.diff) like you would before merge. What has to change?",
+      "expected_output": "Flags: ObservableObject/@Published in new code, view model importing SwiftUI and holding NavigationPath, Task {} in onAppear, try? swallowing an error, a Bool per sheet, Color(hex:) and magic padding, string literals, a singleton read inside the feature, sleep in a UI test.",
+      "files": [
+        "evals/files/review.diff"
+      ],
+      "expectations": [
+        "Flags ObservableObject/@Published/@StateObject in new code (use @Observable)",
+        "Flags the view model importing SwiftUI and owning a NavigationPath",
+        "Flags Task {} in onAppear (use .task)",
+        "Flags try? swallowing the repository error",
+        "Flags one Bool per sheet (use one optional route/item)",
+        "Flags Color(hex:) and padding/spacing 13 instead of design tokens",
+        "Flags string literals instead of catalog keys",
+        "Flags ProfileService.shared singleton read inside the feature",
+        "Flags sleep(2) in the UI test (use waitForExistence)"
+      ]
+    }
+  ],
+  "sandbox": "Run as docs/skill-evals.md describes: skill-creator ignores this field. Copy evals/files/* into <work>/files/; build evals write their files under outputs/code/ and need no input."
+}

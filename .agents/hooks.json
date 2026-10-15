@@ -1,0 +1,16 @@
+{
+  "git-guard": {
+    "PreToolUse": [
+      {
+        "matcher": "run_command",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node .agents/hooks/git-guard/git-guard.mjs --tool antigravity",
+            "timeout": 15
+          }
+        ]
+      }
+    ]
+  }
+}

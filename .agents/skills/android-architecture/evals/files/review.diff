@@ -1,0 +1,71 @@
+diff --git a/feature/login/build.gradle.kts b/feature/login/build.gradle.kts
+--- a/feature/login/build.gradle.kts
++++ b/feature/login/build.gradle.kts
+@@ -6,3 +6,4 @@ dependencies {
+     implementation(projects.core.data)
+     implementation(projects.core.designsystem)
++    implementation(projects.feature.home)
+ }
+diff --git a/feature/login/src/main/kotlin/com/acme/feature/login/LoginViewModel.kt b/feature/login/src/main/kotlin/com/acme/feature/login/LoginViewModel.kt
+--- a/feature/login/src/main/kotlin/com/acme/feature/login/LoginViewModel.kt
++++ b/feature/login/src/main/kotlin/com/acme/feature/login/LoginViewModel.kt
+@@ -1,4 +1,40 @@
+ package com.acme.feature.login
+ 
++import android.content.Context
++import androidx.navigation.NavController
++import com.acme.core.data.AuthRepository
++import com.acme.core.model.RecentAccount
++import com.acme.feature.home.HomeDestination
++import kotlinx.coroutines.Dispatchers
++import kotlinx.coroutines.channels.Channel
++import kotlinx.coroutines.flow.MutableStateFlow
++import kotlinx.coroutines.flow.receiveAsFlow
++import kotlinx.coroutines.launch
++import kotlinx.coroutines.withContext
++
++data class LoginUiState(
++    val email: String = "",
++    val isSubmitting: Boolean = false,
++    val recentAccounts: List<RecentAccount> = emptyList(),
++)
++
+ @HiltViewModel
+-class LoginViewModel @Inject constructor() : ViewModel()
++class LoginViewModel @Inject constructor(
++    private val auth: AuthRepository,
++    @ApplicationContext private val context: Context,
++) : ViewModel() {
++    lateinit var navController: NavController
++    val uiState = MutableStateFlow(LoginUiState())
++    private val _errors = Channel<String>()
++    val errors = _errors.receiveAsFlow()
++
++    fun submit(password: String) = viewModelScope.launch {
++        uiState.value = uiState.value.copy(isSubmitting = true)
++        val result = withContext(Dispatchers.IO) { auth.login(uiState.value.email, password) }
++        result.onSuccess { token ->
++            context.getSharedPreferences("auth", Context.MODE_PRIVATE).edit().putString("token", token).apply()
++            navController.navigate(HomeDestination.route)
++        }.onFailure { _errors.send("Wrong email or password") }
++        uiState.value = uiState.value.copy(isSubmitting = false)
++    }
++}
+diff --git a/feature/login/src/main/kotlin/com/acme/feature/login/LoginScreen.kt b/feature/login/src/main/kotlin/com/acme/feature/login/LoginScreen.kt
+--- a/feature/login/src/main/kotlin/com/acme/feature/login/LoginScreen.kt
++++ b/feature/login/src/main/kotlin/com/acme/feature/login/LoginScreen.kt
+@@ -1,2 +1,13 @@
+ @Composable
+-fun LoginScreen() {}
++fun LoginScreen(navController: NavController) {
++    val vm: LoginViewModel = hiltViewModel()
++    vm.navController = navController
++    val state by vm.uiState.collectAsState()
++    var password by remember { mutableStateOf("") }
++    Column {
++        Text("Welcome back")
++        TextField(value = state.email, onValueChange = {})
++        TextField(value = password, onValueChange = { password = it })
++        Button(onClick = { vm.submit(password) }, enabled = !state.isSubmitting) { Text("Sign in") }
++    }
++}

@@ -1,0 +1,95 @@
+diff --git a/src/features/invites/routes.ts b/src/features/invites/routes.ts
+new file mode 100644
+--- /dev/null
++++ b/src/features/invites/routes.ts
+@@ -0,0 +1,11 @@
++import type { FastifyInstance } from "fastify";
++import { InvitesController } from "./InvitesController";
++
++export async function invitesRoutes(app: FastifyInstance, opts: { controller: InvitesController }) {
++  app.post("/workspaces/:workspaceId/invites", (req, reply) => opts.controller.create(req, reply));
++  app.post("/invites/:token/accept", {
++    schema: {
++      params: { type: "object", properties: { token: { type: "string" } }, required: ["token"] },
++    },
++  }, (req, reply) => opts.controller.accept(req, reply));
++}
+diff --git a/src/features/invites/InvitesController.ts b/src/features/invites/InvitesController.ts
+new file mode 100644
+--- /dev/null
++++ b/src/features/invites/InvitesController.ts
+@@ -0,0 +1,26 @@
++import type { FastifyReply, FastifyRequest } from "fastify";
++import type { InviteService } from "./service/invite-service";
++
++export class InvitesController {
++  constructor(private readonly invites: InviteService) {}
++
++  async create(req: FastifyRequest, reply: FastifyReply) {
++    const body = req.body as { email: string; role: string; password?: string };
++    console.log("creating invite", body);
++    const { workspaceId } = req.params as { workspaceId: string };
++    try {
++      const invite = await this.invites.create(workspaceId, body.email, body.role);
++      return reply.code(201).send(invite);
++    } catch (err: any) {
++      if (err.message === "workspace not found") return reply.code(404).send({ error: "not found" });
++      if (err.message === "already member") return reply.code(409).send({ error: "conflict" });
++      return reply.code(500).send({ error: "internal" });
++    }
++  }
++
++  async accept(req: FastifyRequest<{ Params: { token: string } }>, reply: FastifyReply) {
++    const result = await this.invites.accept(req.params.token);
++    if (!result.ok) return reply.code(result.status).send({ error: "invalid" });
++    return reply.send(result.body);
++  }
++}
+diff --git a/src/features/invites/adapters/http-billing-client.ts b/src/features/invites/adapters/http-billing-client.ts
+new file mode 100644
+--- /dev/null
++++ b/src/features/invites/adapters/http-billing-client.ts
+@@ -0,0 +1,9 @@
++import { transport } from "../../../shared/transport";
++
++export class HttpBillingClient {
++  async seatsAvailable(workspaceId: string): Promise<{ ok: boolean; status: number; body?: { seats: number } }> {
++    const res = await transport.get(`/billing/workspaces/${workspaceId}/seats`);
++    if (res.status !== 200) return { ok: false, status: res.status };
++    return { ok: true, status: 200, body: await res.json() };
++  }
++}
+diff --git a/src/features/invites/adapters/mongo-invite-repository.ts b/src/features/invites/adapters/mongo-invite-repository.ts
+new file mode 100644
+--- /dev/null
++++ b/src/features/invites/adapters/mongo-invite-repository.ts
+@@ -0,0 +1,14 @@
++import type { Db } from "mongodb";
++
++export class MongoInviteRepository {
++  constructor(private readonly db: Db, private readonly billingDb: Db) {}
++
++  async findByToken(token: string) {
++    return this.db.collection("invites").findOne({ token });
++  }
++
++  async workspacePlan(workspaceId: string) {
++    // billing service owns this collection, but reading it directly saves a hop
++    return this.billingDb.collection("subscriptions").findOne({ workspaceId });
++  }
++}
+diff --git a/src/features/invites/jobs/send-invite-email.processor.ts b/src/features/invites/jobs/send-invite-email.processor.ts
+new file mode 100644
+--- /dev/null
++++ b/src/features/invites/jobs/send-invite-email.processor.ts
+@@ -0,0 +1,10 @@
++import type { Job } from "bullmq";
++import { mailer } from "../../../shared/mailer";
++import { invitesCollection } from "../../../shared/db";
++
++export async function sendInviteEmail(job: Job<{ inviteId: string; email: string }>) {
++  await mailer.send({ to: job.data.email, template: "invite", vars: { inviteId: job.data.inviteId } });
++  await invitesCollection().updateOne({ _id: job.data.inviteId }, { $set: { emailedAt: new Date() } });
++}
++
++export const sendInviteEmailQueueOptions = { attempts: 5 };

@@ -1,0 +1,9 @@
+{
+  "juanagu/claude-code-config": [
+    { "number": 37, "title": "Playwright: subagents run only the desktop project; make the default test:e2e command run both projects", "body": "Seen twice in cmc-web-pwa. Proposed: templates and agent briefs use `npm run test:e2e`, which runs every project, never `--project=`." },
+    { "number": 44, "title": "designer agent: tighten the Airbnb reference wording", "body": "Copy edits only." }
+  ],
+  "acme/web-app": [
+    { "number": 80, "title": "Upgrade to Next 16.1", "body": "" }
+  ]
+}

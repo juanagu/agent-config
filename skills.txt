@@ -1,0 +1,9 @@
+# Third-party skills the standards in AGENTS.md reach for, installed from upstream by
+# scripts/install.mjs rather than vendored here. Optional ones live in skills.optional.txt.
+# <github repo> <skill name>
+anthropics/skills frontend-design
+openai/skills security-threat-model
+cloudflare/security-audit-skill security-audit
+github/awesome-copilot conventional-commit
+sickn33/antigravity-awesome-skills clean-code
+vercel-labs/agent-skills web-design-guidelines

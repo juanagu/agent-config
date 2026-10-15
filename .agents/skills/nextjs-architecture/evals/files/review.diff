@@ -1,0 +1,88 @@
+diff --git a/src/app/layout.tsx b/src/app/layout.tsx
+--- a/src/app/layout.tsx
++++ b/src/app/layout.tsx
+@@ -1,9 +1,15 @@
+ import "./globals.css";
++import { getSession } from "@/features/auth/lib/session";
++import { AccountMenu } from "@/features/account/components/AccountMenu";
+ 
+-export default function RootLayout({ children }: { children: React.ReactNode }) {
++export default async function RootLayout({ children }: { children: React.ReactNode }) {
++  const session = await getSession();
+   return (
+     <html lang="en">
+-      <body>{children}</body>
++      <body>
++        {session ? <header className="flex h-14 items-center justify-between px-4"><AccountMenu /></header> : null}
++        {children}
++      </body>
+     </html>
+   );
+ }
+diff --git a/src/features/account/components/AccountMenu.tsx b/src/features/account/components/AccountMenu.tsx
+new file mode 100644
+--- /dev/null
++++ b/src/features/account/components/AccountMenu.tsx
+@@ -0,0 +1,32 @@
++"use client";
++import { useEffect, useState } from "react";
++import { useRouter } from "next/navigation";
++
++type Me = { name: string; plan: string };
++
++export function AccountMenu() {
++  const router = useRouter();
++  const [me, setMe] = useState<Me | null>(null);
++
++  useEffect(() => {
++    fetch("/api/me").then((r) => r.json()).then(setMe);
++  }, []);
++
++  async function signOut() {
++    await fetch("/api/auth/logout", { method: "POST" });
++    router.refresh();
++    router.push("/login");
++  }
++
++  return (
++    <div className="flex items-center gap-3">
++      <span className="text-sm text-[#1a1a1a]">Hi, {me?.name ?? "there"}</span>
++      <button
++        onClick={signOut}
++        className="h-11 rounded-[10px] bg-[#e4572e] px-4 text-sm font-medium text-white hover:bg-[#c9461f]"
++      >
++        Sign out
++      </button>
++    </div>
++  );
++}
+diff --git a/src/features/billing/components/UpgradeBanner.tsx b/src/features/billing/components/UpgradeBanner.tsx
+new file mode 100644
+--- /dev/null
++++ b/src/features/billing/components/UpgradeBanner.tsx
+@@ -0,0 +1,13 @@
++export function UpgradeBanner({ onUpgrade }: { onUpgrade: () => void }) {
++  return (
++    <div className="rounded-[16px] border p-4">
++      <p>You're on the free plan. Upgrade to schedule more posts.</p>
++      <button
++        onClick={onUpgrade}
++        className="h-11 rounded-[10px] bg-[#e4572e] px-4 text-sm font-medium text-white hover:bg-[#c9461f]"
++      >
++        Upgrade
++      </button>
++    </div>
++  );
++}
+diff --git a/tests/e2e/plan-label.spec.ts b/tests/e2e/plan-label.spec.ts
+new file mode 100644
+--- /dev/null
++++ b/tests/e2e/plan-label.spec.ts
+@@ -0,0 +1,7 @@
++import { test, expect } from "@playwright/test";
++import { planLabel } from "@/features/billing/lib/plan-label";
++
++test("plan label formats pro", () => {
++  expect(planLabel("pro")).toBe("Pro");
++  expect(planLabel("free")).toBe("Free");
++});
