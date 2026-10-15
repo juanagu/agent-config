@@ -14,7 +14,8 @@ lib/
   main.dart                 binding, injector registration, vendor init, error forwarding, runApp
   src/
     abstractions/           ports with no app dependencies: AuthClient, DataRemoteClient, FeatureConfig, Injector, Logger, Failure
-    core/                   entities, ports and data mappers that two or more features need (Tweet, User, UserSessionRepository, TweetDocument)
+    core/domain/            entities and ports two or more features need (Tweet, User, UserSessionRepository); no storage or wire shape
+    core/data/              their data models and mappers (TweetDocument); imported only by integrations/ and a feature's data/
     application/            app shell: MaterialApp + routes, theme/ (tokens, color schemes, text theme, component themes), I18n, FeatureFlags, PageContainer, widgets/
     features/<feature>/     one folder per screen or embeddable widget (layout in §2)
     integrations/<vendor>/  adapters: firebase/, in_memory/, local/, get_it/, timeago/
@@ -26,9 +27,10 @@ Imports, checked by a test in the repo (see §9):
 | From | May import (inside `package:app`) |
 | --- | --- |
 | `abstractions/` | `abstractions/` only |
-| `core/` | `abstractions/`, `core/` |
-| `features/<f>/` | `abstractions/`, `core/`, `application/`, its own folder, and other features **only** through `features/<g>/<g>_feature.dart` |
-| `application/` | `abstractions/`, `core/`, `application/`, and `features/<g>/<g>_feature.dart` (to register routes) |
+| `core/domain/` | `abstractions/`, `core/domain/` |
+| `core/data/` | `abstractions/`, `core/` |
+| `features/<f>/` | `abstractions/`, `core/domain/`, `application/`, its own folder, `core/data/` from its own `data/` only, and other features **only** through `features/<g>/<g>_feature.dart` |
+| `application/` | `abstractions/`, `core/domain/`, `application/`, and `features/<g>/<g>_feature.dart` (to register routes) |
 | `integrations/` | `abstractions/`, `core/`, `integrations/` |
 | `ioc/`, `main.dart` | anything |
 
@@ -54,7 +56,7 @@ features/tweet_feed/
 
 File and folder names are snake_case (`tweet_feed_cubit.dart` holds `TweetFeedCubit`), as Effective Dart requires; the `file_names` lint in `flutter_lints` enforces it, so never disable it.
 
-Folders appear when they have content. A feature with no rules of its own has no `use_cases/`; a feature that only renders has no `data/`.
+A feature's shape follows its size, for new and rewritten features; an existing feature changes shape in its own issue, never as a side effect of adding a file. `domain/`, `data/` and `presentation/` appear when they have content (a feature with no rules of its own has no `use_cases/`; one that only renders has no `data/`), and their subfolders (`repositories/`, `use_cases/`, `cubits/`, `widgets/`) appear with the second file of their kind, never before. When a layer folder passes about 15 non-test source files, the feature splits by sub-feature, not by layer (`tweet_feed/timeline/`, `tweet_feed/composer/`), each with its own Feature class and `feature_readme.md`, composed by the parent's Feature class, which holds only what every sub-feature uses. `features/` is never grouped into module folders: a parent feature has its own Feature class and readme; a folder holding only child features is a module folder. Why: the full skeleton on a five-file feature hides the code behind its folders, one folder of forty files hides which pieces belong together, and a module layer over the features folder adds a path segment to every import for a grouping that will be wrong once.
 
 ## 3. The Feature class is the composition root
 
@@ -187,3 +189,4 @@ Copy into the brief of every review pass for Flutter work:
 9. Tests follow §9; widget tests pump the shipped theme at 390x844; a changed flow has its `integration_test/` file run at both windows and every locale, with screenshots linked.
 10. Files ~300 lines, functions ~40, components ~200, counting no blanks or comments.
 11. File and folder names snake_case; the `file_names` lint is on.
+12. New or rewritten features: a layer folder only from the second file of its kind, a split by sub-feature when a layer folder passes ~15 non-test source files; no module folders over the features folder.

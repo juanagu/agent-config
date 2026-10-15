@@ -47,6 +47,8 @@ Enforced by `eslint-plugin-boundaries` (or `dependency-cruiser`) once the repo o
 - Business logic lives outside components (hooks, `lib/`); a component over ~200 lines, or one that both decides and renders, splits into a hook and presentational pieces.
 - Feature code moves to `shared/` only once a second feature imports it.
 
+A feature's shape follows its size, for new and rewritten features; an existing feature changes shape in its own issue, never as a side effect of adding a file. A layer folder appears with the second file of its kind, never before: a small feature is `<feature>-screen.tsx`, `use-<feature>.ts`, `<feature>-api.ts` and `routes.ts` beside its readme and `index.ts`. When a layer folder passes about 15 non-test source files, the feature splits by sub-feature, not by layer (`billing/checkout/`, `billing/plans/`), each with the layers it needs and its own `feature_readme.md`; the parent holds only what every sub-feature uses, its readme and its `index.ts`. `features/` is never grouped into module folders: a parent feature has its own readme and shared code; a folder holding only child features is a module folder. Why: the full skeleton on a five-file feature hides the code behind its folders, one folder of forty files hides which pieces belong together, and a module layer over the features folder adds a path segment to every import for a grouping that will be wrong once.
+
 ## 2. State
 
 - **Server state is TanStack Query.** Each feature keeps a query-key factory in `lib/query-keys.ts` and its hooks in `hooks/`; mutations invalidate by key or update the cache optimistically and roll back in `onError`. Persist the cache (`@tanstack/query-async-storage-persister`) only for data the product must show offline.
@@ -136,6 +138,8 @@ Before reporting work done: lint, typecheck, Jest, the Maestro flows the change 
 | `Platform.OS === 'ios' ?` inside a feature component | A primitive in `shared/ui` that owns the platform difference |
 | `FlatList` with an inline `renderItem` arrow capturing state | `FlashList` with a memoised item component |
 | A string literal in a component | `t('feed.empty.title')`; the parity test fails on a missing locale |
+| A five-file feature with `screens/`, `hooks/` and `lib/` holding one file each | Flat files until the second of a kind |
+| One `lib/` of forty files across checkout, plans and invoices | Sub-features, each with its own `lib/` |
 | `sleep: 3000` in a Maestro flow | `extendedWaitUntil` on a `testID` |
 | An OTA update that includes a native change | A store build; updates are for JS-only changes, with a fingerprint runtime version |
 | Editing `ios/` or `android/` by hand | A config plugin or an Expo Module; the native folders are generated |
@@ -155,3 +159,4 @@ Copy into the brief of every review pass for React Native work:
 9. Tests follow §9: component tests by behaviour through MSW handlers validated against the contract; a changed critical flow has its Maestro flow run on iOS and Android in every locale, with screenshots linked.
 10. Files ~300 lines, functions ~40, components ~200, counting no blanks or comments; lint, typecheck, `expo-doctor` green with no new baseline entries.
 11. File names kebab-case; Expo Router's reserved names and `feature_readme.md` kept.
+12. New or rewritten features: a layer folder only from the second file of its kind, a split by sub-feature when a layer folder passes ~15 non-test source files; no module folders over the features folder.

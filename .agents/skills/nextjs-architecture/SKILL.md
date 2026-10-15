@@ -20,19 +20,32 @@ src/
     feature_readme.md       purpose, exposed interface (the exports other features may import), data flow
   shared/
     ui/                     primitives (Button, Field, FormErrorMessage, brand mark) with their own feature_readme.md
-    lib/                    transport only: base URL, cookie forwarding, timeout, response parsing, the error envelope
+    <backend>/              the transport to one backend (`shared/bff` in a BFF-backed app): base URL, cookie forwarding, timeout, response parsing, the error envelope
+    <topic>/                pure helpers two features import (parse, text, storage), by topic: the frontend has no domain layer to mirror
   i18n/                     one dictionary per locale typed by one Dictionary interface
   proxy.ts / middleware.ts  locale negotiation and redirect guards; shares one session validator with getSession()
 ```
 
+| From | May import |
+| --- | --- |
+| `app/` | a feature only through the exports its `feature_readme.md` lists (its page-level components, server reads, `lib/routes.ts`), `shared/`, `i18n/` |
+| `features/<f>/components/` | its own feature's `components/`, `hooks/` and `lib/` types and routes, `shared/ui`, `shared/<topic>`, `i18n/`; never the transport |
+| `features/<f>/hooks/`, `features/<f>/lib/` | its own feature, `shared/`, `i18n/`, and another feature **only** through the exports its `feature_readme.md` lists |
+| `shared/`, `i18n/` | `shared/`, `i18n/`, never a feature |
+| `proxy.ts` | `shared/`, `i18n/`, and the auth feature's exposed interface (its hrefs and the session validator) |
+
+Enforced by `eslint-plugin-boundaries` (or `dependency-cruiser`) once the repo opts in, with a baseline of today's offenders that may only shrink.
+
 - File names are kebab-case (`login-form.tsx` exports `LoginForm`, `use-session-refresh.ts` exports `useSessionRefresh`, and Astro components alike: `site-header.astro`); Next's reserved files (`page.tsx`, `layout.tsx`, `route.ts`) and `feature_readme.md` keep their names. ESLint enforces it with `unicorn/filename-case` (`kebabCase`).
 - App Router, TypeScript strict. Server Components by default; `"use client"` only where interactivity or state requires it.
 - **Components never fetch.** Server reads live in the feature's `lib/` behind `server-only` narrow functions; mutations in server actions or the feature's `lib/` client; pages and components call those.
-- A feature owns its calls to the backend as narrow functions in its own `lib/`; `shared/lib` holds only the transport and the error envelope. No interface/adapter pair per fetch: on the frontend the narrow module is the port.
+- A feature owns its calls to the backend as narrow functions in its own `lib/`; `shared/<backend>` holds only the transport and the error envelope. No interface/adapter pair per fetch: on the frontend the narrow module is the port.
 - A feature imports another only through the exports its `feature_readme.md` lists as its exposed interface (e.g. `auth/lib/routes.ts` for every auth href). `shared/` never imports a feature.
 - Validate all external input (forms, search params, API responses) at the boundary.
 - Business logic lives outside components (hooks, `lib/`); a component over ~200 lines, or one that both decides and renders, splits into a hook and presentational pieces.
 - Feature code moves to `shared/` only once a second feature imports it.
+
+A feature's shape follows its size, for new and rewritten features; an existing feature changes shape in its own issue, never as a side effect of adding a file. A layer folder appears with the second file of its kind, never before: a small feature is `<feature>-page.tsx`, `use-<feature>.ts`, `<feature>-api.ts` and `routes.ts` beside its readme. When a layer folder passes about 15 non-test source files, the feature splits by sub-feature, not by layer (`billing/checkout/`, `billing/plans/`), each with the layers it needs and its own `feature_readme.md`; the parent holds only what every sub-feature uses and its readme. `features/` is never grouped into module folders: a parent feature has its own readme and shared code; a folder holding only child features is a module folder. Why: the full skeleton on a five-file feature hides the code behind its folders, one folder of forty files hides which pieces belong together, and a module layer over the features folder adds a path segment to every import for a grouping that will be wrong once.
 
 ## 2. Chrome, navigation and refresh
 
@@ -82,7 +95,9 @@ Before reporting work done: lint, typecheck, unit tests, the e2e specs the chang
 | Seen in reviews | Do this instead |
 | --- | --- |
 | A component calling `fetch` | A `server-only` function in the feature's `lib/`, called from the page |
-| One `apiClient` with every backend operation injected everywhere | Narrow functions per feature in its `lib/`; `shared/lib` only transports |
+| One `apiClient` with every backend operation injected everywhere | Narrow functions per feature in its `lib/`; `shared/<backend>` only transports |
+| A five-file feature with `components/`, `hooks/` and `lib/` holding one file each | Flat files until the second of a kind |
+| One `lib/` of forty files across checkout, plans and invoices | Sub-features, each with its own `lib/` |
 | Auth header or nav in the root layout | `app/(app)/layout.tsx` |
 | `router.refresh()` before `router.push()` | Push first, refresh after |
 | Variant class string copied into a second file | Extract the primitive into `src/shared/ui/` |
@@ -94,10 +109,11 @@ Before reporting work done: lint, typecheck, unit tests, the e2e specs the chang
 ## Checklist for a review brief
 
 1. Components never fetch; reads and mutations sit in the feature's `lib/`.
-2. Cross-feature imports only through each feature's exposed interface; `shared/` imports no feature.
+2. The import table in §1 holds: cross-feature imports only through each feature's exposed interface, components never import the transport, `shared/` imports no feature.
 3. Chrome that depends on route or session lives in a route-group layout.
 4. No raw hex or px; primitives composed, none hand-rolled; mobile-first CSS.
 5. Every string comes from the dictionaries; every shipped locale verified.
 6. Unit tests in vitest, e2e in both Playwright projects, the fake backend validated against the real schema.
 7. Files ~300 lines, functions ~40, components ~200.
 8. File names kebab-case, framework-reserved names excepted; `unicorn/filename-case` green.
+9. New or rewritten features: a layer folder only from the second file of its kind, a split by sub-feature when a layer folder passes ~15 non-test source files; no module folders over the features folder.

@@ -15,7 +15,7 @@ Swift 6 language mode with strict concurrency, SwiftUI, `async/await`, Swift Pac
 App/                              the Xcode app target: @main App, AppDependencies (the container), the root NavigationStack, environment injection; nothing else
 Packages/
   Abstractions/                   ports with no app dependencies: AuthClient, DataRemoteClient, SecureStore, FeatureConfig, Logger, Failure
-  Core/                           entities, ports and mappers two or more features need (User, Post, UserSessionRepository)
+  Core/                           two targets: CoreDomain, entities and ports two or more features need (User, Post, UserSessionRepository), and CoreMapping, their data models and mappers, imported only by Integrations and a feature's Data/
   Application/                    app shell: theme tokens and components (DesignSystem), ScreenShell, FeatureFlags, I18n helpers, shared views
   Features/<Feature>/             one package (or one target in a Features package) per screen or embeddable surface (layout in §2)
   Integrations/<Vendor>/          adapters: Firebase/, Keychain/, URLSessionAPI/, InMemory/
@@ -26,10 +26,11 @@ Imports, enforced by the package graph (a target cannot `import` a module its `P
 | From | May import (inside the project) |
 | --- | --- |
 | `Abstractions` | nothing in the project |
-| `Core` | `Abstractions` |
-| `Features/<F>` | `Abstractions`, `Core`, `Application`, and another feature **only** through its `<G>Feature` type |
-| `Application` | `Abstractions`, `Core` |
-| `Integrations/<V>` | `Abstractions`, `Core`, and the vendor SDK |
+| `CoreDomain` | `Abstractions` |
+| `CoreMapping` | `Abstractions`, `CoreDomain` |
+| `Features/<F>` | `Abstractions`, `CoreDomain`, `Application`, `CoreMapping` from its `Data/` only, and another feature **only** through its `<G>Feature` type |
+| `Application` | `Abstractions`, `CoreDomain` |
+| `Integrations/<V>` | `Abstractions`, `CoreDomain`, `CoreMapping`, and the vendor SDK |
 | `App` | anything |
 
 Vendor SDKs (Firebase, analytics, payments, maps) are imported only under `Integrations/` and in `App`. Vendor types never cross a port: the adapter maps them to the port's own error (`AuthClientError.invalidCredentials`). Foundation, SwiftUI and Swift standard packages are allowed everywhere; a third-party architecture library (TCA, Factory, Swinject) is not part of this shape and is adopted only by a project that already uses it.
@@ -55,7 +56,7 @@ Packages/Features/Feed/Tests/FeedTests/
 
 - File names are PascalCase after the one primary type they hold (`FeedViewModel.swift`), one type per file; an extension file is `Post+Formatting.swift`. SwiftLint's `file_name` rule enforces it.
 - A feature's public surface is its `<Name>Feature` type (§3) and its route value. Other features never import its views, view models or repositories.
-- Folders appear when they have content: a feature with no rules of its own has no `UseCase`; a feature that only renders has no `Data/`.
+- A feature's shape follows its size, for new and rewritten features; an existing feature changes shape in its own issue, never as a side effect of adding a file. `Domain/`, `Data/` and `Presentation/` appear when they have content (a feature with no rules of its own has no `UseCase`; one that only renders has no `Data/`), and `Components/` appears with the second view of its kind, never before. When a layer folder passes about 15 non-test source files, the feature splits by sub-feature, not by layer (`Feed/Timeline`, `Feed/Composer`), each a target with its own `<Name>Feature` type and `feature_readme.md`, composed by the parent's, which holds only what every sub-feature uses. `Features/` is never grouped into module folders: a parent feature has its own `<Name>Feature` and readme; a folder holding only child features is a module folder. Why: the full skeleton on a five-file feature hides the code behind its folders, one folder of forty files hides which pieces belong together, and a module layer over the features folder adds a path segment to every import for a grouping that will be wrong once.
 
 ## 3. The Feature type is the composition root
 
@@ -188,3 +189,4 @@ Copy into the brief of every review pass for iOS work:
 10. Tests follow §11: view model state sequences with fakes; a snapshot per state at iPhone and iPad, light and dark, every locale, references reviewed; a changed critical flow has its XCUITest run on both simulators with screenshots linked.
 11. Files ~300 lines, functions ~40, views ~200, counting no blanks or comments; `swiftlint --strict` and `swiftformat --lint` green with no new baseline entries.
 12. File names PascalCase after the primary type, one type per file; `file_name` lint on.
+13. New or rewritten features: a layer folder only from the second file of its kind, a split by sub-feature when a layer folder passes ~15 non-test source files; no module folders over the features folder.
