@@ -34,8 +34,8 @@ Folders appear when they have content: no empty `domain/`, no pass-through `serv
 
 Where the types live:
 
-- `domain/` imports only its own `domain/` and `shared/` types: no driver, no Fastify, no adapter, no `data/`. Where the repo runs `eslint-plugin-boundaries`, it is an element type whose rule allows only those imports.
-- `data/` imports only `domain/` types. Use-cases in `service/` read it directly, as constants, never through a port, and hand a domain rule the values it needs.
+- `domain/` imports only its own `domain/` and the type-only modules of `shared/` (identity types, the typed-error base class): no driver, no Fastify, no transport, logger or session codec, no adapter, no `data/`. Where the repo runs `eslint-plugin-boundaries`, it is an element type whose rule allows only those imports.
+- `data/` imports only `domain/` types. Use-cases in `service/` and the seeds in `adapters/` read it directly, as constants, never through a port; a domain rule gets the values handed to it.
 - The document type (`UserDocument`) lives beside its repository and holds `_id`, timestamps the database sets, leases, claims and schema versions. One function maps a full document to the entity, whose `id` comes from `_id`; a projected read returns the port's own response type, declared in `ports/`.
 - A timestamp a rule reads (a retention window, an abandonment cutoff) is an entity field; one nothing reads stays on the document.
 
