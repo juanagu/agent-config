@@ -119,7 +119,7 @@ new file mode 100644
 @@ -0,0 +1,10 @@
 +import type { Db } from "mongodb";
 +
-+// Shared so invites and billing can both count seats without a hop.
++// Shared so invites and workspaces can both count seats without a hop.
 +export class MongoSeatUsageRepository {
 +  constructor(private readonly db: Db) {}
 +

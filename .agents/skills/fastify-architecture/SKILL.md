@@ -27,14 +27,15 @@ src/
     domain/                 entity types and the rules over them, when there are real ones
     ports/                  interfaces the use-cases depend on, only the operations this feature uses, with their request/response types
     adapters/               Mongo repositories, clients for other services, over the shared transport; the document types beside their repositories, and the seeds and migrations
-    data/                   static reference data (catalogues, presets), importing only `domain/` and `shared/domain` types; not the `data/` layer of the Android and Flutter skills
+    data/                   static reference data (catalogues, presets), importing only `domain/`, `shared/domain` and `shared/data` types; not the `data/` layer of the Android and Flutter skills
     jobs/                   BullMQ queue, processor, worker
+    testing/                in-memory fakes of the feature's ports, for its own tests and for the tests of features that import it
     feature_readme.md
 ```
 
 File names are kebab-case: `adapters/http-core-api-auth.ts` exports `HttpCoreApiAuth`, `service/complete-google-sign-in.ts` exports `completeGoogleSignIn`, tests keep the dotted suffix (`bullmq-account-jobs.redis.test.ts`). ESLint enforces it with `unicorn/filename-case` (`kebabCase`).
 
-A feature's shape follows its size, for new and rewritten features; an existing feature changes shape in its own issue, never as a side effect of adding a file. A layer folder appears with the second file of its kind, never before: a small feature is `routes.ts`, `controller.ts`, `service.ts`, `port.ts`, `mongo-<feature>.ts`, `domain.ts` side by side, each file standing for the row its name says in the table below (review checks a flat feature; lint takes over once the folders exist). When a layer folder passes about 15 files (non-test source files, not counting `testing/` or the readme), the feature splits by sub-feature, not by layer: `billing/checkout/`, `billing/subscriptions/`, `billing/webhooks/`, each with the layers it needs and its own `feature_readme.md`, the parent holding only what every sub-feature shares. `features/` itself stays flat: which features form a bounded context is recorded in the feature map and each readme, not in a module folder. No pass-through `service/` that only forwards. A plugin's options name the feature's port type, never a client with every operation in the system. Why: the full skeleton on a ten-file feature hides the code behind seven folders, one `adapters/` of twenty-five files hides which belong together, and a module layer over `features/` adds a path segment to every import for a grouping that will be wrong once.
+A feature's shape follows its size, for new and rewritten features; an existing feature changes shape in its own issue, never as a side effect of adding a file. A layer folder appears with the second file of its kind, never before: a small feature is `create-<feature>.ts`, `routes.ts`, `controller.ts`, `service.ts`, `port.ts`, `mongo-<feature>.ts` or `http-<upstream>.ts`, `domain.ts` side by side, each file standing for the row its name says in the table below; a boundaries config declares the flat names as the same element types as the folders (`service.ts` is `service/`, `mongo-*.ts` and `http-*.ts` are `adapters/`). When a layer folder passes about 15 files (non-test source files, not counting `testing/` or the readme), the feature splits by sub-feature, not by layer: `billing/checkout/`, `billing/subscriptions/`, `billing/webhooks/`, each with the layers it needs and its own `feature_readme.md`. For the table a sub-feature is a feature: "own" is the sub-feature, a sibling is "another feature" reached through its public surface, and the parent holds only the `domain/` types and rules every sub-feature uses plus the `create-<feature>.ts` that composes them. `features/` itself stays flat: which features form a bounded context is recorded in the feature map and each readme, not in a module folder. No pass-through `service/` that only forwards. A plugin's options name the feature's port type, never a client with every operation in the system. Why: the full skeleton on a ten-file feature hides the code behind seven folders, one `adapters/` of twenty-five files hides which belong together, and a module layer over `features/` adds a path segment to every import for a grouping that will be wrong once.
 
 Where the types live:
 
@@ -47,22 +48,22 @@ Why: a domain folder of bare shapes that mirror the collection is a data layer u
 
 The dependency rule as a table. A row imports only the ticked columns; "own" means the same feature; another feature only through its public surface (the exports its `feature_readme.md` lists).
 
-| imports → | own `domain/` | own `data/` | own `ports/` | own `service/` | own `adapters/` | `shared/domain` | `shared/data` | `shared/adapters` | another feature |
-| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
-| `domain/` | ✓ | | | | | ✓ | | | |
-| `data/` | ✓ | | | | | ✓ | ✓ | | |
-| `ports/` | ✓ | | | | | ✓ | | | |
-| `service/` | ✓ | ✓ | ✓ | | | ✓ | ✓ | | public surface |
-| `controller.ts` | ✓ | | ✓ | ✓ | | ✓ | | | |
-| `routes.ts` (and its controller) | ✓ | | | | | ✓ | | ✓ | |
-| `adapters/` | ✓ | ✓ | ✓ | | ✓ | ✓ | ✓ | ✓ | public surface |
-| `jobs/` | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | public surface |
-| `shared/domain` | | | | | | ✓ | | | |
-| `shared/data` | | | | | | ✓ | ✓ | | |
-| `shared/adapters` | | | | | | ✓ | ✓ | ✓ | |
-| `app.ts`, `create-<feature>.ts` | everything | | | | | | | | |
+| imports → | own `domain/` | own `data/` | own `ports/` | own `service/` | own `controller.ts` | own `adapters/` | `shared/domain` | `shared/data` | `shared/adapters` | another feature |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| `domain/` | ✓ | | | | | | ✓ | | | |
+| `data/` | ✓ | | | | | | ✓ | ✓ | | |
+| `ports/` | ✓ | | | | | | ✓ | | | |
+| `service/` | ✓ | ✓ | ✓ | | | | ✓ | ✓ | | public surface |
+| `controller.ts` | ✓ | | ✓ | ✓ | | | ✓ | | | |
+| `routes.ts` | ✓ | | ✓ | | ✓ | | ✓ | | ✓ | |
+| `adapters/` | ✓ | ✓ | ✓ | | | ✓ | ✓ | ✓ | ✓ | public surface |
+| `jobs/` | ✓ | ✓ | ✓ | ✓ | | ✓ | ✓ | ✓ | ✓ | public surface |
+| `shared/domain` | | | | | | | ✓ | | | |
+| `shared/data` | | | | | | | ✓ | ✓ | | |
+| `shared/adapters` | | | | | | | ✓ | ✓ | ✓ | |
+| `app.ts`, `create-<feature>.ts` | everything | | | | | | | | | |
 
-`routes.ts` reaches `shared/adapters` to register hooks and the envelope; a controller never does, it throws typed errors and calls its use-case or port.
+`routes.ts` imports its controller, the port type its plugin options name, and `shared/adapters` to register hooks and the envelope; a controller never reaches `shared/adapters`, it throws typed errors and calls its use-case or port.
 
 ## 2. Rules that fail a review
 
@@ -135,7 +136,7 @@ Before reporting work done: lint, typecheck, unit and fast integration tests, a 
 
 ## Checklist for a review brief
 
-1. Layering respected: no Fastify types in services, no data access in controllers, no feature importing another feature's internals, `shared/` layered and importing no feature; `domain/` imports only `shared/domain`, holds entities and rules only, with storage shapes beside the repositories and wire shapes in route schemas.
+1. Layering respected: no Fastify types in services, no data access in controllers, no feature importing another feature's internals, `shared/` layered and importing no feature; `domain/` imports only its own `domain/` and `shared/domain`, holds entities and rules only, with storage shapes beside the repositories and wire shapes in route schemas.
 2. Every route has input and output schemas.
 3. Errors thrown as typed errors and mapped centrally; envelope shapes unchanged unless the issue says so.
 4. Each feature's `ports/` declares only what it uses; plugins receive the narrow port type.
