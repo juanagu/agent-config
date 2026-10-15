@@ -3,7 +3,7 @@ import { spawnSync } from "node:child_process";
 export function hasCommand(name) {
   const probe =
     process.platform === "win32"
-      ? spawnSync("where", [name], { stdio: "ignore", shell: true })
+      ? spawnSync("where.exe", [name], { stdio: "ignore" })
       : spawnSync("sh", ["-c", `command -v ${name}`], { stdio: "ignore" });
   return probe.status === 0;
 }
