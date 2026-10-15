@@ -8,11 +8,13 @@ import { readJson, writeJson } from "./json.mjs";
 // decide(), is kept in ~/.config/agent-config/config-install.json so a re-run or --update
 // asks only what it has not asked before. --yes and --no-optional apply to one run and are
 // not kept; without a terminal the default is used and not kept either. The same file holds
-// `copies`, the hash of every file the installer wrote as a copy (see link.mjs).
+// `copies`, the hash of every file the installer wrote as a copy, and `imports`, the import
+// line it wrote into each CLAUDE.md (see link.mjs).
 export function createPrompter({ file, yes, noOptional, ask }) {
   const saved = existsSync(file) ? readJson(file) : {};
   const interactive = Boolean(stdin.isTTY && stdout.isTTY);
   const copies = saved.copies ?? {};
+  const imports = saved.imports ?? {};
 
   // An essential piece (the git-guard hook) is still added under --no-optional,
   // unless an earlier run said no to it.
@@ -34,11 +36,13 @@ export function createPrompter({ file, yes, noOptional, ask }) {
   }
 
   function save() {
-    if (Object.keys(copies).length) saved.copies = copies;
-    else delete saved.copies;
+    for (const [key, value] of [["copies", copies], ["imports", imports]]) {
+      if (Object.keys(value).length) saved[key] = value;
+      else delete saved[key];
+    }
     mkdirSync(dirname(file), { recursive: true });
     writeJson(file, saved);
   }
 
-  return { confirm, decide, save, copies };
+  return { confirm, decide, save, copies, imports };
 }

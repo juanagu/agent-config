@@ -1,13 +1,9 @@
 import { copyFileSync, existsSync, lstatSync, mkdirSync, readdirSync, readFileSync, readlinkSync, renameSync, rmdirSync, symlinkSync, unlinkSync, writeFileSync } from "node:fs";
-import { basename, dirname, join, resolve } from "node:path";
+import { basename, dirname, join } from "node:path";
 import { sha256 } from "./json.mjs";
-import { toPosix } from "./paths.mjs";
+import { samePath, toPosix } from "./paths.mjs";
 
-export function samePath(a, b) {
-  const normalise = (path) => resolve(path.replace(/^\\\\\?\\/, "")).replace(/[\\/]+$/, "");
-  const [x, y] = [normalise(a), normalise(b)];
-  return process.platform === "win32" ? x.toLowerCase() === y.toLowerCase() : x === y;
-}
+export { samePath };
 
 function lstat(path) {
   try {
@@ -25,14 +21,16 @@ function removeLink(path) {
   }
 }
 
-// An `@` import of this repo's or its predecessor's CLAUDE.md, whichever clone it points at.
-const IMPORT_LINE = /^@\S*(?:agent-config|claude-code-config)\S*\/CLAUDE\.md\s*$/;
+// An `@` import of a CLAUDE.md in a clone named after this repo or its predecessor; a clone
+// elsewhere is recognised by the line the installer wrote last time (`imports`).
+const NAMED_IMPORT = /^@.*(?:agent-config|claude-code-config).*\/CLAUDE\.md$/;
 
 // Links entries of a tool's user directory into the clone. A real file or directory in the
 // way is moved to <toolDir>/backup-<timestamp>/ first; a link in the way holds no data and
 // is removed. `copies` remembers the hash of each file written as a copy, so a later run can
-// tell our copy (refresh it) from the user's edit (leave it).
-export function createLinker(toolDir, copies = {}) {
+// tell our copy (refresh it) from the user's edit (leave it); `imports` remembers the import
+// line written into each CLAUDE.md, so a re-run replaces it wherever the clone lives.
+export function createLinker(toolDir, copies = {}, imports = {}) {
   const backupDir = join(toolDir, `backup-${timestamp()}`);
   let backedUp = false;
 
@@ -86,10 +84,13 @@ export function createLinker(toolDir, copies = {}) {
   // added at the top.
   function writeImport(path, repoDir) {
     const line = `@${toPosix(repoDir)}/CLAUDE.md`;
+    const key = toPosix(path);
+    const previous = imports[key];
+    const isOurs = (entry) => entry.trim() === line || entry.trim() === previous || NAMED_IMPORT.test(entry.trim());
     const current = existsSync(path) ? readFileSync(path, "utf8") : "";
-    const lines = current.split(/\r?\n/);
-    const kept = lines.filter((entry) => !IMPORT_LINE.test(entry));
+    const kept = current.split(/\r?\n/).filter((entry) => !isOurs(entry));
     const next = [line, ...kept].join("\n").replace(/\n*$/, "\n");
+    imports[key] = line;
     if (current === next) return false;
     mkdirSync(dirname(path), { recursive: true });
     writeFileSync(path, next);

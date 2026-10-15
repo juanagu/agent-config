@@ -4,7 +4,7 @@
 // `node scripts/build.mjs` writes into the repo; `node scripts/build.mjs --check` exits 1 and
 // lists the files that differ instead, which is what `npm test` runs.
 import { cpSync, existsSync, mkdirSync, readdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
-import { dirname, join } from "node:path";
+import { dirname, join, relative } from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
 import { renderFrontmatter, splitFrontmatter } from "./build/frontmatter.mjs";
 import { AGENT_TARGETS, HOOK_TARGETS, PROJECT_HOOK_COMMAND, TOOLS } from "./build/targets.mjs";
@@ -55,7 +55,9 @@ export function plan(root) {
   return files;
 }
 
-const skipEvals = (src) => !/[\\/]evals([\\/]|$)/.test(src);
+// Evals stay out of the Claude Code copies. The test is on the path inside the skill folder, so a
+// clone living under a directory named `evals` is not emptied.
+const isEvals = (skillDir, path) => /^evals([\\/]|$)/.test(relative(skillDir, path));
 
 export function build(root) {
   const written = [];
@@ -63,7 +65,7 @@ export function build(root) {
     const dest = join(root, file.path);
     if (file.dir) {
       rmSync(dest, { recursive: true, force: true });
-      cpSync(file.dir, dest, { recursive: true, filter: skipEvals });
+      cpSync(file.dir, dest, { recursive: true, filter: (src) => !isEvals(file.dir, src) });
     } else {
       mkdirSync(dirname(dest), { recursive: true });
       writeFileSync(dest, file.content);
@@ -89,8 +91,8 @@ function sameTree(src, dest) {
   if (!existsSync(dest)) return false;
   const list = (dir) =>
     readdirSync(dir, { withFileTypes: true, recursive: true })
-      .filter((e) => e.isFile() && skipEvals(join(e.parentPath, e.name)))
-      .map((e) => join(e.parentPath, e.name).slice(dir.length + 1).replace(/\\/g, "/"))
+      .filter((e) => e.isFile() && !isEvals(dir, join(e.parentPath, e.name)))
+      .map((e) => relative(dir, join(e.parentPath, e.name)).replace(/\\/g, "/"))
       .sort();
   const files = list(src);
   if (files.join("\n") !== list(dest).join("\n")) return false;

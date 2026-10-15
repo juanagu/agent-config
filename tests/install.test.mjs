@@ -1,8 +1,10 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { spawnSync } from "node:child_process";
-import { existsSync, lstatSync, mkdirSync, readdirSync, readFileSync, realpathSync, rmSync, symlinkSync, writeFileSync } from "node:fs";
+import { cpSync, existsSync, lstatSync, mkdirSync, readdirSync, readFileSync, realpathSync, rmSync, symlinkSync, writeFileSync } from "node:fs";
+import { homedir } from "node:os";
 import { join, sep } from "node:path";
+import { samePath } from "../scripts/install/paths.mjs";
 import { FIXTURE_FILES, FIXTURE_SKILLS, freshDir, makeFixtureClone } from "./support/fixture-clone.mjs";
 
 const posix = (path) => path.split(sep).join("/");
@@ -14,9 +16,9 @@ const writeJson = (path, value) => writeFileSync(path, `${JSON.stringify(value, 
 const backupsIn = (dir) => (existsSync(dir) ? readdirSync(dir).filter((name) => name.startsWith("backup-")) : []);
 const hookCommands = (settings) => (settings.hooks?.PreToolUse ?? []).flatMap((entry) => entry.hooks.map((hook) => hook.command));
 const answersFile = (home) => join(home, ".config", "agent-config", "config-install.json");
-// The answers without the copy hashes, which every run that copies an agent or a standards file records.
+// The answers without the bookkeeping every run records: the copy hashes and the import lines written.
 const answers = (home) => {
-  const { copies, ...rest } = readJson(answersFile(home));
+  const { copies, imports, ...rest } = readJson(answersFile(home));
   return rest;
 };
 
@@ -462,4 +464,91 @@ test("--help prints both modes", (t) => {
   assert.match(result.stdout, /--project \[dir\]/);
   assert.match(result.stdout, /--global/);
   assert.match(result.stdout, /--tool <name>/);
+});
+
+// ---- the second review pass ----
+
+test("re-pointing touches only the guard's own hook event: a permission rule and a Stop hook that name the script are kept", (t) => {
+  const clone = makeFixtureClone(t);
+  const home = freshDir(t);
+  const claude = join(home, ".claude");
+  mkdirSync(claude);
+  const allow = ["Bash(node ~/.claude/hooks/git-guard.mjs:*)", "Read"];
+  const stop = [{ matcher: "", hooks: [{ type: "command", command: "node ~/.claude/hooks/git-guard.mjs --log" }] }];
+  writeJson(join(claude, "settings.json"), {
+    permissions: { allow },
+    hooks: { PreToolUse: [{ matcher: "Bash|PowerShell", hooks: [{ type: "command", command: 'node "C:/Users/me/.claude/hooks/git-guard.mjs"' }] }], Stop: stop },
+  });
+  assert.equal(claudeHome(clone, home, "--no-optional").status, 0);
+  const settings = readJson(join(claude, "settings.json"));
+  assert.deepEqual(settings.permissions.allow, allow);
+  assert.deepEqual(settings.hooks.Stop, stop);
+  assert.deepEqual(hookCommands(settings), [guardCommand(clone, "claude")]);
+});
+
+test("a Cursor hooks.json whose only mention of the guard is a stop hook still gets the beforeShellExecution entry", (t) => {
+  const clone = makeFixtureClone(t);
+  const home = freshDir(t);
+  const cursor = join(home, ".cursor");
+  mkdirSync(cursor);
+  const stop = [{ command: "node C:/old/.agents/hooks/git-guard/git-guard.mjs --report" }];
+  writeJson(join(cursor, "hooks.json"), { version: 1, hooks: { stop } });
+  assert.equal(global(clone, home, "--tool", "cursor").status, 0);
+  const hooks = readJson(join(cursor, "hooks.json"));
+  assert.deepEqual(hooks.hooks.stop, stop);
+  assert.deepEqual(hooks.hooks.beforeShellExecution, [{ command: guardCommand(clone, "cursor"), timeout: 30 }]);
+});
+
+test("a clone at a directory not named after the repo keeps one import line across runs, and a path with a space is replaced", (t) => {
+  const source = makeFixtureClone(t);
+  const clone = join(freshDir(t, "cfg-"), "my cfg");
+  cpSync(source, clone, { recursive: true });
+  const home = freshDir(t);
+  const claude = join(home, ".claude");
+  mkdirSync(claude);
+  writeFileSync(join(claude, "CLAUDE.md"), "@C:/Users/John Smith/Projects/claude-code-config/CLAUDE.md\n# notes\n");
+  for (let i = 0; i < 2; i++) assert.equal(claudeHome(clone, home, "--no-optional").status, 0);
+  const content = readFileSync(join(claude, "CLAUDE.md"), "utf8");
+  assert.equal(content, `@${posix(clone)}/CLAUDE.md\n# notes\n`);
+  assert.equal(readJson(answersFile(home)).imports[posix(join(claude, "CLAUDE.md"))], `@${posix(clone)}/CLAUDE.md`);
+});
+
+test("a run that fails on a later tool keeps the hashes of the copies an earlier tool wrote", (t) => {
+  const clone = makeFixtureClone(t);
+  const home = freshDir(t);
+  mkdirSync(join(home, ".gemini", "config"), { recursive: true });
+  writeFileSync(join(home, ".gemini", "config", "hooks.json"), "{ oops");
+  const result = global(clone, home, "--tool", "copilot", "--tool", "antigravity");
+  assert.equal(result.status, 1);
+  assert.match(result.stderr, /hooks\.json is not valid JSON/);
+  const instructions = posix(join(home, ".copilot", "copilot-instructions.md"));
+  assert.ok(readJson(answersFile(home)).copies[instructions], "the Copilot copy's hash was saved before Antigravity failed");
+});
+
+test("a fresh settings.json honours an earlier no to the git guard, and gets the hook under --yes", (t) => {
+  const clone = makeFixtureClone(t);
+  const home = freshDir(t);
+  mkdirSync(join(home, ".config", "agent-config"), { recursive: true });
+  writeJson(answersFile(home), { gitGuard: false });
+  assert.equal(claudeHome(clone, home, "--no-optional").status, 0);
+  const declined = readJson(join(home, ".claude", "settings.json"));
+  assert.deepEqual(hookCommands(declined), []);
+  assert.equal(declined.env.ENABLE_TOOL_SEARCH, "auto", "the template's other settings are still written");
+
+  const fresh = freshDir(t);
+  assert.equal(claudeHome(clone, fresh, "--yes", "--no-codegraph").status, 0);
+  assert.ok(hookCommands(readJson(join(fresh, ".claude", "settings.json"))).includes(guardCommand(clone, "claude")));
+});
+
+test("samePath treats a trailing slash, and on Windows a case difference, as the same directory; --home uses it", (t) => {
+  assert.ok(samePath(`${homedir()}${sep}`, homedir()));
+  assert.ok(samePath(join(homedir(), "x", ".."), homedir()));
+  if (process.platform === "win32") assert.ok(samePath(homedir().toLowerCase(), homedir().toUpperCase()));
+  assert.ok(!samePath(join(homedir(), "elsewhere"), homedir()));
+
+  const clone = makeFixtureClone(t);
+  const home = freshDir(t);
+  const result = install(clone, ["--global", "--home", `${home}${sep}`, "--tool", "claude", "--no-optional"]);
+  assert.equal(result.status, 0, result.stderr);
+  assert.match(result.stdout, /--home is set: skipped the third-party skills/);
 });

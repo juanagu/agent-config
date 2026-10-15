@@ -12,6 +12,7 @@ import { gitPull, hasCommand, runNode } from "./install/env.mjs";
 import { installGlobal } from "./install/global.mjs";
 import { createPrompter } from "./install/prompts.mjs";
 import { installProject } from "./install/project.mjs";
+import { samePath } from "./install/paths.mjs";
 import { installSkill, linkInstalledSkills, readSkillList } from "./install/skills.mjs";
 import { globalTargets } from "./install/targets.mjs";
 
@@ -39,7 +40,11 @@ async function installEverywhere(flags) {
   const home = flags.home ?? homedir();
   const prompter = createPrompter({ file: join(home, ".config", "agent-config", "config-install.json"), ...flags });
   const installed = {};
-  for (const tool of flags.tools) installed[tool] = await installGlobal(tool, repoDir, home, prompter, flags);
+  // Saved after every tool: an interrupted run keeps the answers and the hashes of what it wrote.
+  for (const tool of flags.tools) {
+    installed[tool] = await installGlobal(tool, repoDir, home, prompter, flags);
+    prompter.save();
+  }
   const failed = flags.skipSkills ? [] : await installSkills(prompter, home, installed);
   prompter.save();
   if (failed.length) {
@@ -58,7 +63,7 @@ async function installSkills(prompter, home, installed) {
     console.log("npx not found: skipped the skills in skills.txt. Install npm and re-run.");
     return [];
   }
-  if (home !== homedir()) {
+  if (!samePath(home, homedir())) {
     console.log("--home is set: skipped the third-party skills, which npx installs under the real home directory.");
     return [];
   }

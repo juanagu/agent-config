@@ -4,7 +4,7 @@
 // copy's scripts/install.mjs. npx's own copy is a cache entry npm replaces at will, so no
 // tool's folder must ever link into it. The clone URL comes from package.json's `repository`,
 // so a fork that edits that one field bootstraps itself.
-import { existsSync, readdirSync } from "node:fs";
+import { existsSync, readdirSync, statSync } from "node:fs";
 import { homedir } from "node:os";
 import { dirname, join, resolve } from "node:path";
 import { stdin, stdout } from "node:process";
@@ -45,6 +45,7 @@ function update(dir, url) {
 // A `#ref` in package.json is a branch or tag, honoured on this first clone. An empty
 // directory is fine, as it is for git clone itself.
 function clone(dir, { url, ref }) {
+  if (existsSync(dir) && !statSync(dir).isDirectory()) fail(`${dir} is a file, not a directory. Pass --dir <path> to use another location.`);
   if (existsSync(dir) && readdirSync(dir).length) fail(`${dir} exists, is not empty and is not a git clone. Pass --dir <path> to use another location.`);
   console.log(`Cloning ${url}${ref ? ` (${ref})` : ""} into ${dir}`);
   const status = run("git", ["clone", ...(ref ? ["--branch", ref] : []), url, dir]);

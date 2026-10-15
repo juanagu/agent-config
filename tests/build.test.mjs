@@ -3,7 +3,7 @@
 // that what is committed is what the sources produce.
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { cpSync, existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -70,6 +70,23 @@ test("skills are copied for Claude Code without their evals", () => {
     assert.ok(!existsSync(join(root, ".claude", "skills", "demo", "evals")));
   } finally {
     rmSync(root, { recursive: true, force: true });
+  }
+});
+
+test("a clone under a directory named evals still gets its skill copies", () => {
+  const parent = mkdtempSync(join(tmpdir(), "agent-config-"));
+  const root = join(parent, "evals", "clone");
+  try {
+    mkdirSync(root, { recursive: true });
+    const src = fixture();
+    cpSync(src, root, { recursive: true });
+    rmSync(src, { recursive: true, force: true });
+    build(root);
+    assert.ok(existsSync(join(root, ".claude", "skills", "demo", "SKILL.md")));
+    assert.ok(!existsSync(join(root, ".claude", "skills", "demo", "evals")));
+    assert.deepEqual(stale(root), []);
+  } finally {
+    rmSync(parent, { recursive: true, force: true });
   }
 });
 

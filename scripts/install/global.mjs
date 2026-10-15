@@ -23,9 +23,9 @@ const NOTES = {
 export async function installGlobal(tool, repoDir, home, prompter, flags) {
   const target = globalTargets(tool, home);
   // Everything that must parse is read first, so a broken file leaves the folder as it was.
-  const current = tool === "claude" ? settings.readSettings(target.dir, repoDir) : readRegistration(target.hookFile);
+  const current = tool === "claude" ? settings.readSettings(target.dir) : readRegistration(target.hookFile);
   mkdirSync(target.dir, { recursive: true });
-  const linker = createLinker(target.dir, prompter.copies);
+  const linker = createLinker(target.dir, prompter.copies, prompter.imports);
   const agents = linkRepoAgents(linker, repoDir, target.agents);
   mkdirSync(target.skillsDir, { recursive: true });
   linkRepoSkills(linker, repoDir, target.skillsDir);
@@ -69,8 +69,9 @@ function reportCopy(path, outcome) {
   if (outcome === "kept") console.log(`${path} was edited by you and is left alone.`);
 }
 
-// The template is written whole when settings.json is missing. An existing file is the
-// user's: each addition is offered, and only the ones accepted are merged in.
+// A missing settings.json is written from the hook-less template plus whatever is accepted
+// below. An existing file is the user's: each addition is offered, and only the ones
+// accepted are merged in.
 async function configureSettings(repoDir, { path, settings: current, created }, prompter, flags) {
   const added = [await offerGitGuard(repoDir, current, prompter), await offerRtk(current, prompter, flags), await offerCodegraph(current, prompter, flags)];
   if (!created && !added.includes(true)) return;

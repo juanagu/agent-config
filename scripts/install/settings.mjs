@@ -16,11 +16,12 @@ export const CODEGRAPH_RULE = "mcp__codegraph__*";
 
 const TEMPLATE = join(dirname(fileURLToPath(import.meta.url)), "claude-settings.template.json");
 
-export function readSettings(claudeDir, repoDir) {
+// A missing settings.json starts from the template, which carries no hook: the git guard is
+// offered to a fresh file the same way as to an existing one, so one code path owns the decision.
+export function readSettings(claudeDir) {
   const path = join(claudeDir, "settings.json");
   if (existsSync(path)) return { path, settings: readJson(path), created: false };
-  const template = readFileSync(TEMPLATE, "utf8").replaceAll("__REPO_DIR__", toPosix(repoDir));
-  return { path, settings: JSON.parse(template), created: true };
+  return { path, settings: JSON.parse(readFileSync(TEMPLATE, "utf8")), created: true };
 }
 
 export function gitGuardCommand(repoDir, tool) {
@@ -62,36 +63,65 @@ export function absolutizeGuard(value, repoDir) {
   return value;
 }
 
-export function mentionsGitGuard(value) {
-  return JSON.stringify(value ?? null).includes(GIT_GUARD_NEEDLE);
+// The keys a hook entry runs a command from, directly (Cursor, Copilot) or on each item of its
+// `hooks` array (Claude Code, Antigravity).
+const COMMAND_KEYS = ["command", "bash", "powershell"];
+
+function* commandSlots(entry) {
+  if (!isObject(entry)) return;
+  for (const key of COMMAND_KEYS) if (typeof entry[key] === "string") yield [entry, key];
+  for (const hook of Array.isArray(entry.hooks) ? entry.hooks : []) {
+    if (!isObject(hook)) continue;
+    for (const key of COMMAND_KEYS) if (typeof hook[key] === "string") yield [hook, key];
+  }
 }
 
-// Every string in a registration that runs the guard (the old ~/.claude/hooks path, a previous
-// clone, a project-relative form) becomes `command`; the structure around it is kept.
-export function rewriteGuard(value, command) {
-  if (typeof value === "string") return value.includes(GIT_GUARD_NEEDLE) ? command : value;
-  if (Array.isArray(value)) return value.map((item) => rewriteGuard(item, command));
-  if (isObject(value)) return Object.fromEntries(Object.entries(value).map(([k, v]) => [k, rewriteGuard(v, command)]));
-  return value;
+const runsGuard = (entry) => [...commandSlots(entry)].some(([object, key]) => object[key].includes(GIT_GUARD_NEEDLE));
+
+// Where the guard lives in a registration: the paths of the hook arrays (`hooks.PreToolUse`,
+// `hooks.beforeShellExecution`, `git-guard.PreToolUse`) with an entry that runs it. Only those
+// arrays are ever rewritten in a user's file, so a `permissions` rule or a Stop hook that
+// happens to mention the script is left alone.
+function guardArrayPaths(value, path = []) {
+  if (Array.isArray(value)) return value.some(runsGuard) ? [path] : [];
+  if (!isObject(value)) return [];
+  return Object.entries(value).flatMap(([key, item]) => guardArrayPaths(item, [...path, key]));
 }
 
-// The guard command a registration carries: the first string that runs the script.
-export function guardCommandIn(value) {
-  if (typeof value === "string") return value.includes(GIT_GUARD_NEEDLE) ? value : null;
-  if (value === null || typeof value !== "object") return null;
-  for (const item of Object.values(value)) {
-    const found = guardCommandIn(item);
-    if (found) return found;
+const arrayAt = (value, path) => {
+  const found = path.reduce((current, key) => (isObject(current) ? current[key] : undefined), value);
+  return Array.isArray(found) ? found : [];
+};
+
+// The guard command a registration carries: the first command that runs the script.
+export function guardCommandIn(registration) {
+  for (const path of guardArrayPaths(registration)) {
+    for (const entry of arrayAt(registration, path)) {
+      for (const [object, key] of commandSlots(entry)) if (object[key].includes(GIT_GUARD_NEEDLE)) return object[key];
+    }
   }
   return null;
 }
 
-// A registration file brought up to date with the clone's: an existing guard entry is
-// re-pointed at the clone's command, a missing one is merged in. Returns the new value and
-// whether it differs from `current`.
+// A registration file brought up to date with the clone's: a guard entry under the same hook
+// event (the old ~/.claude/hooks path, a previous clone, a project-relative form) is re-pointed
+// at the clone's command, a missing one is merged in. Returns the new value and whether it
+// differs from `current`.
 export function registerGuard(current, registration) {
-  const next = mentionsGitGuard(current) ? rewriteGuard(current, guardCommandIn(registration)) : mergeRegistration(current, registration);
-  return { value: next, changed: JSON.stringify(next) !== JSON.stringify(current) };
+  const command = guardCommandIn(registration);
+  const next = structuredClone(current);
+  let found = false;
+  for (const path of guardArrayPaths(registration)) {
+    for (const entry of arrayAt(next, path)) {
+      for (const [object, key] of commandSlots(entry)) {
+        if (!object[key].includes(GIT_GUARD_NEEDLE)) continue;
+        object[key] = command;
+        found = true;
+      }
+    }
+  }
+  const value = found ? next : mergeRegistration(current, registration);
+  return { value, changed: JSON.stringify(value) !== JSON.stringify(current) };
 }
 
 // The clone's registration merged into the user's file: objects recurse, arrays append, and a

@@ -90,6 +90,12 @@ test("bootstrap clones into --dir, installs there, updates on the second run, an
   assert.equal(refused.status, 1);
   assert.match(refused.stderr, /is not empty and is not a git clone/);
 
+  const file = join(tmp, "notes.txt");
+  writeFileSync(file, "x");
+  const notDir = bootstrapWith("--repo", upstream, "--dir", file, "--global", "--home", home, "--skip-skills", "--no-optional");
+  assert.equal(notDir.status, 1);
+  assert.match(notDir.stderr, /is a file, not a directory/);
+
   writeFileSync(join(clone, "AGENTS.md"), "edited");
   const dirty = bootstrapWith(...args);
   assert.equal(dirty.status, 1);
