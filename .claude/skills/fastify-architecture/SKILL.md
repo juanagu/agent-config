@@ -20,10 +20,10 @@ src/
     routes.ts               registration + schemas only (schemas.ts once they grow); a plugin whose body only registers routes
     controller.ts           handlers: read validated input → call a use-case → shape the reply
     service/                use-cases, framework-free
-    domain/                 entity types and the rules over them, when there are real ones; an entity holds only the fields a use-case reads, in the service's own words, never a storage or wire shape
+    domain/                 entity types and the rules over them, when there are real ones (§2)
     ports/                  interfaces the use-cases depend on, only the operations this feature uses, with their request/response types
-    adapters/               Mongo repositories, clients for other services, over the shared transport; the document types, beside their repositories
-    data/                   static reference data (catalogues, presets) and the seeds and migrations that load it; never a repository, so not the mobile skills' data layer
+    adapters/               Mongo repositories, clients for other services, over the shared transport; the document types beside their repositories, and the seeds and migrations that load reference data
+    data/                   static reference data (catalogues, presets), importing only `domain/` types; not the `data/` layer of the Android and Flutter skills
     jobs/                   BullMQ queue, processor, worker
     feature_readme.md
 ```
@@ -32,7 +32,7 @@ File names are kebab-case: `adapters/http-core-api-auth.ts` exports `HttpCoreApi
 
 Folders appear when they have content: no empty `domain/`, no pass-through `service/` that only forwards. A plugin's options name the feature's port type, never a client with every operation in the system.
 
-`domain/` imports only its own `domain/` and `shared/` types: no driver, no Fastify, no adapter. Where the repo runs `eslint-plugin-boundaries`, that is a zone, with today's offenders baselined per file, shrink-only, and never a disable comment. The document type (`UserDocument`) lives beside its repository and holds `_id`, timestamps the database sets, leases, claims and schema versions; one function maps a full document to the entity, whose `id` comes from `_id`, and a projected read returns a narrower read type of its own. A timestamp a rule reads (a retention window, an abandonment cutoff) is an entity field. Why: a domain folder of bare shapes that mirror the collection is a data layer under another name, and every later use-case reads the storage shape instead of the entity.
+`domain/` imports only its own `domain/` and `shared/` types: no driver, no Fastify, no adapter. Where the repo runs `eslint-plugin-boundaries`, that is a zone. The document type (`UserDocument`) lives beside its repository and holds `_id`, timestamps the database sets, leases, claims and schema versions; one function maps a full document to the entity, whose `id` comes from `_id`, and a projected read returns the port's own response type, declared in `ports/`. A timestamp a rule reads (a retention window, an abandonment cutoff) is an entity field. Why: a domain folder of bare shapes that mirror the collection is a data layer under another name, and every later use-case reads the storage shape instead of the entity.
 
 ## 2. Rules that fail a review
 
@@ -44,7 +44,7 @@ Folders appear when they have content: no empty `domain/`, no pass-through `serv
 - Logging is structured (the Fastify logger), never `console.log`, never secrets or PII.
 - Session checks make zero network calls; a stateless service verifies the request on its own.
 - A domain type carries no field that no use-case reads, and a domain file never describes itself as a document, a collection or a row: storage shapes are the adapter's, wire shapes the route schema's.
-- A service module exports one use-case. A service class, where a repo already has them, exposes at most about eight public methods; past that it holds several use-cases and splits into `service/<use-case>.ts` modules, each exporting one function over the ports it needs. One reason to change per module is the principle; the method count is what a review can check.
+- A service module exports one use-case function, with its own input and result types. A service class, where a repo already has them, exposes at most about eight public methods; past that it holds several use-cases: a new use-case goes in its own `service/<use-case>.ts` beside it, and the split is an issue, never a side effect of adding a method. One reason to change per module is the principle; the method count is what a review can check.
 
 ## 3. BFF
 
@@ -58,7 +58,7 @@ Folders appear when they have content: no empty `domain/`, no pass-through `serv
 
 ## 4. MongoDB
 
-- Repositories, and the seeds and migrations under `data/`, are the only code importing the driver or ODM. Explicit schema validation (Mongoose, Zod or JSON Schema). The document type and its mapping: §1.
+- Only `adapters/` imports the driver or ODM: repositories, and the seeds and migrations beside them. Explicit schema validation (Mongoose, Zod or JSON Schema). The document type and its mapping: §1.
 - Projections instead of full documents; index the fields you query or sort on and say so in the repository.
 - Never build queries from unsanitized user input (operator injection).
 - One logical database per service.
@@ -104,7 +104,7 @@ Before reporting work done: lint, typecheck, unit and fast integration tests, a 
 2. Every route has input and output schemas.
 3. Errors thrown as typed errors and mapped centrally; envelope shapes unchanged unless the issue says so.
 4. Each feature's `ports/` declares only what it uses; plugins receive the narrow port type.
-5. Only repositories, seeds and migrations touch the driver; queries never built from raw input.
+5. Only `adapters/` touches the driver (repositories, seeds, migrations); queries never built from raw input.
 6. Jobs are idempotent with explicit retry policy and payload validation.
 7. Tests: unit with mocked ports, repositories against a real MongoDB, routes via `inject`, jobs against real Redis.
 8. Files ~300 lines, functions ~40, service classes ~8 public methods; a routes plugin that only registers is exempt.
