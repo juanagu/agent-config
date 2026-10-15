@@ -34,7 +34,7 @@
         "Flags console.log of the request body, which can carry a password",
         "Flags InvitesController.ts as violating kebab-case file naming",
         "Flags the repository reading the billing service's database directly",
-        "Flags domain/invite.ts as the Mongo document (`_id: ObjectId`, 'document shape', `updatedAt`): the entity holds what use-cases read, the document type lives beside the repository"
+        "Flags domain/invite.ts as the Mongo document (`_id: ObjectId`, 'document shape', `updatedAt`): the entity holds what use-cases read, the document type lives beside the repository, and the repository maps the document to the entity instead of returning the collection type"
       ]
     }
   ],

@@ -20,9 +20,9 @@ src/
     routes.ts               registration + schemas only (schemas.ts once they grow); a plugin whose body only registers routes
     controller.ts           handlers: read validated input → call a use-case → shape the reply
     service/                use-cases, framework-free
-    domain/                 entity types and the rules over them, when there are real ones (§2)
+    domain/                 entity types and the rules over them, when there are real ones
     ports/                  interfaces the use-cases depend on, only the operations this feature uses, with their request/response types
-    adapters/               Mongo repositories, clients for other services, over the shared transport; the document types beside their repositories, and the seeds and migrations that load reference data
+    adapters/               Mongo repositories, clients for other services, over the shared transport; the document types beside their repositories, and the seeds and migrations
     data/                   static reference data (catalogues, presets), importing only `domain/` types; not the `data/` layer of the Android and Flutter skills
     jobs/                   BullMQ queue, processor, worker
     feature_readme.md
@@ -32,7 +32,14 @@ File names are kebab-case: `adapters/http-core-api-auth.ts` exports `HttpCoreApi
 
 Folders appear when they have content: no empty `domain/`, no pass-through `service/` that only forwards. A plugin's options name the feature's port type, never a client with every operation in the system.
 
-`domain/` imports only its own `domain/` and `shared/` types: no driver, no Fastify, no adapter. Where the repo runs `eslint-plugin-boundaries`, that is a zone. The document type (`UserDocument`) lives beside its repository and holds `_id`, timestamps the database sets, leases, claims and schema versions; one function maps a full document to the entity, whose `id` comes from `_id`, and a projected read returns the port's own response type, declared in `ports/`. A timestamp a rule reads (a retention window, an abandonment cutoff) is an entity field. Why: a domain folder of bare shapes that mirror the collection is a data layer under another name, and every later use-case reads the storage shape instead of the entity.
+Where the types live:
+
+- `domain/` imports only its own `domain/` and `shared/` types: no driver, no Fastify, no adapter, no `data/`. Where the repo runs `eslint-plugin-boundaries`, it is an element type whose rule allows only those imports.
+- `data/` imports only `domain/` types. Use-cases in `service/` read it directly, as constants, never through a port, and hand a domain rule the values it needs.
+- The document type (`UserDocument`) lives beside its repository and holds `_id`, timestamps the database sets, leases, claims and schema versions. One function maps a full document to the entity, whose `id` comes from `_id`; a projected read returns the port's own response type, declared in `ports/`.
+- A timestamp a rule reads (a retention window, an abandonment cutoff) is an entity field; one nothing reads stays on the document.
+
+Why: a domain folder of bare shapes that mirror the collection is a data layer under another name, and every later use-case reads the storage shape instead of the entity.
 
 ## 2. Rules that fail a review
 
@@ -107,5 +114,5 @@ Before reporting work done: lint, typecheck, unit and fast integration tests, a 
 5. Only `adapters/` touches the driver (repositories, seeds, migrations); queries never built from raw input.
 6. Jobs are idempotent with explicit retry policy and payload validation.
 7. Tests: unit with mocked ports, repositories against a real MongoDB, routes via `inject`, jobs against real Redis.
-8. Files ~300 lines, functions ~40, service classes ~8 public methods; a routes plugin that only registers is exempt.
+8. Files ~300 lines, functions ~40; a new use-case is one function per module, an existing service class ~8 public methods; a routes plugin that only registers is exempt.
 9. File names kebab-case, test suffixes dotted; `unicorn/filename-case` green.
