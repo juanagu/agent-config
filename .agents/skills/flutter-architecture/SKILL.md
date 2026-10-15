@@ -56,7 +56,7 @@ features/tweet_feed/
 
 File and folder names are snake_case (`tweet_feed_cubit.dart` holds `TweetFeedCubit`), as Effective Dart requires; the `file_names` lint in `flutter_lints` enforces it, so never disable it.
 
-A feature's shape follows its size, for new and rewritten features; an existing feature changes shape in its own issue, never as a side effect of adding a file. `domain/`, `data/` and `presentation/` appear when they have content (a feature with no rules of its own has no `use_cases/`; one that only renders has no `data/`), and their subfolders (`repositories/`, `use_cases/`, `cubits/`, `widgets/`) appear with the second file of their kind, never before. When a layer folder passes about 15 non-test source files, the feature splits by sub-feature, not by layer (`tweet_feed/timeline/`, `tweet_feed/composer/`), each with its own Feature class and `feature_readme.md`, composed by the parent's Feature class, which holds only what every sub-feature uses. `features/` is never grouped into module folders: a parent feature has its own Feature class and readme; a folder holding only child features is a module folder. Why: the full skeleton on a five-file feature hides the code behind its folders, one folder of forty files hides which pieces belong together, and a module layer over the features folder adds a path segment to every import for a grouping that will be wrong once.
+The feature-shape rule is in the standards (Feature folders). Here `domain/`, `data/` and `presentation/` appear when they have content (a feature with no rules of its own has no use case; one that only renders has no `data/`), and their subfolders (`repositories/`, `use_cases/`, `cubits/`, `widgets/`) appear with the second file of their kind: a small feature is `<f>_feature.dart`, `domain/<f>_failure.dart`, `domain/<f>_repository.dart`, `data/<f>_remote_repository.dart`, `presentation/<f>_state.dart`, `presentation/<f>_cubit.dart`, `presentation/<f>_page.dart`; the architecture test keys on the three layer folders, so flat files need no extra mapping. A split looks like `tweet_feed/timeline/`, `tweet_feed/composer/`, each with its own Feature class, composed by the parent's.
 
 ## 3. The Feature class is the composition root
 
@@ -117,7 +117,7 @@ test/
   support/              fakes (RecordingLogger, MapFeatureConfig, fixed repositories, makeTweet) and pumpLocalized (390x844, shipped theme, real dictionaries)
   architecture/         dependency_rule_test.dart: scans lib/ imports against §1 and fails with the offending lines
   application/          i18n parity, validators, page shell at 390/768/1280, shared widgets
-  core/                 entities
+  core/                 entities (domain/) and the document mappers (data/)
   features/<f>/         cubits with expectLater(cubit.stream, emitsInOrder(...)), use cases, repositories against the in-memory adapters, widget tests of each state
   integrations/         the in-memory adapters
 integration_test/
@@ -147,12 +147,12 @@ Before reporting work done: `dart format --set-exit-if-changed lib test integrat
 
 ## 10. Adding a feature
 
-1. `features/<name>/` with `domain/`, `data/`, `presentation/` as needed.
-2. `domain/failures/<name>_failure.dart`: `sealed class XFailure extends Failure` + one subclass per outcome.
-3. `domain/repositories/<name>_repository.dart`: the port, returning `Future<Either<XFailure, T>>`.
-4. `data/remote/<name>_remote_repository.dart`: implement it on an `abstractions/` port; map exceptions to failures, log the unexpected.
-5. `presentation/cubits/<name>_state.dart` (sealed) and `<name>_cubit.dart` (exhaustive switch over the failure).
-6. `presentation/pages/<name>_page.dart`: `BlocProvider` + `BlocConsumer` inside `PageContainer`; copy through `I18n`; keys added to every dictionary.
+1. `features/<name>/` with `domain/`, `data/`, `presentation/` as needed; their subfolders appear with the second file of a kind.
+2. `domain/<name>_failure.dart`: `sealed class XFailure extends Failure` + one subclass per outcome.
+3. `domain/<name>_repository.dart`: the port, returning `Future<Either<XFailure, T>>`.
+4. `data/<name>_remote_repository.dart`: implement it on an `abstractions/` port; map exceptions to failures, log the unexpected.
+5. `presentation/<name>_state.dart` (sealed) and `<name>_cubit.dart` (exhaustive switch over the failure).
+6. `presentation/<name>_page.dart`: `BlocProvider` + `BlocConsumer` inside `PageContainer`; copy through `I18n`; keys added to every dictionary.
 7. `<name>_feature.dart` with `route`, `generateRoutes()`, `navigate()`, `buildPage()`; resolve app-wide services from the injector; build the rest here. Add `feature_readme.md`.
 8. Register `generateRoutes()` in `Application`; link from another feature by passing `navigate` or `build*()`. If toggled, add the key to `FeatureFlags` and gate the entry widget.
 
@@ -189,4 +189,4 @@ Copy into the brief of every review pass for Flutter work:
 9. Tests follow §9; widget tests pump the shipped theme at 390x844; a changed flow has its `integration_test/` file run at both windows and every locale, with screenshots linked.
 10. Files ~300 lines, functions ~40, components ~200, counting no blanks or comments.
 11. File and folder names snake_case; the `file_names` lint is on.
-12. New or rewritten features: a layer folder only from the second file of its kind, a split by sub-feature when a layer folder passes ~15 non-test source files; no module folders over the features folder.
+12. The feature-shape rule in the standards holds: layer subfolders only from the second file of their kind, a split by sub-feature past ~15 files per layer folder, no module folders over `features/`.

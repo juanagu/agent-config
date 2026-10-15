@@ -45,7 +45,7 @@ Enforced by `eslint-plugin-boundaries` (or `dependency-cruiser`) once the repo o
 - Business logic lives outside components (hooks, `lib/`); a component over ~200 lines, or one that both decides and renders, splits into a hook and presentational pieces.
 - Feature code moves to `shared/` only once a second feature imports it.
 
-A feature's shape follows its size, for new and rewritten features; an existing feature changes shape in its own issue, never as a side effect of adding a file. A layer folder appears with the second file of its kind, never before: a small feature is `<feature>-page.tsx`, `use-<feature>.ts`, `<feature>-api.ts` and `routes.ts` beside its readme. When a layer folder passes about 15 non-test source files, the feature splits by sub-feature, not by layer (`billing/checkout/`, `billing/plans/`), each with the layers it needs and its own `feature_readme.md`; the parent holds only what every sub-feature uses and its readme. `features/` is never grouped into module folders: a parent feature has its own readme and shared code; a folder holding only child features is a module folder. Why: the full skeleton on a five-file feature hides the code behind its folders, one folder of forty files hides which pieces belong together, and a module layer over the features folder adds a path segment to every import for a grouping that will be wrong once.
+The feature-shape rule is in the standards (Feature folders). Here a small feature is `<feature>-page.tsx`, `use-<feature>.ts` and a `lib/` beside its readme: `lib/` exists from the start, since every feature has its hrefs and at least one call there, while `components/` and `hooks/` appear with the second file of their kind. A boundaries config declares the flat names as the same element types as the folders (a root `.tsx` is `components/`, `use-*.ts` is `hooks/`). A split looks like `billing/checkout/`, `billing/plans/`, each with its own `lib/`.
 
 ## 2. Chrome, navigation and refresh
 
@@ -96,7 +96,7 @@ Before reporting work done: lint, typecheck, unit tests, the e2e specs the chang
 | --- | --- |
 | A component calling `fetch` | A `server-only` function in the feature's `lib/`, called from the page |
 | One `apiClient` with every backend operation injected everywhere | Narrow functions per feature in its `lib/`; `shared/<backend>` only transports |
-| A five-file feature with `components/`, `hooks/` and `lib/` holding one file each | Flat files until the second of a kind |
+| A five-file feature with `components/` and `hooks/` holding one file each | Flat files until the second of a kind |
 | One `lib/` of forty files across checkout, plans and invoices | Sub-features, each with its own `lib/` |
 | Auth header or nav in the root layout | `app/(app)/layout.tsx` |
 | `router.refresh()` before `router.push()` | Push first, refresh after |
@@ -116,4 +116,4 @@ Before reporting work done: lint, typecheck, unit tests, the e2e specs the chang
 6. Unit tests in vitest, e2e in both Playwright projects, the fake backend validated against the real schema.
 7. Files ~300 lines, functions ~40, components ~200.
 8. File names kebab-case, framework-reserved names excepted; `unicorn/filename-case` green.
-9. New or rewritten features: a layer folder only from the second file of its kind, a split by sub-feature when a layer folder passes ~15 non-test source files; no module folders over the features folder.
+9. The feature-shape rule in the standards holds: `components/` and `hooks/` only from the second file, a split by sub-feature past ~15 files per layer folder, no module folders over `features/`.

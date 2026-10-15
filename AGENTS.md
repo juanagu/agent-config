@@ -69,7 +69,9 @@ Principles drift; these are concrete enough to fail a review or a lint run. Each
 
 ## Feature folders
 
-Organize by feature, not technical type, in every stack — `features/checkout/` holding its own components/hooks, routes/services/repositories, or presentation/domain/data — with cross-feature code in `shared/` or `core/`. The internal layering is stack-specific (see the stack's architecture skill) and grows with the feature: don't add a `domain/` folder to a feature with no real domain logic yet.
+Organize by feature, not technical type, in every stack — `features/checkout/` holding its own components/hooks, routes/services/repositories, or presentation/domain/data — with cross-feature code in `shared/` or `core/`. The internal layering is stack-specific (see the stack's architecture skill).
+
+**A feature's shape follows its size**, for new and rewritten features. A layer folder appears with the second file of its kind, never before. When a layer folder passes about 15 non-test source files, the feature splits by sub-feature, not by layer, each with the layers it needs and its own `feature_readme.md`, the parent holding only what every sub-feature uses plus its readme and composition root. The features folder is never grouped into module folders: a parent feature has its own readme and composition root; a folder holding only child features is a module folder. An existing feature changes shape in its own issue, never as a side effect of adding a file. Each stack's skill names the flat files, the lint element type each stands for, and the split example. Why: the full skeleton on a five-file feature hides the code behind its folders, one folder of forty files hides which pieces belong together, and a module layer over the features folder adds a path segment to every import for a grouping that will be wrong once.
 
 **Every feature folder has a `feature_readme.md`**: purpose, exposed interface (routes, use-cases, exported components/hooks), and key data flow. Create it with the feature; update it when it would otherwise mislead, not on every commit.
 

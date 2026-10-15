@@ -27,7 +27,7 @@ src/
   shared/
     ui/                     primitives (Button, Field, FormErrorMessage, Screen, MessageView, brand mark) with their own feature_readme.md
     theme/                  tokens: colors (light and dark), spacing, radii, type scale; the useTheme hook
-    lib/                    transport only: base URL, auth header, timeout, response parsing, the error envelope, the query client
+    <backend>/              the transport to one backend (`shared/bff` in a BFF-backed app): base URL, auth header, timeout, response parsing, the error envelope, the query client that caches its responses
   i18n/                     one dictionary per locale typed by one Dictionary interface; the t() hook
   flags/                    feature flags: keys, defaults, the one read hook
 ```
@@ -42,12 +42,12 @@ Enforced by `eslint-plugin-boundaries` (or `dependency-cruiser`) once the repo o
 
 - File names are kebab-case (`feed-screen.tsx` exports `FeedScreen`, `use-feed.ts` exports `useFeed`), enforced by `unicorn/filename-case`. Expo Router's reserved names keep their shape (`_layout.tsx`, `index.tsx`, `[id].tsx`, `(app)/`, `+not-found.tsx`), and so does `feature_readme.md`.
 - **Route files are thin.** `app/(app)/feed/[id].tsx` reads its params with `useLocalSearchParams`, validates them, and renders `PostDetailScreen`. No data fetching, no layout, no business logic in `app/`.
-- **Components never fetch.** Reads and mutations are TanStack Query hooks in the feature's `hooks/`, calling narrow functions in its `lib/`; `shared/lib` holds only the transport, the error envelope and the query client. No interface/adapter pair per call: on the client the narrow module is the port.
+- **Components never fetch.** Reads and mutations are TanStack Query hooks in the feature's `hooks/`, calling narrow functions in its `lib/`; `shared/<backend>` holds only the transport, the error envelope and the query client. No interface/adapter pair per call: on the client the narrow module is the port.
 - Validate every external input at the boundary with Zod: API responses in `lib/` (parse, don't cast), route params in the route file, form input through React Hook Form's Zod resolver, deep-link payloads before navigation.
 - Business logic lives outside components (hooks, `lib/`); a component over ~200 lines, or one that both decides and renders, splits into a hook and presentational pieces.
 - Feature code moves to `shared/` only once a second feature imports it.
 
-A feature's shape follows its size, for new and rewritten features; an existing feature changes shape in its own issue, never as a side effect of adding a file. A layer folder appears with the second file of its kind, never before: a small feature is `<feature>-screen.tsx`, `use-<feature>.ts`, `<feature>-api.ts` and `routes.ts` beside its readme and `index.ts`. When a layer folder passes about 15 non-test source files, the feature splits by sub-feature, not by layer (`billing/checkout/`, `billing/plans/`), each with the layers it needs and its own `feature_readme.md`; the parent holds only what every sub-feature uses, its readme and its `index.ts`. `features/` is never grouped into module folders: a parent feature has its own readme and shared code; a folder holding only child features is a module folder. Why: the full skeleton on a five-file feature hides the code behind its folders, one folder of forty files hides which pieces belong together, and a module layer over the features folder adds a path segment to every import for a grouping that will be wrong once.
+The feature-shape rule is in the standards (Feature folders). Here a small feature is `<feature>-screen.tsx`, `use-<feature>.ts` and a `lib/` beside its readme and `index.ts`: `lib/` exists from the start, since every feature has its api, routes, params and query keys there, while `screens/`, `components/` and `hooks/` appear with the second file of their kind. A boundaries config declares the flat names as the same element types as the folders (a root `*-screen.tsx` is `screens/`, another root `.tsx` is `components/`, `use-*.ts` is `hooks/`). A split looks like `billing/checkout/`, `billing/plans/`, each with its own `lib/`.
 
 ## 2. State
 
@@ -115,10 +115,10 @@ Before reporting work done: lint, typecheck, Jest, the Maestro flows the change 
 
 ## 10. Adding a feature
 
-1. `src/features/<name>/` with `screens/`, `components/`, `hooks/`, `lib/` as needed, and `feature_readme.md`.
-2. `lib/<name>-api.ts`: narrow functions over `shared/lib`'s client, each parsing its response with a Zod schema; types exported beside them; `lib/query-keys.ts`; `lib/routes.ts` for every href the feature owns; `lib/params.ts` for the schemas its route files validate params with.
-3. `hooks/use-<name>.ts`: TanStack Query hooks mapping `lib/` errors to the feature's typed error.
-4. `screens/<name>-screen.tsx`: composes `Screen` and `shared/ui` primitives, reads copy through `useT()`; keys added to every dictionary.
+1. `src/features/<name>/` with `lib/`, `index.ts` and `feature_readme.md`; `screens/`, `components/` and `hooks/` appear with the second file of their kind.
+2. `lib/<name>-api.ts`: narrow functions over `shared/<backend>`'s client, each parsing its response with a Zod schema; types exported beside them; `lib/query-keys.ts`; `lib/routes.ts` for every href the feature owns; `lib/params.ts` for the schemas its route files validate params with.
+3. `use-<name>.ts` (in `hooks/` from the second hook): TanStack Query hooks mapping `lib/` errors to the feature's typed error.
+4. `<name>-screen.tsx` (in `screens/` from the second screen): composes `Screen` and `shared/ui` primitives, reads copy through `useT()`; keys added to every dictionary.
 5. `app/(app)/<name>/index.tsx`: validates params, renders the screen; a `_layout.tsx` if the feature is a nested stack. If toggled, add the key to `src/flags/` and gate the route file.
 6. MSW handlers for every new call in `tests/support/msw/`, validated against the contract; a component test per state; a Maestro flow if the path is critical.
 
@@ -138,7 +138,7 @@ Before reporting work done: lint, typecheck, Jest, the Maestro flows the change 
 | `Platform.OS === 'ios' ?` inside a feature component | A primitive in `shared/ui` that owns the platform difference |
 | `FlatList` with an inline `renderItem` arrow capturing state | `FlashList` with a memoised item component |
 | A string literal in a component | `t('feed.empty.title')`; the parity test fails on a missing locale |
-| A five-file feature with `screens/`, `hooks/` and `lib/` holding one file each | Flat files until the second of a kind |
+| A five-file feature with `screens/` and `hooks/` holding one file each | Flat files until the second of a kind |
 | One `lib/` of forty files across checkout, plans and invoices | Sub-features, each with its own `lib/` |
 | `sleep: 3000` in a Maestro flow | `extendedWaitUntil` on a `testID` |
 | An OTA update that includes a native change | A store build; updates are for JS-only changes, with a fingerprint runtime version |
@@ -159,4 +159,4 @@ Copy into the brief of every review pass for React Native work:
 9. Tests follow §9: component tests by behaviour through MSW handlers validated against the contract; a changed critical flow has its Maestro flow run on iOS and Android in every locale, with screenshots linked.
 10. Files ~300 lines, functions ~40, components ~200, counting no blanks or comments; lint, typecheck, `expo-doctor` green with no new baseline entries.
 11. File names kebab-case; Expo Router's reserved names and `feature_readme.md` kept.
-12. New or rewritten features: a layer folder only from the second file of its kind, a split by sub-feature when a layer folder passes ~15 non-test source files; no module folders over the features folder.
+12. The feature-shape rule in the standards holds: `screens/`, `components/` and `hooks/` only from the second file, a split by sub-feature past ~15 files per layer folder, no module folders over `features/`.
