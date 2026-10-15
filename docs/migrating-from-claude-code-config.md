@@ -1,6 +1,6 @@
 # Migrating from claude-code-config
 
-`juanagu/claude-code-config` was the Claude Code-only ancestor of this repo. It is archived; this repo is where changes land. Everything it had is here, in a different place:
+`juanagu/claude-code-config` was the Claude Code-only ancestor of this repo. It is deprecated and frozen; this repo is where changes land. Everything it had is here, in a different place:
 
 | In claude-code-config | Here |
 | --- | --- |
