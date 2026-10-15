@@ -29,13 +29,13 @@ src/
     adapters/               Mongo repositories, clients for other services, over the shared transport; the document types beside their repositories, and the seeds and migrations
     data/                   static reference data (catalogues, presets), importing only `domain/`, `shared/domain` and `shared/data` types; not the `data/` layer of the Android and Flutter skills
     jobs/                   BullMQ queue, processor, worker
-    testing/                in-memory fakes of the feature's ports; the public surface for other features' tests
+    testing/                in-memory fakes of the feature's ports; another feature imports them from its tests only
     feature_readme.md
 ```
 
 File names are kebab-case: `adapters/http-core-api-auth.ts` exports `HttpCoreApiAuth`, `service/complete-google-sign-in.ts` exports `completeGoogleSignIn`, tests keep the dotted suffix (`bullmq-account-jobs.redis.test.ts`). ESLint enforces it with `unicorn/filename-case` (`kebabCase`).
 
-A feature's shape follows its size, for new and rewritten features; an existing feature changes shape in its own issue, never as a side effect of adding a file. A layer folder appears with the second file of its kind, never before: a small feature is `create-<feature>.ts`, `routes.ts`, `controller.ts`, `service.ts`, `port.ts`, `mongo-<feature>.ts` or `http-<upstream>.ts`, `domain.ts` side by side, each file standing for the row its name says in the table below; a boundaries config declares the flat names as the same element types as the folders (`service.ts` is `service/`; `mongo-*.ts`, `http-*.ts`, `seed-*.ts` and `migrate-*.ts` are `adapters/`; `data.ts` is `data/`; `jobs/` is a folder from the start, since a job is a queue, a processor and a worker). When a layer folder passes about 15 files (non-test source files, not counting `testing/` or the readme), the feature splits by sub-feature, not by layer: `billing/checkout/`, `billing/subscriptions/`, `billing/webhooks/`, each with the layers it needs and its own `feature_readme.md`. For the table a sub-feature is a feature: "own" is the sub-feature plus the parent's `domain/`, a sibling is "another feature" reached through its public surface, and the parent holds only the `domain/` types and rules every sub-feature uses plus the `create-<feature>.ts` that composes them. `features/` itself stays flat: which features form a bounded context is recorded in the feature map and each readme, not in a module folder. No pass-through `service/` that only forwards. A plugin's options name the feature's port type, never a client with every operation in the system. Why: the full skeleton on a ten-file feature hides the code behind seven folders, one `adapters/` of twenty-five files hides which belong together, and a module layer over `features/` adds a path segment to every import for a grouping that will be wrong once.
+A feature's shape follows its size, for new and rewritten features; an existing feature changes shape in its own issue, never as a side effect of adding a file. A layer folder appears with the second file of its kind, never before: a small feature is `create-<feature>.ts`, `routes.ts`, `controller.ts`, `service.ts`, `port.ts`, `mongo-<feature>.ts` or `http-<upstream>.ts`, `domain.ts` side by side, each file standing for the row its name says in the table below; a boundaries config declares the flat names as the same element types as the folders (`domain.ts` is `domain/`, `port.ts` is `ports/`, `service.ts` is `service/`; `mongo-*.ts`, `http-*.ts`, `seed-*.ts` and `migrate-*.ts` are `adapters/`; `data.ts` is `data/`; `fake-*.ts` is `testing/`; `jobs/` is a folder from the start, since a job is a queue, a processor and a worker). When a layer folder passes about 15 files (non-test source files, not counting `testing/`, seeds, migrations or the readme), the feature splits by sub-feature, not by layer: `billing/checkout/`, `billing/subscriptions/`, `billing/webhooks/`, each with the layers it needs and its own `feature_readme.md`. For the table a sub-feature is a feature: "own" is the sub-feature plus the parent's `domain/`, a sibling is "another feature" reached through its public surface, and the parent holds only the `domain/` types and rules every sub-feature uses, its readme, and the `create-<feature>.ts` that composes the sub-features' plugins for `app.ts`. That is also the test against a module folder: a parent has its own `domain/` and composition root; a folder holding only child features is a module folder. `features/` itself stays flat: which features form a bounded context is recorded in the feature map and each readme, not in a module folder. No pass-through `service/` that only forwards. A plugin's options name the feature's port type, never a client with every operation in the system. Why: the full skeleton on a ten-file feature hides the code behind seven folders, one `adapters/` of twenty-five files hides which belong together, and a module layer over `features/` adds a path segment to every import for a grouping that will be wrong once.
 
 Where the types live:
 
@@ -58,13 +58,14 @@ The dependency rule as a table. A row imports only the ticked columns; "own" mea
 | `routes.ts` | ✓ | | ✓ | | ✓ | | ✓ | | ✓ | |
 | `adapters/` | ✓ | ✓ | ✓ | | | ✓ | ✓ | ✓ | ✓ | public surface |
 | `jobs/` | ✓ | ✓ | ✓ | ✓ | | ✓ | ✓ | ✓ | ✓ | public surface |
-| `testing/` | ✓ | | ✓ | | | | ✓ | | | its tests only |
+| `testing/` | ✓ | | ✓ | | | | ✓ | | | |
 | `shared/domain` | | | | | | | ✓ | | | |
 | `shared/data` | | | | | | | ✓ | ✓ | | |
 | `shared/adapters` | | | | | | | ✓ | ✓ | ✓ | |
-| `app.ts`, `create-<feature>.ts` | everything | | | | | | | | | |
+| `create-<feature>.ts` | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | public surface |
+| `app.ts` | every `create-<feature>.ts` and `shared/adapters` | | | | | | | | | |
 
-`routes.ts` imports its controller, the port type its plugin options name, and `shared/adapters` to register hooks and the envelope; a controller never reaches `shared/adapters`, it throws typed errors and calls its use-case or port. `testing/` fakes implement the feature's ports; another feature imports them only from its tests, and they are not otherwise public surface.
+`routes.ts` imports its controller, the port type its plugin options name, and `shared/adapters` to register hooks and the envelope; a controller never reaches `shared/adapters`, it throws typed errors and calls its use-case or port. `testing/` fakes implement the feature's ports; another feature's tests may import them without the readme listing them, and nothing else outside the feature may.
 
 ## 2. Rules that fail a review
 
@@ -75,7 +76,7 @@ The dependency rule as a table. A row imports only the ticked columns; "own" mea
 - Config and secrets from env vars; `.env` ignored, `.env.example` committed with keys and no values.
 - Logging is structured (the Fastify logger), never `console.log`, never secrets or PII.
 - Session checks make zero network calls; a stateless service verifies the request on its own.
-- In a new or rewritten feature, a layer folder appears with the second file of its kind, never before, and a layer folder over about 15 files means the feature splits by sub-feature; `features/` is never grouped into module folders.
+- In a new or rewritten feature, a layer folder appears with the second file of its kind, never before, and a layer folder over about 15 files means the feature splits by sub-feature; `features/` is never grouped into module folders (a parent feature has its own `domain/`, readme and `create-<feature>.ts`; a folder holding only child features is a module folder).
 - `shared/` holds no repository and no use-case: code two features need that reads or writes a collection is a feature of its own with a public surface.
 - A domain type carries no field that no use-case reads, and a domain file never describes itself as a document, a collection or a row: storage shapes are the adapter's, wire shapes the route schema's.
 - A service module exports one use-case function, with its own input and result types. A service class, where a repo already has them, exposes at most about eight public methods; past that it holds several use-cases: a new use-case goes in its own `service/<use-case>.ts` beside it, and the split is an issue, never a side effect of adding a method. One reason to change per module is the principle; the method count is what a review can check.

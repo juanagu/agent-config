@@ -35,7 +35,8 @@
         "Flags InvitesController.ts as violating kebab-case file naming",
         "Flags the repository reading the billing service's database directly",
         "Flags domain/invite.ts as the Mongo document (`_id: ObjectId`, 'document shape'): the entity holds what use-cases read, the document type lives beside the repository, and the repository maps the document to the entity instead of returning the collection type",
-        "Flags shared/adapters/metering/mongo-seat-usage-repository.ts: shared/ holds no repository; seat usage read by two features is a feature of its own with a public surface"
+        "Flags shared/adapters/metering/mongo-seat-usage-repository.ts: shared/ holds no repository; seat usage read by two features is a feature of its own with a public surface",
+        "Flags the new invites feature's one-file layer folders (domain/invite.ts, service/invite-service.ts): in a new feature a layer folder appears with the second file of its kind"
       ]
     }
   ],
