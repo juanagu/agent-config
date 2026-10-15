@@ -93,3 +93,21 @@ new file mode 100644
 +}
 +
 +export const sendInviteEmailQueueOptions = { attempts: 5 };
+diff --git a/src/features/invites/domain/invite.ts b/src/features/invites/domain/invite.ts
+new file mode 100644
+--- /dev/null
++++ b/src/features/invites/domain/invite.ts
+@@ -0,0 +1,13 @@
++import type { ObjectId } from "mongodb";
++
++/** The invite document shape, as stored in the invites collection. */
++export interface Invite {
++  _id: ObjectId;
++  workspaceId: string;
++  email: string;
++  role: string;
++  token: string;
++  acceptedAt?: Date;
++  createdAt: Date;
++  updatedAt: Date;
++}
