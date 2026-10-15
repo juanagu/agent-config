@@ -24,7 +24,7 @@ Apply the **Structure rules** in `AGENTS.md` to every file you touch. The full l
 - Every route validates input and output with a schema. Errors are thrown typed and mapped by the one central handler; envelope shapes are contracts.
 - Each feature's `ports/` declares only the calls it makes; a plugin receives that narrow type, never a client with every operation.
 - A service owns one bounded context and its own database; a BFF owns no source-of-truth data.
-- Only repositories import the driver; queries never come from raw input.
+- Only `adapters/` imports the driver (repositories, and the seeds and migrations beside them); queries never come from raw input.
 - Job processors are idempotent, validate their payload and have an explicit retry policy.
 
 ## Before calling it done

@@ -63,14 +63,15 @@ diff --git a/src/features/invites/adapters/mongo-invite-repository.ts b/src/feat
 new file mode 100644
 --- /dev/null
 +++ b/src/features/invites/adapters/mongo-invite-repository.ts
-@@ -0,0 +1,14 @@
+@@ -0,0 +1,15 @@
 +import type { Db } from "mongodb";
++import type { Invite } from "../domain/invite";
 +
 +export class MongoInviteRepository {
 +  constructor(private readonly db: Db, private readonly billingDb: Db) {}
 +
-+  async findByToken(token: string) {
-+    return this.db.collection("invites").findOne({ token });
++  async findByToken(token: string): Promise<Invite | null> {
++    return this.db.collection<Invite>("invites").findOne({ token });
 +  }
 +
 +  async workspacePlan(workspaceId: string) {
@@ -93,3 +94,21 @@ new file mode 100644
 +}
 +
 +export const sendInviteEmailQueueOptions = { attempts: 5 };
+diff --git a/src/features/invites/domain/invite.ts b/src/features/invites/domain/invite.ts
+new file mode 100644
+--- /dev/null
++++ b/src/features/invites/domain/invite.ts
+@@ -0,0 +1,13 @@
++import type { ObjectId } from "mongodb";
++
++/** The invite document shape, as stored in the invites collection. */
++export interface Invite {
++  _id: ObjectId;
++  workspaceId: string;
++  email: string;
++  role: string;
++  token: string;
++  acceptedAt?: Date;
++  createdAt: Date;
++  updatedAt: Date;
++}
