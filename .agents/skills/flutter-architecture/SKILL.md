@@ -56,7 +56,7 @@ features/tweet_feed/
 
 File and folder names are snake_case (`tweet_feed_cubit.dart` holds `TweetFeedCubit`), as Effective Dart requires; the `file_names` lint in `flutter_lints` enforces it, so never disable it.
 
-The feature-shape rule is in the standards (Feature folders). Here `domain/`, `data/` and `presentation/` appear when they have content (a feature with no rules of its own has no use case; one that only renders has no `data/`), and their subfolders (`repositories/`, `use_cases/`, `cubits/`, `widgets/`) appear with the second file of their kind: a small feature is `<f>_feature.dart`, `domain/<f>_failure.dart`, `domain/<f>_repository.dart`, `data/<f>_remote_repository.dart`, `presentation/<f>_state.dart`, `presentation/<f>_cubit.dart`, `presentation/<f>_page.dart`; the architecture test keys on the three layer folders, so flat files need no extra mapping. A split looks like `tweet_feed/timeline/`, `tweet_feed/composer/`, each with its own Feature class, composed by the parent's.
+The feature-shape rule is in the standards (Feature folders). Here `domain/`, `data/` and `presentation/` appear when they have content (a feature with no rules of its own has no use case; one that only renders has no `data/`), and every subfolder the tree above shows (`failures/`, `repositories/`, `use_cases/`, `entities/`, `remote/`, `cubits/`, `pages/`, `widgets/`, `mappers/`, `models/`) appears with the second file of its kind, the tree being a feature at full size: a small feature is `<f>_feature.dart`, `domain/<f>_failure.dart`, `domain/<f>_repository.dart`, `data/<f>_remote_repository.dart`, `presentation/<f>_state.dart`, `presentation/<f>_cubit.dart`, `presentation/<f>_page.dart`; the architecture test keys on the three layer folders, so flat files need no extra mapping. A split looks like `tweet_feed/timeline/`, `tweet_feed/composer/`, each with its own Feature class, composed by the parent's.
 
 ## 3. The Feature class is the composition root
 
@@ -115,7 +115,7 @@ class TweetFeedFeature {
 ```
 test/
   support/              fakes (RecordingLogger, MapFeatureConfig, fixed repositories, makeTweet) and pumpLocalized (390x844, shipped theme, real dictionaries)
-  architecture/         dependency_rule_test.dart: scans lib/ imports against §1 and fails with the offending lines
+  architecture/         dependency_rule_test.dart: scans lib/ imports against §1, `core/data/` allowed only from a feature's `data/`, and fails with the offending lines
   application/          i18n parity, validators, page shell at 390/768/1280, shared widgets
   core/                 entities (domain/) and the document mappers (data/)
   features/<f>/         cubits with expectLater(cubit.stream, emitsInOrder(...)), use cases, repositories against the in-memory adapters, widget tests of each state

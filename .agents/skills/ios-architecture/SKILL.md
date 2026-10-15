@@ -55,7 +55,7 @@ Packages/Features/Feed/Tests/FeedTests/
 
 - File names are PascalCase after the one primary type they hold (`FeedViewModel.swift`), one type per file; an extension file is `Post+Formatting.swift`. SwiftLint's `file_name` rule enforces it.
 - A feature's public surface is its `<Name>Feature` type (§3) and its route value. Other features never import its views, view models or repositories.
-- The feature-shape rule is in the standards (Feature folders). Here `Domain/`, `Data/` and `Presentation/` appear when they have content (a feature with no rules of its own has no `UseCase`; one that only renders has no `Data/`), and `Components/` appears with the second view of its kind; the import-scanning test keys on the package, so flat files need no extra mapping. A split looks like `Feed/Timeline`, `Feed/Composer`, each a target with its own `<Name>Feature` type, composed by the parent's.
+- The feature-shape rule is in the standards (Feature folders). Here `Domain/`, `Data/` and `Presentation/` appear when they have content (a feature with no rules of its own has no `UseCase`; one that only renders has no `Data/`), and `Components/` appears with the second view of its kind; Swift targets are the lint element types, so flat files need no mapping. A split looks like `Feed/Timeline`, `Feed/Composer`, each a target with its own `<Name>Feature` type, composed by the parent's.
 
 ## 3. The Feature type is the composition root
 

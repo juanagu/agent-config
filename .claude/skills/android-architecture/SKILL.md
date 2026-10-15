@@ -71,7 +71,7 @@ feature/feed/src/screenshotTest/ (or src/test/ with Roborazzi)  one screenshot t
 
 - File names are PascalCase after the one top-level declaration they hold (`FeedViewModel.kt` holds `FeedViewModel`; `FeedScreen.kt` holds the screen's composables), as the Kotlin coding conventions require. A file of extensions is named for what it extends (`StringExtensions.kt`).
 - A feature's public surface is its `NavKey`(s) and its entry-provider extension. Other features never import its screen or ViewModel; `app` wires the keys into the back stack.
-- The feature-shape rule is in the standards (Feature folders). Here a feature that only renders has no `UiState` beyond its parameters and no ViewModel; `components/` appears with the second composable of its kind, while `navigation/` holds its one file from the start, since the key and the entry extension are the public surface. Past about 15 components the surface splits into feature modules by screen or embeddable surface; `feature/` stays one level, never a module that only groups modules.
+- The feature-shape rule is in the standards (Feature folders). Here a feature that only renders has no `UiState` beyond its parameters and no ViewModel; `components/` appears with the second composable of its kind, while `navigation/` holds its one file from the start, since the key and the entry extension are the public surface. Past about 15 non-test source files in `components/`, the surface splits into sibling feature modules (`feature:feed`, `feature:feed-composer`), each with its own readme and wired in `app`; there is no parent module, so `feature/` stays one level. Gradle modules and packages are the lint element types, so no flat-file mapping is needed.
 
 ## 3. Unidirectional data flow
 
@@ -186,4 +186,4 @@ Copy into the brief of every review pass for Android work:
 9. Tests follow §10: ViewModel states through Turbine with fakes; screenshot tests per state at phone and tablet, light and dark, every locale, references reviewed; a changed critical flow has its instrumented test run on the managed device, with screenshots linked.
 10. Files ~300 lines, functions ~40 (detekt `LongMethod`), composables ~200, counting no blanks or comments; `ktlint`, `detekt` and Android Lint green with no new baseline entries.
 11. File names PascalCase after the one top-level declaration; test files `<Name>Test.kt`.
-12. The feature-shape rule in the standards holds: `components/` only from the second composable, a split into feature modules past ~15 components, `feature/` one level deep.
+12. The feature-shape rule in the standards holds: `components/` only from the second composable, a split into sibling feature modules past ~15 files in `components/`, `feature/` one level deep.

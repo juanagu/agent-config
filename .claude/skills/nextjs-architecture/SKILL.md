@@ -29,7 +29,8 @@ src/
 | From | May import |
 | --- | --- |
 | `app/` | a feature only through the exports its `feature_readme.md` lists (its page-level components, server reads, `lib/routes.ts`), `shared/`, `i18n/` |
-| `features/<f>/components/` | its own feature's `components/`, `hooks/` and `lib/` types and routes, `shared/ui`, `shared/<topic>`, `i18n/`; never the transport |
+| `features/<f>/*-page.tsx` | its own feature, `lib/` server reads included, `shared/`, `i18n/` |
+| `features/<f>/components/` | its own feature's `components/`, `hooks/` and `lib/` (types, routes, client mutations; never a server read, which the page composes), `shared/ui`, `shared/<topic>`, `i18n/`; never the transport |
 | `features/<f>/hooks/`, `features/<f>/lib/` | its own feature, `shared/`, `i18n/`, and another feature **only** through the exports its `feature_readme.md` lists |
 | `shared/`, `i18n/` | `shared/`, `i18n/`, never a feature |
 | `proxy.ts` | `shared/`, `i18n/`, and the auth feature's exposed interface (its hrefs and the session validator) |
@@ -45,7 +46,7 @@ Enforced by `eslint-plugin-boundaries` (or `dependency-cruiser`) once the repo o
 - Business logic lives outside components (hooks, `lib/`); a component over ~200 lines, or one that both decides and renders, splits into a hook and presentational pieces.
 - Feature code moves to `shared/` only once a second feature imports it.
 
-The feature-shape rule is in the standards (Feature folders). Here a small feature is `<feature>-page.tsx`, `use-<feature>.ts` and a `lib/` beside its readme: `lib/` exists from the start, since every feature has its hrefs and at least one call there, while `components/` and `hooks/` appear with the second file of their kind. A boundaries config declares the flat names as the same element types as the folders (a root `.tsx` is `components/`, `use-*.ts` is `hooks/`). A split looks like `billing/checkout/`, `billing/plans/`, each with its own `lib/`.
+The feature-shape rule is in the standards (Feature folders). Here a small feature is `<feature>-page.tsx`, `use-<feature>.ts` and a `lib/` beside its readme: `lib/` exists from the start, since every feature has its hrefs and at least one call there, while `components/` and `hooks/` appear with the second file of their kind. A boundaries config declares the flat names as the same element types as the folders (a root `*-page.tsx` is a page, any other root `.tsx` is `components/`, `use-*.ts` is `hooks/`; an `index.ts`, where the repo uses one, is the public surface; test files are exempt). A split looks like `billing/checkout/`, `billing/plans/`, each with its own `lib/`.
 
 ## 2. Chrome, navigation and refresh
 
