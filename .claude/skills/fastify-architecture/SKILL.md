@@ -18,27 +18,28 @@ src/
   shared/                   cross-feature code, layered like a feature; never imports a feature
     domain/<topic>/         types and pure rules any feature may import: error base classes, identity, time, LLM types; imports nothing but itself
     data/                   reference data two or more features read, typed by shared/domain
-    adapters/<topic>/       infrastructure: Mongo client and index helpers, Redis, queues, transport, caller identity, the error envelope, logger, session codec
+    adapters/<topic>/       infrastructure only: Mongo client and index helpers, Redis connection, queue plumbing, transport, caller identity, the error envelope, logger, session codec; never a repository or a use-case, which belong to a feature with a public surface
   features/<feature>/
+    create-<feature>.ts     the feature's composition root: builds adapters, use-cases and the controller for app.ts
     routes.ts               registration + schemas only (schemas.ts once they grow); a plugin whose body only registers routes
     controller.ts           handlers: read validated input → call a use-case → shape the reply
     service/                use-cases, framework-free
     domain/                 entity types and the rules over them, when there are real ones
     ports/                  interfaces the use-cases depend on, only the operations this feature uses, with their request/response types
     adapters/               Mongo repositories, clients for other services, over the shared transport; the document types beside their repositories, and the seeds and migrations
-    data/                   static reference data (catalogues, presets), importing only `domain/` types; not the `data/` layer of the Android and Flutter skills
+    data/                   static reference data (catalogues, presets), importing only `domain/` and `shared/domain` types; not the `data/` layer of the Android and Flutter skills
     jobs/                   BullMQ queue, processor, worker
     feature_readme.md
 ```
 
 File names are kebab-case: `adapters/http-core-api-auth.ts` exports `HttpCoreApiAuth`, `service/complete-google-sign-in.ts` exports `completeGoogleSignIn`, tests keep the dotted suffix (`bullmq-account-jobs.redis.test.ts`). ESLint enforces it with `unicorn/filename-case` (`kebabCase`).
 
-A feature's shape follows its size. Under about 15 source files it is flat: `routes.ts`, `controller.ts`, `service.ts`, `port.ts`, `mongo-<feature>.ts`, `domain.ts` side by side, and a folder appears with the second file of its kind. When a layer folder passes about 15 files, the feature splits by sub-feature, not by layer: `billing/checkout/`, `billing/subscriptions/`, `billing/webhooks/`, each with the layers it needs and its own `feature_readme.md`, the parent holding only what every sub-feature shares. `features/` itself stays flat: which features form a bounded context is recorded in the feature map and each readme, not in a module folder. No pass-through `service/` that only forwards. A plugin's options name the feature's port type, never a client with every operation in the system. Why: the full skeleton on a ten-file feature hides the code behind seven folders, one `adapters/` of twenty-five files hides which belong together, and a module layer over `features/` adds a path segment to every import for a grouping that will be wrong once.
+A feature's shape follows its size, for new and rewritten features; an existing feature changes shape in its own issue, never as a side effect of adding a file. A layer folder appears with the second file of its kind, never before: a small feature is `routes.ts`, `controller.ts`, `service.ts`, `port.ts`, `mongo-<feature>.ts`, `domain.ts` side by side, each file standing for the row its name says in the table below (review checks a flat feature; lint takes over once the folders exist). When a layer folder passes about 15 files (non-test source files, not counting `testing/` or the readme), the feature splits by sub-feature, not by layer: `billing/checkout/`, `billing/subscriptions/`, `billing/webhooks/`, each with the layers it needs and its own `feature_readme.md`, the parent holding only what every sub-feature shares. `features/` itself stays flat: which features form a bounded context is recorded in the feature map and each readme, not in a module folder. No pass-through `service/` that only forwards. A plugin's options name the feature's port type, never a client with every operation in the system. Why: the full skeleton on a ten-file feature hides the code behind seven folders, one `adapters/` of twenty-five files hides which belong together, and a module layer over `features/` adds a path segment to every import for a grouping that will be wrong once.
 
 Where the types live:
 
 - `domain/` imports only its own `domain/` and `shared/domain`: no driver, no Fastify, no adapter, no `data/`. Where the repo runs `eslint-plugin-boundaries`, each row of the table below is an element type whose rule allows the ticked columns.
-- `data/` imports only `domain/` types. Use-cases in `service/` and the seeds in `adapters/` read it directly, as constants, never through a port; a domain rule gets the values handed to it.
+- `data/` imports only `domain/`, `shared/domain` and `shared/data` types. Use-cases in `service/` and the seeds in `adapters/` read it directly, as constants, never through a port; a domain rule gets the values handed to it.
 - The document type (`UserDocument`) lives beside its repository and holds `_id`, timestamps the database sets, leases, claims and schema versions. One function maps a full document to the entity, whose `id` comes from `_id`; a projected read returns the port's own response type, declared in `ports/`.
 - A timestamp a rule reads (a retention window, an abandonment cutoff) is an entity field; one nothing reads stays on the document.
 
@@ -46,17 +47,22 @@ Why: a domain folder of bare shapes that mirror the collection is a data layer u
 
 The dependency rule as a table. A row imports only the ticked columns; "own" means the same feature; another feature only through its public surface (the exports its `feature_readme.md` lists).
 
-| imports → | own `domain/` | own `data/` | own `ports/` | own `adapters/` | `shared/domain` | `shared/data` | `shared/adapters` | another feature |
-| --- | --- | --- | --- | --- | --- | --- | --- | --- |
-| `domain/` | ✓ | | | | ✓ | | | |
-| `data/` | ✓ | | | | ✓ | ✓ | | |
-| `service/` | ✓ | ✓ | ✓ | | ✓ | ✓ | | public surface |
-| `routes.ts`, `controller.ts` | ✓ | | ✓ | | ✓ | | ✓ | |
-| `adapters/`, `jobs/` | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | public surface |
-| `shared/domain` | | | | | ✓ | | | |
-| `shared/data` | | | | | ✓ | ✓ | | |
-| `shared/adapters` | | | | | ✓ | ✓ | ✓ | |
-| `app.ts` and the `create-<feature>.ts` composition roots | everything | | | | | | | |
+| imports → | own `domain/` | own `data/` | own `ports/` | own `service/` | own `adapters/` | `shared/domain` | `shared/data` | `shared/adapters` | another feature |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| `domain/` | ✓ | | | | | ✓ | | | |
+| `data/` | ✓ | | | | | ✓ | ✓ | | |
+| `ports/` | ✓ | | | | | ✓ | | | |
+| `service/` | ✓ | ✓ | ✓ | | | ✓ | ✓ | | public surface |
+| `controller.ts` | ✓ | | ✓ | ✓ | | ✓ | | | |
+| `routes.ts` (and its controller) | ✓ | | | | | ✓ | | ✓ | |
+| `adapters/` | ✓ | ✓ | ✓ | | ✓ | ✓ | ✓ | ✓ | public surface |
+| `jobs/` | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | public surface |
+| `shared/domain` | | | | | | ✓ | | | |
+| `shared/data` | | | | | | ✓ | ✓ | | |
+| `shared/adapters` | | | | | | ✓ | ✓ | ✓ | |
+| `app.ts`, `create-<feature>.ts` | everything | | | | | | | | |
+
+`routes.ts` reaches `shared/adapters` to register hooks and the envelope; a controller never does, it throws typed errors and calls its use-case or port.
 
 ## 2. Rules that fail a review
 
@@ -67,7 +73,8 @@ The dependency rule as a table. A row imports only the ticked columns; "own" mea
 - Config and secrets from env vars; `.env` ignored, `.env.example` committed with keys and no values.
 - Logging is structured (the Fastify logger), never `console.log`, never secrets or PII.
 - Session checks make zero network calls; a stateless service verifies the request on its own.
-- A feature under about 15 source files has no layer folders, and a layer folder over about 15 files means the feature splits by sub-feature; `features/` is never grouped into module folders.
+- In a new or rewritten feature, a layer folder appears with the second file of its kind, never before, and a layer folder over about 15 files means the feature splits by sub-feature; `features/` is never grouped into module folders.
+- `shared/` holds no repository and no use-case: code two features need that reads or writes a collection is a feature of its own with a public surface.
 - A domain type carries no field that no use-case reads, and a domain file never describes itself as a document, a collection or a row: storage shapes are the adapter's, wire shapes the route schema's.
 - A service module exports one use-case function, with its own input and result types. A service class, where a repo already has them, exposes at most about eight public methods; past that it holds several use-cases: a new use-case goes in its own `service/<use-case>.ts` beside it, and the split is an issue, never a side effect of adding a method. One reason to change per module is the principle; the method count is what a review can check.
 
@@ -83,7 +90,7 @@ The dependency rule as a table. A row imports only the ticked columns; "own" mea
 
 ## 4. MongoDB
 
-- Only `adapters/` imports the driver or ODM: repositories, and the seeds and migrations beside them. Explicit schema validation (Mongoose, Zod or JSON Schema). The document type and its mapping: §1.
+- Only `adapters/`, or a flat feature's `mongo-<feature>.ts`, imports the driver or ODM: repositories, and the seeds and migrations beside them. Explicit schema validation (Mongoose, Zod or JSON Schema). The document type and its mapping: §1.
 - Projections instead of full documents; index the fields you query or sort on and say so in the repository.
 - Never build queries from unsanitized user input (operator injection).
 - One logical database per service.
@@ -122,7 +129,7 @@ Before reporting work done: lint, typecheck, unit and fast integration tests, a 
 | One `PostService` with twenty public methods: reads, transitions, claims, events | One module per use-case under `service/`, each exporting one function over the ports it needs |
 | A ten-file feature with seven layer folders | Flat files until the second of a kind |
 | One `adapters/` of twenty-five files across checkout, plans and webhooks | Sub-features, each with the layers it needs |
-| `shared/metering` holding a calendar rule and two Mongo repositories | `shared/domain/metering` and `shared/adapters/metering` |
+| `shared/metering` holding a calendar rule and two Mongo repositories | A `metering` feature with a public surface; `shared/` keeps only the connection plumbing |
 | A processor that re-sends on retry | Dedupe key or an idempotent write |
 | Logging the request body with credentials | Structured log of ids and outcomes only |
 
@@ -132,9 +139,9 @@ Before reporting work done: lint, typecheck, unit and fast integration tests, a 
 2. Every route has input and output schemas.
 3. Errors thrown as typed errors and mapped centrally; envelope shapes unchanged unless the issue says so.
 4. Each feature's `ports/` declares only what it uses; plugins receive the narrow port type.
-5. Only `adapters/` touches the driver (repositories, seeds, migrations); queries never built from raw input.
+5. Only `adapters/`, or a flat feature's `mongo-<feature>.ts`, touches the driver (repositories, seeds, migrations); `shared/` holds no repository; queries never built from raw input.
 6. Jobs are idempotent with explicit retry policy and payload validation.
 7. Tests: unit with mocked ports, repositories against a real MongoDB, routes via `inject`, jobs against real Redis.
 8. Files ~300 lines, functions ~40; a new use-case is one function per module, an existing service class ~8 public methods; a routes plugin that only registers is exempt.
 9. File names kebab-case, test suffixes dotted; `unicorn/filename-case` green.
-10. Feature shape fits its size: flat under ~15 source files, split by sub-feature when a layer folder passes ~15; no module folders over `features/`.
+10. New or rewritten features: a layer folder only from the second file of its kind, a split by sub-feature when a layer folder passes ~15 files; no module folders over `features/`.

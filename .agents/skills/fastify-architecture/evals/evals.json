@@ -22,7 +22,7 @@
       "id": 2,
       "name": "review-planted-violations",
       "prompt": "Review this PR diff for our core-api service before I merge it. Be specific about what to change. The diff is in files/review.diff.",
-      "expected_output": "A review that flags: inline error-to-status mapping in the controller, request.body used without a schema, the adapter returning { ok, status }, the non-idempotent email processor, console.log of the body with the password, the PascalCase file name, the cross-service database read, and the domain entity typed as the Mongo document.",
+      "expected_output": "A review that flags: inline error-to-status mapping in the controller, request.body used without a schema, the adapter returning { ok, status }, the non-idempotent email processor, console.log of the body with the password, the PascalCase file name, the cross-service database read, the domain entity typed as the Mongo document, and a Mongo repository placed under shared/.",
       "files": [
         "evals/files/review.diff"
       ],
@@ -34,7 +34,8 @@
         "Flags console.log of the request body, which can carry a password",
         "Flags InvitesController.ts as violating kebab-case file naming",
         "Flags the repository reading the billing service's database directly",
-        "Flags domain/invite.ts as the Mongo document (`_id: ObjectId`, 'document shape'): the entity holds what use-cases read, the document type lives beside the repository, and the repository maps the document to the entity instead of returning the collection type"
+        "Flags domain/invite.ts as the Mongo document (`_id: ObjectId`, 'document shape'): the entity holds what use-cases read, the document type lives beside the repository, and the repository maps the document to the entity instead of returning the collection type",
+        "Flags shared/metering/mongo-seat-usage-repository.ts: shared/ holds no repository; seat usage read by two features is a feature of its own with a public surface"
       ]
     }
   ],

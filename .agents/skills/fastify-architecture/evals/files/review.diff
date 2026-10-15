@@ -112,3 +112,18 @@ new file mode 100644
 +  createdAt: Date;
 +  updatedAt: Date;
 +}
+diff --git a/src/shared/metering/mongo-seat-usage-repository.ts b/src/shared/metering/mongo-seat-usage-repository.ts
+new file mode 100644
+--- /dev/null
++++ b/src/shared/metering/mongo-seat-usage-repository.ts
+@@ -0,0 +1,10 @@
++import type { Db } from "mongodb";
++
++// Shared so invites and billing can both count seats without a hop.
++export class MongoSeatUsageRepository {
++  constructor(private readonly db: Db) {}
++
++  async countActive(workspaceId: string): Promise<number> {
++    return this.db.collection("seat_usage").countDocuments({ workspaceId, active: true });
++  }
++}
