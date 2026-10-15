@@ -1,28 +1,32 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { spawnSync } from "node:child_process";
-import { fileURLToPath, pathToFileURL } from "node:url";
 
-const envModule = pathToFileURL(fileURLToPath(new URL("../scripts/install/env.mjs", import.meta.url))).href;
+const envModule = new URL("../scripts/install/env.mjs", import.meta.url).href;
 
-// Node's DEP0190 warning (args passed to a child process with shell: true) fires on the tick
-// after the spawn, so the probe runs in a child that waits a tick, with the warning fatal.
-function probeInChild(name) {
-  const script = `import { hasCommand } from ${JSON.stringify(envModule)};
-const found = hasCommand(${JSON.stringify(name)});
-await new Promise((resolve) => setTimeout(resolve, 0));
-console.log(found);`;
-  return spawnSync(process.execPath, ["--throw-deprecation", "--input-type=module", "-e", script], { encoding: "utf8" });
-}
+// DEP0190 (args passed to a child process with shell: true) is a runtime warning from Node 24;
+// --throw-deprecation turns it into a crash, so each probe runs in a child of its own.
+const warnsOnShellArgs = Number(process.versions.node.split(".")[0]) >= 24;
+const unlessWarns = warnsOnShellArgs ? false : "DEP0190 is not a runtime warning before Node 24";
 
-test("hasCommand finds a command on PATH without spawning a shell", () => {
-  const result = probeInChild("git");
+const runChild = (script) => spawnSync(process.execPath, ["--throw-deprecation", "--input-type=module", "-e", script], { encoding: "utf8" });
+const probe = (name) => runChild(`import { hasCommand } from ${JSON.stringify(envModule)}; console.log(hasCommand(${JSON.stringify(name)}));`);
+
+test("hasCommand finds a command on PATH", () => {
+  const result = probe("git");
   assert.equal(result.status, 0, result.stderr);
   assert.equal(result.stdout.trim(), "true");
 });
 
-test("hasCommand reports a command that is not on PATH as missing", () => {
-  const result = probeInChild("agent-config-no-such-command");
+test("hasCommand reports a command missing from PATH", () => {
+  const result = probe("agent-config-no-such-command");
   assert.equal(result.status, 0, result.stderr);
   assert.equal(result.stdout.trim(), "false");
+});
+
+// Positive control: the two tests above only pin "no args through shell: true" if this fails.
+test("a probe passing args through shell: true fails under --throw-deprecation", { skip: unlessWarns }, () => {
+  const result = runChild(`import { spawnSync } from "node:child_process"; spawnSync("echo", ["x"], { stdio: "ignore", shell: true });`);
+  assert.notEqual(result.status, 0);
+  assert.match(result.stderr, /DEP0190/);
 });
