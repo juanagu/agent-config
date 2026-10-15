@@ -115,7 +115,7 @@ class TweetFeedFeature {
 ```
 test/
   support/              fakes (RecordingLogger, MapFeatureConfig, fixed repositories, makeTweet) and pumpLocalized (390x844, shipped theme, real dictionaries)
-  architecture/         dependency_rule_test.dart: scans lib/ imports against §1, `core/data/` allowed only from a feature's `data/`, and fails with the offending lines
+  architecture/         dependency_rule_test.dart: scans lib/ imports against §1, `core/data/` allowed from `integrations/`, `core/` and a feature's `data/` only, and fails with the offending lines
   application/          i18n parity, validators, page shell at 390/768/1280, shared widgets
   core/                 entities (domain/) and the document mappers (data/)
   features/<f>/         cubits with expectLater(cubit.stream, emitsInOrder(...)), use cases, repositories against the in-memory adapters, widget tests of each state

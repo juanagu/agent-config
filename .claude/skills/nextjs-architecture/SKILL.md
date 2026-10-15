@@ -14,9 +14,10 @@ src/
   app/                      routes only: page.tsx, layout.tsx, route handlers; each thin, importing from features/
     (app)/layout.tsx        route-group layout for route- or session-dependent chrome (auth header, per-route nav)
   features/<feature>/
+    <feature>-page.tsx      the page-level Server Component app/ renders, at any size: composes the feature's `lib/` reads and components
     components/             presentational and compositional; never fetch
     hooks/                  state, effects, decisions
-    lib/                    the feature's port: narrow server reads (server-only) and client calls, response types beside them; routes.ts for every href the feature owns
+    lib/                    the feature's port: narrow server reads (`server-only`, named `*.server.ts`) and client calls, response types beside them; routes.ts for every href the feature owns
     feature_readme.md       purpose, exposed interface (the exports other features may import), data flow
   shared/
     ui/                     primitives (Button, Field, FormErrorMessage, brand mark) with their own feature_readme.md
@@ -29,8 +30,8 @@ src/
 | From | May import |
 | --- | --- |
 | `app/` | a feature only through the exports its `feature_readme.md` lists (its page-level components, server reads, `lib/routes.ts`), `shared/`, `i18n/` |
-| `features/<f>/*-page.tsx` | its own feature, `lib/` server reads included, `shared/`, `i18n/` |
-| `features/<f>/components/` | its own feature's `components/`, `hooks/` and `lib/` (types, routes, client mutations; never a server read, which the page composes), `shared/ui`, `shared/<topic>`, `i18n/`; never the transport |
+| `features/<f>/*-page.tsx` | its own feature, `lib/*.server.ts` reads included, `shared/`, `i18n/` |
+| `features/<f>/components/` | its own feature's `components/`, `hooks/` and `lib/` except `*.server.ts` (which the page composes), `shared/ui`, `shared/<topic>`, `i18n/`; never the transport |
 | `features/<f>/hooks/`, `features/<f>/lib/` | its own feature, `shared/`, `i18n/`, and another feature **only** through the exports its `feature_readme.md` lists |
 | `shared/`, `i18n/` | `shared/`, `i18n/`, never a feature |
 | `proxy.ts` | `shared/`, `i18n/`, and the auth feature's exposed interface (its hrefs and the session validator) |
@@ -46,7 +47,7 @@ Enforced by `eslint-plugin-boundaries` (or `dependency-cruiser`) once the repo o
 - Business logic lives outside components (hooks, `lib/`); a component over ~200 lines, or one that both decides and renders, splits into a hook and presentational pieces.
 - Feature code moves to `shared/` only once a second feature imports it.
 
-The feature-shape rule is in the standards (Feature folders). Here a small feature is `<feature>-page.tsx`, `use-<feature>.ts` and a `lib/` beside its readme: `lib/` exists from the start, since every feature has its hrefs and at least one call there, while `components/` and `hooks/` appear with the second file of their kind. A boundaries config declares the flat names as the same element types as the folders (a root `*-page.tsx` is a page, any other root `.tsx` is `components/`, `use-*.ts` is `hooks/`; an `index.ts`, where the repo uses one, is the public surface; test files are exempt). A split looks like `billing/checkout/`, `billing/plans/`, each with its own `lib/`.
+The feature-shape rule is in the standards (Feature folders). Here a small feature is `<feature>-page.tsx`, `use-<feature>.ts` and a `lib/` beside its readme: `lib/` exists from the start, since every feature has its hrefs and at least one call there, while `components/` and `hooks/` appear with the second file of their kind. A boundaries config declares the flat names as the same element types as the folders (a root `*-page.tsx` is a page at any size, any other root `.tsx` is `components/`, `use-*.ts` is `hooks/`, `lib/*.server.ts` is a server read; an `index.ts`, where the repo uses one, is the public surface; test files are exempt). A split looks like `billing/checkout/`, `billing/plans/`, each with its own `lib/`; the parent keeps its readme and the `lib/routes.ts` and components they share.
 
 ## 2. Chrome, navigation and refresh
 
