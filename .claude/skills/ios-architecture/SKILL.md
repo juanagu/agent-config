@@ -15,7 +15,7 @@ Swift 6 language mode with strict concurrency, SwiftUI, `async/await`, Swift Pac
 App/                              the Xcode app target: @main App, AppDependencies (the container), the root NavigationStack, environment injection; nothing else
 Packages/
   Abstractions/                   ports with no app dependencies: AuthClient, DataRemoteClient, SecureStore, FeatureConfig, Logger, Failure
-  Core/                           entities, ports and mappers two or more features need (User, Post, UserSessionRepository)
+  Core/                           entities and ports two or more features need (User, Post, UserSessionRepository); no DTO and no mapper, which live in the integration that produces them (§6)
   Application/                    app shell: theme tokens and components (DesignSystem), ScreenShell, FeatureFlags, I18n helpers, shared views
   Features/<Feature>/             one package (or one target in a Features package) per screen or embeddable surface (layout in §2)
   Integrations/<Vendor>/          adapters: Firebase/, Keychain/, URLSessionAPI/, InMemory/
@@ -55,7 +55,7 @@ Packages/Features/Feed/Tests/FeedTests/
 
 - File names are PascalCase after the one primary type they hold (`FeedViewModel.swift`), one type per file; an extension file is `Post+Formatting.swift`. SwiftLint's `file_name` rule enforces it.
 - A feature's public surface is its `<Name>Feature` type (§3) and its route value. Other features never import its views, view models or repositories.
-- Folders appear when they have content: a feature with no rules of its own has no `UseCase`; a feature that only renders has no `Data/`.
+- The feature-shape rule is in the standards (Feature folders). Here `Domain/`, `Data/` and `Presentation/` appear when they have content (a feature with no rules of its own has no `UseCase`; one that only renders has no `Data/`), and `Components/` appears with the second view of its kind; Swift targets are the lint element types, so flat files need no mapping. A split looks like `Feed/Timeline`, `Feed/Composer`, each a target with its own `<Name>Feature` type, composed by the parent's.
 
 ## 3. The Feature type is the composition root
 
@@ -188,3 +188,4 @@ Copy into the brief of every review pass for iOS work:
 10. Tests follow §11: view model state sequences with fakes; a snapshot per state at iPhone and iPad, light and dark, every locale, references reviewed; a changed critical flow has its XCUITest run on both simulators with screenshots linked.
 11. Files ~300 lines, functions ~40, views ~200, counting no blanks or comments; `swiftlint --strict` and `swiftformat --lint` green with no new baseline entries.
 12. File names PascalCase after the primary type, one type per file; `file_name` lint on.
+13. The feature-shape rule in the standards holds: `Components/` only from the second view, a split by sub-feature past ~15 files per layer folder, no module folders over `Features/`.
