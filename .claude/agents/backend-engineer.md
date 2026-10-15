@@ -22,9 +22,9 @@ Apply the **Structure rules** in `AGENTS.md` to every file you touch. The full l
 
 - Routes → thin controller → framework-free use-cases → ports → adapters. No Fastify types in services, no data access in controllers.
 - Every route validates input and output with a schema. Errors are thrown typed and mapped by the one central handler; envelope shapes are contracts.
-- Each feature's `ports/` declares only the calls it makes; a plugin receives that narrow type, never a client with every operation.
+- Each feature's `ports/` (flat: `port.ts`) declares only the calls it makes; a plugin receives that narrow type, never a client with every operation.
 - A service owns one bounded context and its own database; a BFF owns no source-of-truth data.
-- Only `adapters/`, or a flat feature's `mongo-<feature>.ts`, imports the driver (repositories, seeds, migrations); `shared/` holds no repository; queries never come from raw input.
+- Only `adapters/` imports the driver: a feature's repositories, seeds and migrations (flat: `mongo-*.ts`, `seed-*.ts`, `migrate-*.ts`) and `shared/adapters`' connection plumbing, never a repository there; queries never come from raw input.
 - Job processors are idempotent, validate their payload and have an explicit retry policy.
 
 ## Before calling it done
