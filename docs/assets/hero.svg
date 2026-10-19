@@ -25,12 +25,12 @@
 
   <!-- Pitch -->
   <g class="sans">
-    <rect x="64" y="82" width="380" height="38" rx="19" fill="#0f2a2c" stroke="#1f5c58"/>
-    <text x="84" y="107" class="mono" font-size="17" fill="#5eead4">npx -y github:juanagu/agent-config</text>
+    <rect x="64" y="82" width="500" height="38" rx="19" fill="#0f2a2c" stroke="#1f5c58"/>
+    <text x="84" y="107" class="mono" font-size="17" fill="#5eead4">npx -y github:juanagu/agent-config -- --project .</text>
     <text x="62" y="198" font-size="68" font-weight="700" fill="#f1f5f9" letter-spacing="-1.5">agent-config</text>
     <text x="64" y="252" font-size="24" fill="#cbd5e1">Engineering standards, specialist agents,</text>
     <text x="64" y="286" font-size="24" fill="#cbd5e1">skills and a git guard, written once and</text>
-    <text x="64" y="320" font-size="24" fill="#cbd5e1">installed into every AI coding tool you use.</text>
+    <text x="64" y="320" font-size="24" fill="#cbd5e1">installed into four AI coding tools.</text>
   </g>
 
   <!-- Wires -->
@@ -54,8 +54,8 @@
       <text x="632" y="211">agents/</text>
       <text x="852" y="211" text-anchor="end" class="sans" font-size="15" fill="#8b98ad">13 specialists</text>
       <rect x="616" y="230" width="252" height="38" rx="8" fill="#16213a"/>
-      <text x="632" y="255">skills/</text>
-      <text x="852" y="255" text-anchor="end" class="sans" font-size="15" fill="#8b98ad">per stack</text>
+      <text x="632" y="255">.agents/skills/</text>
+      <text x="852" y="255" text-anchor="end" class="sans" font-size="15" fill="#8b98ad">9 skills</text>
       <rect x="616" y="274" width="252" height="38" rx="8" fill="#16213a"/>
       <text x="632" y="299">git-guard</text>
       <text x="852" y="299" text-anchor="end" class="sans" font-size="15" fill="#8b98ad">hook</text>

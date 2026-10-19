@@ -1,6 +1,6 @@
 <svg xmlns="http://www.w3.org/2000/svg" width="1280" height="584" viewBox="0 0 1280 584" role="img" aria-labelledby="t d">
   <title id="t">The feature pipeline</title>
-  <desc id="d">1. architect-engineer (when it applies): when the change spans layers or introduces a pattern. 2. designer (when it applies): when it touches more than one route, the chrome or a primitive. you approve: the artboard, before anything is built. 3. the engineers: backend and client, with the API contract written first. 4. qa-engineer: verifies it works: two viewports, every locale, screenshots. 5. security-engineer (when it applies): auth, payments, external input, data exposure. 6. technical-writer (when it applies): when user- or developer-facing docs change. 7. devops-engineer (when it applies): when Docker, CI/CD or Cloudflare config changes. 8. review pass: correctness, security and architecture, at a stated level. merge gate: review converged, CI green, checks re-run by the session. 9. retro (when it applies): when something slipped: files the fix to the setup as an issue.</desc>
+  <desc id="d">1. architect-engineer (when it applies): when the change spans layers or introduces a pattern. 2. designer (when it applies): when it touches more than one route, the chrome or a primitive. you approve (when it applies): the artboard for a new screen, before it is built. 3. the engineers: backend and client, with the API contract written first. 4. qa-engineer: verifies it works: two viewports, every locale, screenshots. 5. security-engineer (when it applies): auth, payments, external input, data exposure. 6. technical-writer (when it applies): when user- or developer-facing docs change. 7. devops-engineer (when it applies): when Docker, CI/CD or Cloudflare config changes. 8. review pass: correctness, security and architecture, at a stated level. merge: yours, or the agent's once granted, after review, CI and a re-run. 9. retro (when it applies): when something slipped: files the fix to the setup as an issue.</desc>
   <defs>
     <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
       <stop offset="0" stop-color="#0b1220"/>
@@ -49,12 +49,12 @@
     <text x="378" y="186" class="sans" font-size="15" fill="#aab6c8">route, the chrome or a primitive</text>
   </g>
   <g>
-    <rect x="660" y="96" width="260" height="108" rx="14" fill="#211c0e" stroke="#fbbf24" stroke-opacity="0.75" stroke-width="1.5"/>
+    <rect x="660" y="96" width="260" height="108" rx="14" fill="#211c0e" stroke="#fbbf24" stroke-opacity="0.75" stroke-width="1.5" stroke-dasharray="7 6"/>
     <circle cx="686" cy="126" r="13" fill="#fbbf24" fill-opacity="0.16" stroke="#fbbf24" stroke-opacity="0.6"/>
     <text x="686" y="131" text-anchor="middle" class="sans" font-size="14" font-weight="700" fill="#fbbf24">✓</text>
     <text x="708" y="132" class="mono" font-size="17" font-weight="600" fill="#f1f5f9">you approve</text>
-    <text x="678" y="164" class="sans" font-size="15" fill="#aab6c8">the artboard, before anything</text>
-    <text x="678" y="186" class="sans" font-size="15" fill="#aab6c8">is built</text>
+    <text x="678" y="164" class="sans" font-size="15" fill="#aab6c8">the artboard for a new screen,</text>
+    <text x="678" y="186" class="sans" font-size="15" fill="#aab6c8">before it is built</text>
   </g>
   <g>
     <rect x="960" y="96" width="260" height="108" rx="14" fill="#101b30" stroke="#5eead4" stroke-opacity="0.75" stroke-width="1.5"/>
@@ -108,9 +108,9 @@
     <rect x="360" y="432" width="260" height="108" rx="14" fill="#211c0e" stroke="#fbbf24" stroke-opacity="0.75" stroke-width="1.5"/>
     <circle cx="386" cy="462" r="13" fill="#fbbf24" fill-opacity="0.16" stroke="#fbbf24" stroke-opacity="0.6"/>
     <text x="386" y="467" text-anchor="middle" class="sans" font-size="14" font-weight="700" fill="#fbbf24">✓</text>
-    <text x="408" y="468" class="mono" font-size="17" font-weight="600" fill="#f1f5f9">merge gate</text>
-    <text x="378" y="500" class="sans" font-size="15" fill="#aab6c8">review converged, CI green,</text>
-    <text x="378" y="522" class="sans" font-size="15" fill="#aab6c8">checks re-run by the session</text>
+    <text x="408" y="468" class="mono" font-size="17" font-weight="600" fill="#f1f5f9">merge</text>
+    <text x="378" y="500" class="sans" font-size="15" fill="#aab6c8">yours, or the agent's once granted,</text>
+    <text x="378" y="522" class="sans" font-size="15" fill="#aab6c8">after review, CI and a re-run</text>
   </g>
   <g>
     <rect x="660" y="432" width="260" height="108" rx="14" fill="#101b30" stroke="#94a3b8" stroke-opacity="0.75" stroke-width="1.5" stroke-dasharray="7 6"/>

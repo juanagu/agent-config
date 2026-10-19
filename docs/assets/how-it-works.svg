@@ -1,6 +1,6 @@
 <svg xmlns="http://www.w3.org/2000/svg" width="1280" height="596" viewBox="0 0 1280 596" role="img" aria-labelledby="t d">
   <title id="t">One source, four dialects</title>
-  <desc id="d">agents/architect-engineer.md has tool-neutral frontmatter (tier: judgment, access: write). npm run build writes it as model: opus plus a tools list for Claude Code, model: inherit for Cursor, a tools list for GitHub Copilot and model: pro for Antigravity CLI. npm test fails when a generated file is stale. AGENTS.md, the skills and the git guard core are read by every tool as they are.</desc>
+  <desc id="d">agents/architect-engineer.md has tool-neutral frontmatter (tier: judgment, access: write). npm run build writes it as model: opus plus a tools list for Claude Code, model: inherit for Cursor, a tools list for GitHub Copilot and model: pro for Antigravity CLI. npm test fails when a generated file is stale. AGENTS.md, .agents/skills/ (Claude Code reads a built copy) and the git guard core are shared, not translated.</desc>
   <defs>
     <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
       <stop offset="0" stop-color="#0b1220"/>
@@ -44,7 +44,7 @@
     <text x="68" y="346">you don't implement them…</text>
   </g>
   <rect x="68" y="380" width="332" height="44" rx="10" fill="#0f2a2c" stroke="#1f5c58"/>
-  <text x="84" y="408" class="sans" font-size="15" fill="#99f6e4">A tier, not a model name. The build maps it.</text>
+  <text x="84" y="408" class="sans" font-size="15" fill="#99f6e4">A tier, not a model. The build maps it.</text>
 
   <!-- Build -->
   <path d="M432 256 H 572" stroke="#5eead4" stroke-width="2.5" marker-end="url(#arrow)"/>
@@ -76,6 +76,6 @@
 
   <!-- Shared strip -->
   <rect x="48" y="468" width="1184" height="96" rx="12" fill="#0e1729" stroke="#2b3a5a" stroke-dasharray="6 6"/>
-  <text x="68" y="506" class="sans" font-size="18" fill="#cbd5e1"><tspan font-weight="600" fill="#f1f5f9">Read as they are by every tool:</tspan> <tspan class="mono" fill="#5eead4">AGENTS.md</tspan>, <tspan class="mono" fill="#5eead4">.agents/skills/</tspan>, and the git guard (one core, an adapter per tool).</text>
+  <text x="68" y="506" class="sans" font-size="18" fill="#cbd5e1"><tspan font-weight="600" fill="#f1f5f9">Shared, not translated:</tspan> <tspan class="mono" fill="#5eead4">AGENTS.md</tspan>, <tspan class="mono" fill="#5eead4">.agents/skills/</tspan> (Claude Code reads a built copy), and the git guard core.</text>
   <text x="68" y="540" class="sans" font-size="18" fill="#cbd5e1">The generated files are committed, and <tspan class="mono" fill="#a78bfa">npm test</tspan> fails when one is stale.</text>
 </svg>

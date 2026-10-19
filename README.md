@@ -67,7 +67,7 @@ Requires Node.js 22+ and `git`. Then read the guide for your tool: [Claude Code]
 | `technical-writer` | implementation | READMEs, API docs, ADRs, changelogs |
 | `devops-engineer` | implementation | Docker, CI/CD, Cloudflare; implements topology, does not decide it |
 
-They work as a pipeline, each stage only when it applies, and two calls stay yours: the artboard before anything is built, and the merge:
+They work as a pipeline, each stage only when it applies, and two calls stay yours: the artboard for a new screen before it is built, and the merge, until you grant it:
 
 ![The feature pipeline: architect-engineer and designer when they apply, your approval of the artboard, the engineers, qa-engineer, then security-engineer, technical-writer and devops-engineer when they apply, a review pass, the merge gate, and a retro when something slipped](docs/assets/pipeline.svg)
 
