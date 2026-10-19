@@ -36,7 +36,7 @@
     <text x="68" y="174"><tspan class="key">name:</tspan> <tspan class="val">architect-engineer</tspan></text>
     <text x="68" y="202"><tspan class="key">tier:</tspan> <tspan fill="#5eead4">judgment</tspan></text>
     <text x="68" y="230"><tspan class="key">access:</tspan> <tspan fill="#5eead4">write</tspan></text>
-    <text x="68" y="258"><tspan class="key">description:</tspan> <tspan class="val">…</tspan></text>
+    <text x="68" y="258" fill="#64748b"># description, effort, color</text>
     <text x="68" y="286" fill="#64748b">---</text>
   </g>
   <g class="sans" font-size="16" fill="#94a3b8">
