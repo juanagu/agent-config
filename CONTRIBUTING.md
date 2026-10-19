@@ -25,6 +25,7 @@ Node.js 22+ and `git` are the only requirements. The pre-push hook (`.githooks/p
 | how a tool registers or answers the hook | `scripts/build/targets.mjs` → `HOOK_TARGETS`; the adapter in `git-guard.mjs` | `npm run build && npm test` |
 | what a tool reads | `docs/compatibility.md`, with the documentation link and today's date | |
 | the installer | `scripts/install.mjs`, `scripts/install/*`, tests in `tests/install.test.mjs` | `npm test` |
+| the README's images | `docs/assets/*.svg`, plain SVG edited by hand. `tests/readme-assets.test.mjs` pins the tool names, the agent and skill counts and the build output they show; redraw `pipeline.svg` or `git-guard.svg` by hand when the pipeline in `AGENTS.md` or the hook's messages change | `npm test`, then view the README on your branch on GitHub, in light and dark |
 
 ## A tool changed its format
 

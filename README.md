@@ -1,6 +1,25 @@
-# agent-config
+<h1 align="center">
+  <img src="docs/assets/hero.svg" alt="agent-config: engineering standards, specialist agents, skills and a git guard, written once and installed into Claude Code, Cursor, GitHub Copilot and Antigravity CLI" width="100%">
+</h1>
+
+<p align="center">
+  <a href="LICENSE"><img alt="License: MIT" src="https://img.shields.io/badge/license-MIT-5eead4?style=flat-square"></a>
+  <img alt="Node.js 22+" src="https://img.shields.io/badge/node-%E2%89%A522-5eead4?style=flat-square">
+  <img alt="No dependencies" src="https://img.shields.io/badge/dependencies-none-a78bfa?style=flat-square">
+  <img alt="Works with Claude Code, Cursor, GitHub Copilot and Antigravity CLI" src="https://img.shields.io/badge/works%20with-Claude%20Code%20%C2%B7%20Cursor%20%C2%B7%20Copilot%20%C2%B7%20Antigravity-a78bfa?style=flat-square">
+</p>
+
+<p align="center">
+  <a href="#install">Install</a> ·
+  <a href="#what-you-get">What you get</a> ·
+  <a href="#how-it-works">How it works</a> ·
+  <a href="docs/customizing.md">Make it yours</a> ·
+  <a href="docs/compatibility.md">Compatibility</a>
+</p>
 
 Engineering standards, a roster of specialist agents, skills and a git guard for AI coding tools, written once and installed into **Claude Code**, **Cursor**, **GitHub Copilot** and **Antigravity CLI**.
+
+A rule in a standards file is followed most of the time, and "most of the time" is how a commit lands on `main`. So the parts a tool can enforce are enforced: a hook refuses what the standards can only ask for, a build keeps four tools' files in step, and a test fails when they drift.
 
 It is opinionated: a specific stack (Next.js, Astro, Fastify, MongoDB, BullMQ, Flutter, Kotlin/Compose, Swift/SwiftUI, React Native on Expo, Cloudflare), trunk-based development with a PR gate, Airbnb as the UX reference. The mechanics are meant to be reused as they are; the content is meant to be forked and changed. [Making it yours](docs/customizing.md) says how.
 
@@ -48,15 +67,23 @@ Requires Node.js 22+ and `git`. Then read the guide for your tool: [Claude Code]
 | `technical-writer` | implementation | READMEs, API docs, ADRs, changelogs |
 | `devops-engineer` | implementation | Docker, CI/CD, Cloudflare; implements topology, does not decide it |
 
+They work as a pipeline, each stage only when it applies, and two calls stay yours: the artboard for a new screen before it is built, and the merge, until you grant it:
+
+![The feature pipeline: architect-engineer and designer when they apply, your approval of the artboard, the engineers, qa-engineer, then security-engineer, technical-writer and devops-engineer when they apply, a review pass, the merge gate, and a retro when something slipped](docs/assets/pipeline.svg)
+
 Every agent ends with the same four-section report (changed, verified, deviations, needs the user) so the session re-checks claims instead of trusting them. The tier says what a wrong call costs and maps to each tool's model dialect ([ADR 0004](docs/adr/0004-tiers-not-models.md)).
 
 **Skills** ([`.agents/skills/`](.agents/skills/)), in the [Agent Skills](https://agentskills.io) format all four tools read. Six architecture skills, one per stack (`nextjs-`, `fastify-`, `flutter-`, `android-`, `ios-`, `react-native-architecture`): the layout, the dependency rule as a table, where a new file goes, the anti-patterns seen in reviews, and the checklist a review brief copies. Three workflow skills: `open-pr` (a PR opens reviewed), `resolve-pr-comments`, `retro` (when something slipped, find which part of the setup let it and file the fix). Each carries `evals/` ([how to run them](docs/skill-evals.md)). The global installer also offers third-party skills from `skills.txt`: `frontend-design`, `web-design-guidelines`, `security-threat-model`, `security-audit`, `conventional-commit`, `clean-code`.
 
 **The git guard** ([`.agents/hooks/git-guard/`](.agents/hooks/git-guard/)). A hook that runs before every shell command and refuses what a standards file can only ask for: a commit on `main`, a push to it, `--no-verify`, a branch switch in a checkout that serves a dev server, an anonymous stash. One core, one adapter per tool. [docs/git-guard.md](docs/git-guard.md).
 
+![The git guard in an agent's shell on main: git commit, git push origin main and git commit --no-verify are blocked with a message saying what to do instead; git switch -c fix/typo followed by git commit runs](docs/assets/git-guard.svg)
+
 **Templates** ([`templates/`](templates/)). A two-tier GitHub Actions workflow (fast on every PR, full on a release tag) and a pre-push hook that mirrors the fast tier, for a new repo.
 
 ## How it works
+
+![One source, four dialects: agents/architect-engineer.md with tier: judgment and access: write becomes model: opus and a tools list for Claude Code, model: inherit for Cursor, a tools list for GitHub Copilot, and model: pro for Antigravity CLI](docs/assets/how-it-works.svg)
 
 One source, four dialects. `AGENTS.md` and the skills are read by every tool as they are. The agents are written once with neutral frontmatter and a build writes each tool's format; the hook registrations are generated from the same table; the generated files are committed and a test fails when they are stale. The repository root is laid out as a project that uses it, so the repo's own sessions read exactly what you install.
 
