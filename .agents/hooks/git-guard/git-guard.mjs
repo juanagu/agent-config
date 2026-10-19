@@ -168,7 +168,7 @@ function pushReason(rest, onTrunk, trunk, upstream) {
 
 // The one worktree recipe. AGENTS.md's Workflow section quotes it; keep the two equal.
 export function worktreeRecipe(trunk) {
-  return `git worktree add ../<repo>-wt-<name> --no-track -b <type>/<name> origin/${trunk}`;
+  return `git worktree add ../worktrees/<repo>-wt-<name> --no-track -b <type>/<name> origin/${trunk}`;
 }
 
 const servedPreamble = (toplevel) => `${toplevel} serves a running dev server (it is listed in ${CONFIG_HINT}); `;
