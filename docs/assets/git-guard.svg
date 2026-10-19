@@ -1,0 +1,36 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1280" height="456" viewBox="0 0 1280 456" role="img" aria-labelledby="t d">
+  <title id="t">The git guard in an agent session</title>
+  <desc id="d">git commit -m "fix: typo": blocked, You are on main. Writing commits to trunk locally (commit) bypasses the PR gate: git switch -c &lt;type&gt;/&lt;name&gt; first, then open a PR. git push origin main: blocked, Pushing straight to main bypasses the PR gate. Push a branch and open a PR. git commit --no-verify -m wip: blocked, --no-verify (or a config override of hooks/signing) is not allowed. Fix what the hook reports instead. git switch -c fix/typo &amp;&amp; git commit -m "fix: typo": runs</desc>
+  <defs>
+    <style>
+      .sans { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif; }
+      .mono { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, "Liberation Mono", monospace; }
+    </style>
+  </defs>
+  <rect width="1280" height="456" rx="16" fill="#0b1220"/>
+  <rect x="0.5" y="0.5" width="1279" height="455" rx="15.5" fill="none" stroke="#24304a"/>
+  <path d="M16 0.5H1264A15.5 15.5 0 0 1 1279.5 16V52H0.5V16A15.5 15.5 0 0 1 16 0.5Z" fill="#121c33"/>
+  <line x1="0.5" y1="52" x2="1279.5" y2="52" stroke="#24304a"/>
+  <circle cx="30" cy="26" r="7" fill="#ef4444" fill-opacity="0.8"/>
+  <circle cx="54" cy="26" r="7" fill="#f59e0b" fill-opacity="0.8"/>
+  <circle cx="78" cy="26" r="7" fill="#22c55e" fill-opacity="0.8"/>
+  <text x="640" y="32" text-anchor="middle" class="sans" font-size="15" fill="#8b98ad">an agent's shell, on main: every command passes the git guard first</text>
+
+  <text x="64" y="112" class="mono" font-size="18"><tspan fill="#5eead4">$</tspan> <tspan fill="#f1f5f9">git commit -m "fix: typo"</tspan></text>
+  <rect x="1104" y="92" width="112" height="28" rx="14" fill="#2a1215" stroke="#7f1d1d"/>
+  <text x="1160" y="111" text-anchor="middle" class="sans" font-size="14" font-weight="600" fill="#fca5a5">✗ blocked</text>
+  <text x="64" y="140" class="mono" font-size="17" fill="#fca5a5" fill-opacity="1">git-guard: You are on main. Writing commits to trunk locally (commit) bypasses the PR gate: git</text>
+  <text x="64" y="166" class="mono" font-size="17" fill="#fca5a5" fill-opacity="0.85">switch -c &lt;type&gt;/&lt;name&gt; first, then open a PR.</text>
+  <text x="64" y="214" class="mono" font-size="18"><tspan fill="#5eead4">$</tspan> <tspan fill="#f1f5f9">git push origin main</tspan></text>
+  <rect x="1104" y="194" width="112" height="28" rx="14" fill="#2a1215" stroke="#7f1d1d"/>
+  <text x="1160" y="213" text-anchor="middle" class="sans" font-size="14" font-weight="600" fill="#fca5a5">✗ blocked</text>
+  <text x="64" y="242" class="mono" font-size="17" fill="#fca5a5" fill-opacity="1">git-guard: Pushing straight to main bypasses the PR gate. Push a branch and open a PR.</text>
+  <text x="64" y="290" class="mono" font-size="18"><tspan fill="#5eead4">$</tspan> <tspan fill="#f1f5f9">git commit --no-verify -m wip</tspan></text>
+  <rect x="1104" y="270" width="112" height="28" rx="14" fill="#2a1215" stroke="#7f1d1d"/>
+  <text x="1160" y="289" text-anchor="middle" class="sans" font-size="14" font-weight="600" fill="#fca5a5">✗ blocked</text>
+  <text x="64" y="318" class="mono" font-size="17" fill="#fca5a5" fill-opacity="1">git-guard: --no-verify (or a config override of hooks/signing) is not allowed. Fix what the hook</text>
+  <text x="64" y="344" class="mono" font-size="17" fill="#fca5a5" fill-opacity="0.85">reports instead.</text>
+  <text x="64" y="392" class="mono" font-size="18"><tspan fill="#5eead4">$</tspan> <tspan fill="#f1f5f9">git switch -c fix/typo &amp;&amp; git commit -m "fix: typo"</tspan></text>
+  <rect x="1104" y="372" width="112" height="28" rx="14" fill="#0f2a2c" stroke="#1f5c58"/>
+  <text x="1160" y="391" text-anchor="middle" class="sans" font-size="14" font-weight="600" fill="#5eead4">✓ runs</text>
+</svg>

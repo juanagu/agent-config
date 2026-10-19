@@ -1,0 +1,81 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1280" height="596" viewBox="0 0 1280 596" role="img" aria-labelledby="t d">
+  <title id="t">One source, four dialects</title>
+  <desc id="d">agents/architect-engineer.md has tool-neutral frontmatter (tier: judgment, access: write). npm run build writes it as model: opus plus a tools list for Claude Code, model: inherit for Cursor, a tools list for GitHub Copilot and model: pro for Antigravity CLI. npm test fails when a generated file is stale. AGENTS.md, the skills and the git guard core are read by every tool as they are.</desc>
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#0b1220"/>
+      <stop offset="1" stop-color="#121c33"/>
+    </linearGradient>
+    <marker id="arrow" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="8" markerHeight="8" orient="auto">
+      <path d="M0 0L10 5L0 10z" fill="#5eead4"/>
+    </marker>
+    <style>
+      .sans { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif; }
+      .mono { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, "Liberation Mono", monospace; }
+      .label { font-size: 14px; font-weight: 600; letter-spacing: 1.6px; fill: #8b98ad; }
+      .tool { font-size: 19px; font-weight: 600; fill: #f1f5f9; }
+      .path { font-size: 15px; fill: #8b98ad; }
+      .key { fill: #a78bfa; }
+      .val { fill: #e2e8f0; }
+    </style>
+  </defs>
+
+  <rect width="1280" height="596" rx="20" fill="url(#bg)"/>
+  <rect x="0.5" y="0.5" width="1279" height="595" rx="19.5" fill="none" stroke="#24304a"/>
+
+  <text x="48" y="48" class="sans label">YOU EDIT</text>
+  <text x="588" y="48" class="sans label">THE BUILD WRITES, ONE PER TOOL</text>
+
+  <!-- Source -->
+  <rect x="48" y="68" width="372" height="376" rx="14" fill="#0e1729" stroke="#2b3a5a"/>
+  <rect x="48" y="68" width="372" height="44" rx="14" fill="#16213a"/>
+  <rect x="48" y="98" width="372" height="14" fill="#16213a"/>
+  <text x="68" y="96" class="mono" font-size="16" fill="#f1f5f9">agents/architect-engineer.md</text>
+  <g class="mono" font-size="17">
+    <text x="68" y="146" fill="#64748b">---</text>
+    <text x="68" y="174"><tspan class="key">name:</tspan> <tspan class="val">architect-engineer</tspan></text>
+    <text x="68" y="202"><tspan class="key">tier:</tspan> <tspan fill="#5eead4">judgment</tspan></text>
+    <text x="68" y="230"><tspan class="key">access:</tspan> <tspan fill="#5eead4">write</tspan></text>
+    <text x="68" y="258"><tspan class="key">description:</tspan> <tspan class="val">…</tspan></text>
+    <text x="68" y="286" fill="#64748b">---</text>
+  </g>
+  <g class="sans" font-size="16" fill="#94a3b8">
+    <text x="68" y="322">You make structural decisions,</text>
+    <text x="68" y="346">you don't implement them…</text>
+  </g>
+  <rect x="68" y="380" width="332" height="44" rx="10" fill="#0f2a2c" stroke="#1f5c58"/>
+  <text x="84" y="408" class="sans" font-size="15" fill="#99f6e4">A tier, not a model name. The build maps it.</text>
+
+  <!-- Build -->
+  <path d="M432 256 H 572" stroke="#5eead4" stroke-width="2.5" marker-end="url(#arrow)"/>
+  <rect x="440" y="200" width="124" height="34" rx="17" fill="#0f2a2c" stroke="#1f5c58"/>
+  <text x="502" y="222" text-anchor="middle" class="mono" font-size="14" fill="#5eead4">npm run build</text>
+
+  <!-- Outputs -->
+  <g class="sans">
+    <rect x="588" y="68" width="644" height="80" rx="12" fill="#101b30" stroke="#2b3a5a"/>
+    <text x="608" y="99" class="tool">Claude Code</text>
+    <text x="1212" y="99" text-anchor="end" class="mono path">.claude/agents/architect-engineer.md</text>
+    <text x="608" y="131" class="mono" font-size="16"><tspan class="key">model:</tspan> <tspan class="val">opus</tspan><tspan class="key" dx="24">tools:</tspan> <tspan class="val">Read, Glob, Grep, Edit, Write, Bash, Skill</tspan></text>
+
+    <rect x="588" y="164" width="644" height="80" rx="12" fill="#101b30" stroke="#2b3a5a"/>
+    <text x="608" y="195" class="tool">Cursor</text>
+    <text x="1212" y="195" text-anchor="end" class="mono path">.cursor/agents/architect-engineer.md</text>
+    <text x="608" y="227" class="mono" font-size="16"><tspan class="key">model:</tspan> <tspan class="val">inherit</tspan></text>
+
+    <rect x="588" y="260" width="644" height="80" rx="12" fill="#101b30" stroke="#2b3a5a"/>
+    <text x="608" y="291" class="tool">GitHub Copilot</text>
+    <text x="1212" y="291" text-anchor="end" class="mono path">.github/agents/architect-engineer.agent.md</text>
+    <text x="608" y="323" class="mono" font-size="16"><tspan class="key">tools:</tspan> <tspan class="val">[search, edit, runCommands]</tspan></text>
+
+    <rect x="588" y="356" width="644" height="80" rx="12" fill="#101b30" stroke="#2b3a5a"/>
+    <text x="608" y="387" class="tool">Antigravity CLI</text>
+    <text x="1212" y="387" text-anchor="end" class="mono path">.agents/agents/architect-engineer.md</text>
+    <text x="608" y="419" class="mono" font-size="16"><tspan class="key">model:</tspan> <tspan class="val">pro</tspan></text>
+  </g>
+
+  <!-- Shared strip -->
+  <rect x="48" y="468" width="1184" height="96" rx="12" fill="#0e1729" stroke="#2b3a5a" stroke-dasharray="6 6"/>
+  <text x="68" y="506" class="sans" font-size="18" fill="#cbd5e1"><tspan font-weight="600" fill="#f1f5f9">Read as they are by every tool:</tspan> <tspan class="mono" fill="#5eead4">AGENTS.md</tspan>, <tspan class="mono" fill="#5eead4">.agents/skills/</tspan>, and the git guard (one core, an adapter per tool).</text>
+  <text x="68" y="540" class="sans" font-size="18" fill="#cbd5e1">The generated files are committed, and <tspan class="mono" fill="#a78bfa">npm test</tspan> fails when one is stale.</text>
+</svg>

@@ -25,6 +25,7 @@ Node.js 22+ and `git` are the only requirements. The pre-push hook (`.githooks/p
 | how a tool registers or answers the hook | `scripts/build/targets.mjs` → `HOOK_TARGETS`; the adapter in `git-guard.mjs` | `npm run build && npm test` |
 | what a tool reads | `docs/compatibility.md`, with the documentation link and today's date | |
 | the installer | `scripts/install.mjs`, `scripts/install/*`, tests in `tests/install.test.mjs` | `npm test` |
+| the README's images | `docs/assets/*.svg`, plain SVG edited by hand; redraw one when what it shows changes (the pipeline in `AGENTS.md`, `AGENT_TARGETS`, the hook's messages) | view the README on your branch on GitHub, in light and dark |
 
 ## A tool changed its format
 
@@ -44,7 +45,8 @@ A tool is supported when all of these exist:
 - an adapter in `.agents/hooks/git-guard/git-guard.mjs` (where the command and `cwd` are in its payload, how it is denied) with a `describe` block in the tests;
 - an entry in `scripts/install/targets.mjs` for the global installer, where the tool documents user-level folders;
 - `docs/<tool>.md`, following the four existing guides (install, what loads where, using it, check it worked, gotchas);
-- a row in every table of `docs/compatibility.md` and a column in the Vocabulary table of `AGENTS.md`.
+- a row in every table of `docs/compatibility.md` and a column in the Vocabulary table of `AGENTS.md`;
+- its card in `docs/assets/hero.svg` and `docs/assets/how-it-works.svg`.
 
 ## Pull requests
 
