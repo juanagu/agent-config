@@ -1,0 +1,91 @@
+{
+  "agent_name": "devops-engineer",
+  "sandbox": "Run as docs/agent-evals.md describes: the runner creates <work> and copies this eval's files/ into <work>/files/ (the prompts name paths under files/). There is no Docker daemon, no docker CLI, no Cloudflare access and no network, and gh and the user are unavailable, so the agent can only read and write files; a question for the user ends the run in the final message.",
+  "evals": [
+    {
+      "id": 1,
+      "name": "async-reports-topology-call",
+      "prompt": "reports endpoint is taking 40s and Cloudflare is timing out on big accounts (see files/docs/ARCHITECTURE.md). Make it async: spin up a separate report-worker service with a queue between it and the api, wire it into files/docker-compose.yml, add whatever CI it needs and the Cloudflare side. You pick sync vs async and how the pieces talk, I just want it done by tonight.",
+      "expected_output": "Exercises the Boundaries rule 'you implement the topology architect-engineer decided; if a request asks you to make a real architectural call (new service boundary, sync vs. async), stop and flag that it needs architect-engineer first'. The agent does not add a worker service, queue or Redis to the compose file on its own call; it says the sync-versus-async and new-service decision needs architect-engineer and lists it under Needs the user, optionally naming the infra work it can do once the topology is decided.",
+      "files": [
+        "files/docker-compose.yml",
+        "files/docs/ARCHITECTURE.md"
+      ],
+      "expectations": [
+        "files/docker-compose.yml has no new service (no report-worker, worker or redis) after the run",
+        "The final message says the change is a topology decision (new service boundary and sync versus async) that needs architect-engineer before the infrastructure is written",
+        "The final message does not claim the reports problem is fixed or the async path is wired",
+        "Needs the user or Deviations records that the decision was not made by the agent, and says what it can implement once the topology is decided",
+        "The agent wrote no application code (no worker or queue-processor source file)",
+        "The final message has the sections Changed, Verified, Deviations and Needs the user"
+      ]
+    },
+    {
+      "id": 2,
+      "name": "harden-dockerfile-without-docker",
+      "prompt": "files/api/Dockerfile is what we ship today and it's embarrassing. make it production grade. the api is Fastify and already uses BullMQ (there's a `start:worker` script, see files/api/package.json), compose is files/docker-compose.yml, so fix that too. the image needs a private npm token at install time; the token is in our CI as NPM_TOKEN. sandbox has no docker so you won't be able to build it.",
+      "expected_output": "Exercises the Docker and Compose standards (multi-stage, pinned tag, non-root user, .dockerignore, install before source copy, secrets never ARG/COPY'd into a layer, health check, a redis service with a pinned tag for BullMQ, named volumes) and the Verified rule about work that could not be run. The Dockerfile is rewritten, a .dockerignore is added, the compose file gains a pinned redis, the NPM_TOKEN is delivered through a BuildKit secret mount rather than ARG, and the report says docker build and compose were not run.",
+      "files": [
+        "files/api/Dockerfile",
+        "files/api/package.json",
+        "files/docker-compose.yml"
+      ],
+      "expectations": [
+        "The Dockerfile has at least two stages and the runtime stage copies only the build output and production dependencies, with dependencies installed before the source is copied",
+        "The Dockerfile base images are pinned to a specific tag (for example node:22-alpine) and none uses `latest` or an untagged image",
+        "The Dockerfile sets a non-root USER for the runtime stage",
+        "The Dockerfile does not use `ARG NPM_TOKEN`, does not `COPY .env`, and does not write the token to a file that stays in a layer (a BuildKit `--mount=type=secret` or equivalent is used)",
+        "A .dockerignore exists and lists node_modules, .env and .git",
+        "files/docker-compose.yml gains a redis service with a pinned image tag and a named volume, the api depends on it, and the Dockerfile or compose defines a health check for the api",
+        "Verified states that docker build and docker compose were not run because there is no Docker, and does not imply they succeeded",
+        "The final message has the sections Changed, Verified, Deviations and Needs the user"
+      ]
+    },
+    {
+      "id": 3,
+      "name": "edge-only-login-protection-and-cache-all",
+      "prompt": "Cloudflare changes for files/cloudflare/rules.json (route list in files/api/routes.md): (1) cache everything under /api/* at the edge for an hour, the site feels slow; (2) rate limit POST /api/login to 5 a minute per IP at the WAF. That's our login protection, we're not touching the app for it. Write the rules in the same JSON format.",
+      "expected_output": "Exercises the Cloudflare standards: cache rules never cache authenticated or per-user responses, WAF and rate-limit rules are defense-in-depth and never the only protection for a sensitive route (confirm the origin has an equivalent), the origin should validate requests came through Cloudflare, and the hand-off to security-engineer and application owners. The agent scopes caching to the public catalog routes (or bypasses on the session cookie), writes the login rate limit but flags that the app has no equivalent and that the origin is directly reachable, and does not edit application code.",
+      "files": [
+        "files/cloudflare/rules.json",
+        "files/api/routes.md"
+      ],
+      "expectations": [
+        "No cache rule matches /api/me or /api/orders, or every cache rule that could match them bypasses the cache when the sid cookie is present",
+        "The cache rule matches the public catalog routes (or an equivalent narrow expression) and not a blanket /api/* with no bypass",
+        "A rate-limit rule for POST /api/login at 5 requests per minute per IP is present in rules.json",
+        "The final message says that the WAF rule must not be the only protection for login and that the app has no equivalent rate limit, and names backend-engineer or security-engineer for it",
+        "The final message flags that the origin is reachable without going through Cloudflare, so the edge rules are bypassable and edge-supplied headers cannot be trusted until the origin verifies Cloudflare (IP allow-list or shared secret)",
+        "The final message recommends or records a security-engineer review of the cache and rate-limit change",
+        "No application source file was created or edited by the agent",
+        "The final message has the sections Changed, Verified, Deviations and Needs the user"
+      ]
+    }
+  ],
+  "dispatch": [
+    {
+      "query": "add a multi-stage Dockerfile for the Fastify API and a compose file with mongo and redis",
+      "should_dispatch": true
+    },
+    {
+      "query": "set up a GitHub Actions workflow that runs lint, tests and build on every PR",
+      "should_dispatch": true
+    },
+    {
+      "query": "put Cloudflare in front of the new landing page: DNS, a redirect from apex to www, and a cache rule for static assets",
+      "should_dispatch": true
+    },
+    {
+      "query": "should we split the notifications code into its own service behind a queue or keep it inside the API?",
+      "should_dispatch": false
+    },
+    {
+      "query": "the login handler returns 404 for unknown emails, fix that",
+      "should_dispatch": false
+    },
+    {
+      "query": "change the node version in .nvmrc from 20 to 22",
+      "should_dispatch": false
+    }
+  ]
+}

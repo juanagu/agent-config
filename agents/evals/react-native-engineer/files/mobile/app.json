@@ -1,0 +1,11 @@
+{
+  "expo": {
+    "name": "Tidepool",
+    "slug": "tidepool",
+    "scheme": "tidepool",
+    "newArchEnabled": true,
+    "runtimeVersion": { "policy": "appVersion" },
+    "updates": { "url": "https://u.expo.dev/00000000-0000-0000-0000-000000000000" },
+    "plugins": ["expo-router", "expo-secure-store"]
+  }
+}

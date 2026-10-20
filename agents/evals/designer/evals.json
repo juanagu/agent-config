@@ -1,0 +1,100 @@
+{
+  "agent_name": "designer",
+  "sandbox": "Run as docs/agent-evals.md describes: the runner creates <work>, copies files/* into <work>/files/ and tells the agent to write its spec and any HTML artboard under <work>/outputs/. There is no real repo or running app: files/ is all the agent can read about the product, and it cannot screenshot or open a browser. gh, the network and the user are unavailable; a question for the user ends the run, in the final message.",
+  "evals": [
+    {
+      "id": 1,
+      "name": "ticket-prescribes-settings",
+      "prompt": "Spec ticket #212 (Brand voice), context and the ticket text are in files/app-structure.md, tokens in files/tokens.css. The PO wants it in Settings, as the ticket says, so mostly I need the layout and the states: form fields, how the 3 sample posts work, save and error behaviour. Mobile-first. Spec to outputs/spec.md, and an HTML artboard at 390, 768 and 1280 in outputs/brand-voice.html.",
+      "expected_output": "Treats the ticket's Settings placement as a hypothesis: states in one sentence what Settings is for, tests Brand voice against it and against at least one alternative (for example a per-brand destination under Brands, or its own top-level destination), reasons from the user's mental model ('I want the posts to sound like me', per-brand voice) and records the placement as a call for the user with a recommendation, before any visual detail. Does not rely on copy to explain the difference from the Language setting. Exercises 'a placement suggested in the brief is a hypothesis, not a decision' and 'if copy has to explain the structure, the structure is wrong'.",
+      "files": [
+        "files/app-structure.md",
+        "files/tokens.css"
+      ],
+      "expectations": [
+        "The spec opens with a section on where it lives and why, before any layout or visual detail",
+        "That section states, in one sentence, what Settings is for",
+        "That section names the ticket's Settings placement and compares it with at least one alternative placement",
+        "The comparison reasons from the user's mental model or the voice being per brand (for example one voice per brand, or 'where do I tell it about my shop')",
+        "The spec notes the clash between the Settings Language row (interface language) and the voice's writing language, and handles it by structure rather than by explanatory copy",
+        "The placement is flagged to the user as a decision to confirm, with a recommendation (in Needs the user or in the spec's opening summary)",
+        "The spec covers loading, error, empty and long-content states, using token names from files/tokens.css",
+        "outputs/brand-voice.html exists and shows 390, 768 and 1280 layouts",
+        "The final message uses the report shape: Changed, Verified, Deviations, Needs the user"
+      ]
+    },
+    {
+      "id": 2,
+      "name": "brand-switcher-across-shells",
+      "prompt": "Add a brand switcher: the product ask and every route's shell are in files/shells.md, tokens in files/tokens.css. It needs to be reachable from every signed-in screen where a user works on a brand. Give me the spec in outputs/spec.md and an artboard in outputs/brand-switcher.html at 390, 768 and 1280. Phone is the base.",
+      "expected_output": "Walks every route group's existing shell and says explicitly how the switcher coexists with each (AppShell: where it sits; FocusShell, CheckoutShell, AuthShell and the public share page: hidden or otherwise, with reason), so no screen ends up with a duplicate logo or a competing top-right control. Covers one-brand users, 12 brands, 40-character names, all interactive states with token names, accessibility and responsive behaviour at 390/768/1280. Exercises 'for global chrome, walk each route's existing shell and say how the new element coexists with it'.",
+      "files": [
+        "files/shells.md",
+        "files/tokens.css"
+      ],
+      "expectations": [
+        "The spec addresses each of the five route groups (app, focus, checkout, auth, public) by name and states for each whether the switcher appears, is hidden or changes",
+        "For the (focus) onboarding shell the spec says what happens given the shell's top-right 'Skip for now' button and its logo",
+        "For the checkout shell the spec says what happens given its top-right 'Secure checkout' badge",
+        "The spec says what a user with exactly one brand sees",
+        "The spec says how a 40-character brand name is shown (truncate, wrap or other) at 390",
+        "Specifies the 390, 768 and 1280 behaviour with the phone layout as the base, saying where things go when they do not fit",
+        "States cover default, hover, focus, pending or disabled and error or empty, naming tokens from files/tokens.css and no raw hex values in the component spec",
+        "Accessibility is covered: a touch target of at least 44px, focus order or keyboard operation, and a role or label for the switcher",
+        "outputs/brand-switcher.html exists and contains 390, 768 and 1280 layouts",
+        "The final message uses the report shape: Changed, Verified, Deviations, Needs the user"
+      ]
+    },
+    {
+      "id": 3,
+      "name": "mixed-language-rule-driven-states",
+      "prompt": "Spec the draft review screen, described in files/language-rules.md, tokens in files/tokens.css. Phone is the base. Output the spec to outputs/spec.md and the artboard to outputs/draft-review.html (390, 768, 1280). The PO hasn't decided how the screen tells the user which language a draft is in, that part is yours to work out. Keep the spec short enough that the PO reads it.",
+      "expected_output": "Spec that opens with a one-screen summary, covers every state, and treats the language rules as rule-driven states: the mixed-language case (UI in Spanish, draft content in English) and the fallback case (brand content language unset) each get their own artboard or labelled section in the HTML. Semantics for mixed languages (a lang attribute on the draft text) are specified. How or whether the screen shows the draft's language is a visible choice that goes to the user as a question with a recommendation, not a silent call. Exercises 'rule-driven states get drawn' and 'visible choices go to the user'.",
+      "files": [
+        "files/language-rules.md",
+        "files/tokens.css"
+      ],
+      "expectations": [
+        "The spec opens with a short summary covering the decision, what it looks like and what the designer is least sure of",
+        "outputs/draft-review.html contains a separately labelled section or artboard for the mixed-language state (Spanish UI with an English draft)",
+        "The HTML or spec also draws or lists the fallback state where the brand has no content language set",
+        "The spec says the draft text carries its own language marker (for example a lang attribute) distinct from the page language",
+        "How or whether the screen shows which language a draft is in is listed under Needs the user with a recommendation",
+        "Loading, empty, failed-to-load and a 2,200-character draft are each specified",
+        "Approve is the one primary action and Edit text and Reschedule are visually secondary",
+        "The spec is under about 250 lines",
+        "The final message uses the report shape: Changed, Verified, Deviations, Needs the user"
+      ]
+    }
+  ],
+  "dispatch": [
+    {
+      "query": "Where should the invoices list live in the app: under Settings, or as its own page? Users keep asking where their receipts are.",
+      "should_dispatch": true
+    },
+    {
+      "query": "We need a date-range picker and there's nothing like it in our design system. Can you design it, including the mobile version?",
+      "should_dispatch": true
+    },
+    {
+      "query": "Add a language switcher to the header on every page, including login and checkout.",
+      "should_dispatch": true
+    },
+    {
+      "query": "Do an accessibility review of the checkout page and tell me what to fix.",
+      "should_dispatch": true
+    },
+    {
+      "query": "Make the Save button on the profile page a bit taller and use the existing primary variant.",
+      "should_dispatch": false
+    },
+    {
+      "query": "Build the settings page from the approved artboard, using the existing SummaryRow and PageHeader components.",
+      "should_dispatch": false
+    },
+    {
+      "query": "Write the product brief for a dog-walking marketplace: who it is for, the MVP cut and a phased roadmap.",
+      "should_dispatch": false
+    }
+  ]
+}

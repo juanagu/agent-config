@@ -35,7 +35,7 @@ Then start a new session: hooks and agents are read at session start.
 
 - **Dispatch an agent**: Claude does it itself when a task matches an agent's description; or say "use the `designer` agent for this".
 - **Review pass**: `/code-review medium` (or `low`, `high`). The `code-reviewer` agent exists for the other tools; in Claude Code prefer the command, it has verified verdicts built in.
-- **Skills**: `/open-pr`, `/resolve-pr-comments`, `/retro`; the `*-architecture` skills load on their own when you work in that stack.
+- **Skills**: `/open-pr`, `/merge-gate`, `/resolve-pr-comments`, `/retro`; the `*-architecture` skills load on their own when you work in that stack.
 - **Protected checkouts**: list the checkouts that serve a dev server in `~/.config/agent-config/git-guard.json`:
 
   ```json

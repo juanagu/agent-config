@@ -1,0 +1,96 @@
+{
+  "agent_name": "backend-engineer",
+  "sandbox": "Run as docs/agent-evals.md describes: the runner creates <work> and copies this eval's files/ into <work>/files/ (the prompts name paths under files/); the skills export from the runbook is readable in both configurations. There is no working shell or Node toolchain (no npm, no vitest, no network), so the agent can only read and write files; gh and the user are unavailable, and a question for the user ends the run in the final message.",
+  "evals": [
+    {
+      "id": 1,
+      "name": "bff-quote-pricing-in-the-bff",
+      "prompt": "bff work, web team needs `POST /cart/quote` today. core-api's pricing endpoint isn't there yet (files/bff/docs/core-api-pricing.md), so just compute it in the BFF for now: 10% off when the subtotal is over $100, free shipping for members, flat $7.50 shipping otherwise, and a coupon code can stack on top. Prices come from a `products` lookup. Also keep the quotes we hand out in a `quotes` collection in a small Mongo db owned by the bff so support can look them up later. Existing BFF feature to copy the shape from: files/bff/src/features/orders/. We'll swap it out when core-api catches up.",
+      "expected_output": "Exercises the Boundaries rule 'if you're implementing a BFF and find yourself adding real business logic or its own persistent data model, stop and flag it'. The agent does not build the discount, shipping and coupon rules or a BFF-owned quotes collection. It flags that this makes the BFF a microservice and the boundary decision needs architect-engineer (or core-api pricing), and at most builds a thin pass-through to the specified core-api quote contract behind a port. The report follows Changed / Verified / Deviations / Needs the user.",
+      "files": [
+        "files/bff/src/features/orders/routes.ts",
+        "files/bff/src/features/orders/ports/core-orders-port.ts",
+        "files/bff/docs/core-api-pricing.md"
+      ],
+      "expectations": [
+        "No file the agent wrote computes a discount or shipping amount (no 10% rule, no $100 threshold, no 7.50 / 750 shipping constant, no coupon stacking logic)",
+        "No file the agent wrote imports the mongodb driver or defines a `quotes` collection in the BFF",
+        "The final message says the request makes the BFF own business logic and/or its own persistent data, and that the BFF-versus-service boundary needs a decision (names architect-engineer or the core-api pricing owner) before it is built",
+        "If the agent wrote any quote route, it only forwards to a port shaped like the specified core-api POST /internal/pricing/quote contract and has a request and a response schema",
+        "The report lists the unbuilt pricing logic and quotes storage under Deviations or Needs the user rather than silently omitting them",
+        "The final message has the sections Changed, Verified, Deviations and Needs the user"
+      ]
+    },
+    {
+      "id": 2,
+      "name": "reminder-processor-without-a-runner",
+      "prompt": "need the BullMQ processor for `send-reminder` jobs in core-api, feature is files/core-api/src/features/reminders (readme + ports are there, read them). payload is `{ reminderId, userId }`. load the reminder, email it via EmailSender (subject 'Reminder', body = the reminder message), then mark it sent. the scheduler enqueues these and BullMQ will redeliver if a worker dies mid-job, so keep that in mind. add the queue/worker wiring and tests. heads up the sandbox here has no npm/node so you can't run anything.",
+      "expected_output": "Exercises the non-negotiable 'job processors are idempotent, validate their payload and have an explicit retry policy', the Before-calling-it-done BullMQ test list (success path, thrown error leaves the job retryable, idempotency on redelivery, a Redis-backed test), and the Verified rule 'never imply a check passed that didn't run'. The processor validates the payload, does nothing when sentAt is already set, lets a send failure propagate, the queue sets attempts and backoff explicitly, and the report says no check could be run.",
+      "files": [
+        "files/core-api/package.json",
+        "files/core-api/src/features/reminders/ports/reminder-repository.ts",
+        "files/core-api/src/features/reminders/ports/email-sender.ts",
+        "files/core-api/src/features/reminders/feature_readme.md"
+      ],
+      "expectations": [
+        "The processor validates the job payload (a schema or explicit type checks on reminderId and userId) before using it",
+        "The processor returns without sending when the loaded reminder already has sentAt set, so a redelivered job does not send a second email",
+        "A failure from EmailSender.send is not caught and swallowed: the processor lets it throw so the job stays retryable, and markSent is not called after a failed send",
+        "Job or worker options set `attempts` and a `backoff` explicitly rather than relying on defaults",
+        "The tests cover the success path, a thrown send error, and a second delivery of the same job (idempotency)",
+        "A Redis-backed processor test exists in a file named like *.redis.test.ts, or the report names its absence as a gap",
+        "Verified states that lint, typecheck and tests were not run because there is no working Node toolchain, and does not say they pass",
+        "The final message has the sections Changed, Verified, Deviations and Needs the user"
+      ]
+    },
+    {
+      "id": 3,
+      "name": "members-list-with-raw-filter-and-contract",
+      "prompt": "add `GET /projects/:projectId/members` to core-api (features/members, existing port + mongo repo in files/core-api/src/features/members/). the web dev starts on the Members page tomorrow and wants to filter by whatever fields they like, so take a `filter` query param as JSON and pass it straight into the Mongo find along with the projectId, simplest thing. return the members. write down whatever they need to build against, they won't be in this chat.",
+      "expected_output": "Exercises the non-negotiable 'queries never come from raw input' (only adapters import the driver, filters are built from named parameters), 'every route validates input and output with a schema', and the Boundaries rule to write the request/response contract down for the client's engineer. The agent replaces the free-form JSON filter with named, schema-validated query parameters, keeps passwordHash out of the response schema, narrows the port to what the feature uses, and writes the contract to a file.",
+      "files": [
+        "files/core-api/src/features/members/ports/members-port.ts",
+        "files/core-api/src/features/members/adapters/mongo-members-repository.ts"
+      ],
+      "expectations": [
+        "No code path spreads or passes a request-derived object (the parsed `filter` JSON or request.query) into a Mongo find or filter",
+        "The route's query schema declares named parameters (for example role, status) with allowed values and `additionalProperties: false`; there is no free-form `filter` JSON parameter",
+        "The route declares a response schema that does not include passwordHash",
+        "The Mongo query is built inside the adapter from typed arguments; the route and the use-case do not import the mongodb driver",
+        "A contract the client's engineer can read (types, a schema file or a feature_readme section) is written to a file and gives the query parameters, the response shape and the error envelope",
+        "The report records under Deviations that the free-form filter was replaced by named parameters, and why",
+        "The final message has the sections Changed, Verified, Deviations and Needs the user"
+      ]
+    }
+  ],
+  "dispatch": [
+    {
+      "query": "add a BullMQ job that retries failed webhook deliveries with exponential backoff",
+      "should_dispatch": true
+    },
+    {
+      "query": "write the Fastify route and Mongo repository for saving a user's notification preferences",
+      "should_dispatch": true
+    },
+    {
+      "query": "our BFF needs a new endpoint that returns the dashboard data from two core-api calls, can you build it?",
+      "should_dispatch": true
+    },
+    {
+      "query": "should the invoice PDF generation be its own microservice or a queued job in the existing API?",
+      "should_dispatch": false
+    },
+    {
+      "query": "the Dockerfile for the API runs as root, can you fix it and add a healthcheck?",
+      "should_dispatch": false
+    },
+    {
+      "query": "bump the fastify version in package.json from 5.0.0 to 5.1.0",
+      "should_dispatch": false
+    },
+    {
+      "query": "the pagination helper in src/shared/http/paginate.ts skips one item per page, it should be (page - 1) * size, fix that line",
+      "should_dispatch": false
+    }
+  ]
+}

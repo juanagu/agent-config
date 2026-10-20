@@ -1,0 +1,15 @@
+@import "tailwindcss";
+
+@theme {
+  --color-paper: #fbf9f4;
+  --color-ink: #1c1b19;
+  --color-muted: #6b665c;
+  --color-line: #e4dfd2;
+  --color-sand: #f1ede1;
+  --color-accent: #d5442b;
+  --color-accent-strong: #b83a24;
+  --font-display: "Newsreader", serif;
+  --font-sans: "Instrument Sans", sans-serif;
+  --radius-md: 10px;
+  --spacing-gutter: 1rem;
+}

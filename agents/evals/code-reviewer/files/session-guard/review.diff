@@ -1,0 +1,43 @@
+diff --git a/src/features/auth/is-expired.ts b/src/features/auth/is-expired.ts
+new file mode 100644
+--- /dev/null
++++ b/src/features/auth/is-expired.ts
+@@ -0,0 +1,6 @@
++const MS_PER_SECOND = 1000;
++
++// A session is still valid at the exact expiry instant; the issuer treats it the same way.
++export function isExpired(expiresAtSeconds: number, nowMs: number): boolean {
++  return nowMs > expiresAtSeconds * MS_PER_SECOND;
++}
+diff --git a/src/features/auth/is-expired.test.ts b/src/features/auth/is-expired.test.ts
+new file mode 100644
+--- /dev/null
++++ b/src/features/auth/is-expired.test.ts
+@@ -0,0 +1,14 @@
++import { describe, expect, it } from "vitest";
++import { isExpired } from "./is-expired";
++
++describe("isExpired", () => {
++  const expiresAt = 1_700_000_000;
++  const expiresAtMs = expiresAt * 1000;
++
++  it("is false before the expiry instant and at it", () => {
++    expect(isExpired(expiresAt, expiresAtMs - 1)).toBe(false);
++    expect(isExpired(expiresAt, expiresAtMs)).toBe(false);
++  });
++
++  it("is true after it", () => expect(isExpired(expiresAt, expiresAtMs + 1)).toBe(true));
++});
+diff --git a/src/features/auth/session-guard.ts b/src/features/auth/session-guard.ts
+--- a/src/features/auth/session-guard.ts
++++ b/src/features/auth/session-guard.ts
+@@ -1,7 +1,8 @@
+ import type { Session } from "./session";
++import { isExpired } from "./is-expired";
+ 
+ export function isSessionValid(session: Session | null, nowMs: number): boolean {
+   if (!session) return false;
+-  if (session.expiresAt * 1000 < nowMs) return false;
++  if (isExpired(session.expiresAt, nowMs)) return false;
+   return session.userId.length > 0;
+ }

@@ -29,7 +29,7 @@ Create a pull request that fits this user's trunk-based development model (see `
 ### 3. Push the branch
 - If the project's standards (`AGENTS.md` or `CLAUDE.md`) grant the agent merge rights, push without asking: a project that lets you merge has already let you push. Otherwise confirm once per branch before `git push`, not per action within it.
 - `git push -u origin <branch-name>`. The `git-guard` hook refuses a push to trunk or a force-push to it; if it fires, you are on the wrong branch, so fix that rather than retrying.
-- **A PR opens reviewed** (`AGENTS.md`, Workflow). After the push, `git fetch` so `origin/main` is current, then run the merge gate's review loop (item 1 there: a review pass; Claude Code: `/code-review`, elsewhere the `code-reviewer` agent) from the main session, on the branch by its absolute worktree path when one exists; after each fix, re-run step 2 before pushing again. If you are a dispatched agent, stop here and report the pushed branch: the main session reviews and opens the PR. The Testing section of step 4 records the passes.
+- **A PR opens reviewed** (`AGENTS.md`, Workflow). After the push, `git fetch` so `origin/main` is current, then run the review loop as the `merge-gate` skill bounds it (a review pass; Claude Code: `/code-review`, elsewhere the `code-reviewer` agent) from the main session, on the branch by its absolute worktree path when one exists; after each fix, re-run step 2 before pushing again. If you are a dispatched agent, stop here and report the pushed branch: the main session reviews and opens the PR. The Testing section of step 4 records the passes.
 
 ### 4. Write the PR description
 Use conventional-commit-style semantics for the title (`type(scope): summary`, matching the `conventional-commit` skill's types). Structure the body as:
@@ -60,7 +60,7 @@ Pull the actual summary/changes from `git log main..HEAD` and `git diff main...H
 - Report the PR URL back to the user.
 
 ### 6. After opening
-- The skill ends here. What remains of the merge gate in `AGENTS.md` (Workflow) is CI on the last push and your own re-run of the checks; merging is a separate step, taken only where the agent has merge rights and that gate is met, and otherwise the user's call.
+- The skill ends here. What remains of the `merge-gate` skill's gate is CI on the last push and your own re-run of the checks; merging is a separate step, taken only where the agent has merge rights and that gate is met, and otherwise the user's call.
 
 ## Notes
 - If the user's repo doesn't use `main` as trunk (e.g. `master`, `trunk`), detect the actual default branch via `gh repo view --json defaultBranchRef` rather than assuming.

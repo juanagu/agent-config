@@ -26,6 +26,7 @@ agent-config/
 │   ├── hooks/git-guard.json  Copilot hook registration             (generated)
 │   └── agents/<name>.agent.md  Copilot custom agents               (generated)
 ├── agents/<name>.md          SOURCE of every agent, tool-neutral frontmatter
+├── agents/evals/<name>/      each agent's behavioural evals and routing cases (not installed)
 ├── scripts/build.mjs         writes every file marked (generated)
 ├── scripts/install.mjs       copies into a project, or links into a tool's user folders
 ├── bin/bootstrap.mjs         `npx -y github:juanagu/agent-config`

@@ -1,6 +1,6 @@
 ---
 name: react-native-engineer
-description: "Use for building or modifying React Native apps on Expo: screens and components, Expo Router routes and layouts, TanStack Query and Zustand state, forms, the feature lib/ ports, Expo Modules and config plugins, EAS build and update config, and wiring the UI to backend APIs. Handles minor visual/UX tweaks itself; hands off to designer for real design decisions. Proactively invoke for any React Native or Expo implementation task. Not for Next.js or Flutter (frontend-engineer), native Android (android-engineer) or native iOS (ios-engineer)."
+description: "Use for building or modifying React Native apps on Expo: screens and components, Expo Router routes and layouts, TanStack Query and Zustand state, forms, the feature lib/ ports, Expo Modules and config plugins, EAS build and update config, and wiring the UI to backend APIs. Handles minor visual/UX tweaks itself; hands off to designer for real design decisions. Proactively invoke for React Native or Expo implementation beyond a small, single-file change. Not for Next.js or Flutter (frontend-engineer), native Android (android-engineer) or native iOS (ios-engineer)."
 tier: implementation
 access: write
 effort: medium

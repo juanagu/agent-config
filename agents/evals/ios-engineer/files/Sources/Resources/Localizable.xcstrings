@@ -1,0 +1,18 @@
+{
+  "sourceLanguage" : "en",
+  "strings" : {
+    "feed.title" : {
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Your feed" } },
+        "es" : { "stringUnit" : { "state" : "translated", "value" : "Tu feed" } }
+      }
+    },
+    "feed.error" : {
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "We couldn't load your feed." } },
+        "es" : { "stringUnit" : { "state" : "translated", "value" : "No pudimos cargar tu feed." } }
+      }
+    }
+  },
+  "version" : "1.0"
+}

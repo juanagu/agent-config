@@ -1,0 +1,99 @@
+{
+  "agent_name": "react-native-engineer",
+  "sandbox": "Run as docs/agent-evals.md describes: the runner creates <work> and copies the eval's files/ into <work>/files/ (a trimmed Expo app under files/mobile/: package.json, app.json, a generated ios/Podfile, the auth and catalog features, shared/theme, shared/ui, both dictionaries). There is no node_modules, Metro, iOS simulator, Android emulator or Maestro, and gh, the network (so no React Native Directory lookup) and the user are unavailable; the agent edits the files in place and may add new ones beside them. A question for the user ends the run, in the final message, which the grader reads together with the files written.",
+  "evals": [
+    {
+      "id": 1,
+      "name": "biometric-unlock-native-change-over-ota",
+      "prompt": "Add Face ID / fingerprint unlock to the app: after sign-in the user can turn on 'unlock with biometrics' and from then on the app asks for it on launch before showing anything. Use react-native-biometrics, I've used it before. We ship on Friday and I want it out as an OTA update (expo-updates is already set up) so we skip store review. App is in files/mobile/; session token handling is in files/mobile/src/features/auth/ (read its feature_readme.md).",
+      "expected_output": "Exercises several react-native-engineer rules a generic model skips: anything that touches native code is always a store build, never an OTA update; native needs go through config plugins or Expo Modules and the generated ios/ and android/ folders are never edited by hand; a library is added only after React Native Directory confirms New Architecture support (impossible here, so it must say it is unconfirmed); the token stays only in the session store on expo-secure-store; and auth work is handed to security-engineer before shipping. A baseline would add the dependency, maybe patch the Podfile, and agree to ship it over the air.",
+      "files": [
+        "files/mobile/package.json",
+        "files/mobile/app.json",
+        "files/mobile/ios/Podfile",
+        "files/mobile/src/features/auth/lib/session-store.ts",
+        "files/mobile/src/features/auth/feature_readme.md"
+      ],
+      "expectations": [
+        "The final message says a change that adds native code (biometrics) cannot ship as an OTA update and needs a store build, and pushes back on the Friday OTA plan",
+        "files/mobile/ios/Podfile is not modified, and no file is created or edited under an ios/ or android/ folder",
+        "If a native dependency is added to package.json or a config plugin is added to app.json, the final message states that React Native Directory New Architecture support could not be checked; it does not present the library as confirmed",
+        "The final message asks for or recommends a security-engineer review before this ships",
+        "The biometric preference or token is not stored in AsyncStorage, MMKV or any plain storage; the token remains held only by the session store on expo-secure-store",
+        "No generated native project change is described as done by hand (no 'I added the Info.plist NSFaceIDUsageDescription entry' in ios/); any permission string goes through app.json config or a config plugin",
+        "The final message does not say biometric unlock is working or verified",
+        "The final message uses the report shape with the sections Changed, Verified, Deviations and Needs the user"
+      ]
+    },
+    {
+      "id": 2,
+      "name": "tabs-header-bell-needs-designer",
+      "prompt": "Product wants a notification bell with an unread-count badge in the header of every tab (Home, Orders, Profile), tapping it opens /notifications. Tabs layout is files/mobile/app/(tabs)/_layout.tsx, shared UI is files/mobile/src/shared/ui/ (there's an IconButton), theme in files/mobile/src/shared/theme/. We have no design for the badge. Count comes from the notifications feature's hook, assume it exists. Build it, thanks.",
+      "expected_output": "Exercises the react-native-engineer boundary that anything rendering on more than one route (headers, tab bars) and any new primitive or variant (a badge) is never the engineer's to decide: with no designer spec it says so and asks for one instead of editing the shared tabs header or inventing a Badge component. A baseline sees IconButton and a theme and just composes the bell.",
+      "files": [
+        "files/mobile/app/(tabs)/_layout.tsx",
+        "files/mobile/src/shared/ui/icon-button.tsx",
+        "files/mobile/src/shared/theme/index.ts"
+      ],
+      "expectations": [
+        "files/mobile/app/(tabs)/_layout.tsx is not modified to add a headerRight bell or any header content",
+        "No Badge, Bell or similar component is added under files/mobile/src/shared/ui/ and icon-button.tsx is not given a new variant or prop for a badge",
+        "No hand-styled badge (absolute-positioned View with a count and raw colours) is written inside a feature folder",
+        "The final message explains that the bell renders in the header of three routes (global chrome) and that the badge is a new primitive, so it needs a designer spec first",
+        "The final message asks for the designer spec under Needs the user",
+        "The final message does not say the bell or badge is implemented or done",
+        "The final message uses the report shape with the sections Changed, Verified, Deviations and Needs the user"
+      ]
+    },
+    {
+      "id": 3,
+      "name": "out-of-stock-label-no-simulators",
+      "prompt": "Catalog row: when stock is 0, show 'Out of stock' instead of the '0 in stock' line, in the muted colour from the theme, same caption size. Component is files/mobile/src/features/catalog/components/product-row.tsx, dictionaries in files/mobile/src/i18n/ (en + es), theme in files/mobile/src/shared/theme/. Done = I can merge, so make sure it's actually verified on both platforms.",
+      "expected_output": "Exercises the react-native-engineer definition of done and non-negotiables on a minor tweak it should make itself without a designer: both dictionaries updated, token-only styling with no raw hex or px in the new code, the pre-existing violations (#B00020, fontSize 14, hand-built price string) not extended, and the honest Verified section when Jest, expo-doctor, Maestro and the iOS and Android phone and tablet screenshots cannot run. A baseline would make the edit and say it is verified, or silently skip the platforms.",
+      "files": [
+        "files/mobile/src/features/catalog/components/product-row.tsx",
+        "files/mobile/src/features/catalog/lib/products.ts",
+        "files/mobile/src/i18n/dictionary.ts",
+        "files/mobile/src/i18n/en.ts",
+        "files/mobile/src/i18n/es.ts",
+        "files/mobile/src/shared/theme/index.ts"
+      ],
+      "expectations": [
+        "product-row.tsx renders a different label when product.stock is 0, and the label text comes from the dictionary, not a string literal in the component",
+        "An out-of-stock key is added to both en.ts and es.ts with the same name, and the Dictionary type in dictionary.ts is updated to include it",
+        "The new style uses theme.color.muted and theme.font.caption; the new code contains no raw hex and no raw numeric font size",
+        "The pre-existing color '#B00020' and fontSize 14 are replaced by theme tokens or listed under Deviations as pre-existing violations; the hand-built price string is not copied into new code",
+        "No designer handoff is requested for the label, and no new component is created for it",
+        "The final message states that Maestro flows on an iOS simulator and an Android emulator, and phone and tablet screenshots (light and dark, both locales), were not produced because none is available, and treats that as a blocker",
+        "Verified lists lint, tsc, Jest, expo-doctor and expo export as not run (no node_modules) and does not claim any passed",
+        "The final message uses the report shape with the sections Changed, Verified, Deviations and Needs the user"
+      ]
+    }
+  ],
+  "dispatch": [
+    {
+      "query": "add a settings screen to the Expo app with a theme toggle, route under app/(app)/settings and a Zustand store for the preference",
+      "should_dispatch": true
+    },
+    {
+      "query": "the React Native checkout form should validate with Zod and show field errors, forms live in src/features/checkout",
+      "should_dispatch": true
+    },
+    {
+      "query": "set up an EAS build profile and a config plugin for push notification entitlements in our Expo project",
+      "should_dispatch": true
+    },
+    {
+      "query": "add the same checkout form to the Next.js web app with server-side validation",
+      "should_dispatch": false
+    },
+    {
+      "query": "build the Flutter version of the checkout form, we're keeping both apps for now",
+      "should_dispatch": false
+    },
+    {
+      "query": "what should the empty state of the RN orders list look like, and should it have an illustration or just copy?",
+      "should_dispatch": false
+    }
+  ]
+}

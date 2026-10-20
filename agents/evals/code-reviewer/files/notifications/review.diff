@@ -1,0 +1,57 @@
+diff --git a/src/features/notifications/notifications-routes.ts b/src/features/notifications/notifications-routes.ts
+new file mode 100644
+--- /dev/null
++++ b/src/features/notifications/notifications-routes.ts
+@@ -0,0 +1,9 @@
++import type { FastifyInstance } from "fastify";
++import type { NotificationsController } from "./notifications-controller";
++
++export async function notificationsRoutes(app: FastifyInstance, opts: { controller: NotificationsController }) {
++  app.get("/notifications", {
++    schema: { response: { 200: { type: "array", items: { type: "object", properties: { id: { type: "string" }, title: { type: "string" }, readAt: { type: ["string", "null"] } } } } } },
++  }, (req, reply) => opts.controller.list(req, reply));
++  app.post("/notifications/:userId/read-all", (req, reply) => opts.controller.readAll(req, reply));
++}
+diff --git a/src/features/notifications/notifications-controller.ts b/src/features/notifications/notifications-controller.ts
+new file mode 100644
+--- /dev/null
++++ b/src/features/notifications/notifications-controller.ts
+@@ -0,0 +1,21 @@
++import type { FastifyReply, FastifyRequest } from "fastify";
++import type { NotificationService } from "./notification-service";
++
++export class NotificationsController {
++  constructor(private readonly notifications: NotificationService) {}
++
++  async list(req: FastifyRequest, reply: FastifyReply) {
++    return reply.send(await this.notifications.listUnread(req.session.userId));
++  }
++
++  async readAll(req: FastifyRequest, reply: FastifyReply) {
++    const { userId } = req.params as { userId: string };
++    try {
++      const count = await this.notifications.markAllRead(userId);
++      return reply.send({ count });
++    } catch (err: any) {
++      if (err.code === "USER_NOT_FOUND") return reply.code(404).send({ error: "not found" });
++      return reply.code(500).send({ error: "internal" });
++    }
++  }
++}
+diff --git a/src/shared/adapters/mongo-notification-repository.ts b/src/shared/adapters/mongo-notification-repository.ts
+new file mode 100644
+--- /dev/null
++++ b/src/shared/adapters/mongo-notification-repository.ts
+@@ -0,0 +1,12 @@
++import type { Collection, ObjectId } from "mongodb";
++
++type NotificationDoc = { _id: ObjectId; userId: string; readAt: Date | null };
++
++export class MongoNotificationRepository {
++  constructor(private readonly col: Collection<NotificationDoc>) {}
++
++  async markAllRead(userId: string): Promise<number> {
++    const res = await this.col.updateMany({ userId, readAt: null }, { $set: { readAt: new Date() } });
++    return res.modifiedCount;
++  }
++}

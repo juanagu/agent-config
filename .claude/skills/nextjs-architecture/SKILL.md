@@ -82,10 +82,12 @@ The feature-shape rule is in the standards (Feature folders). Here a small featu
 ```
 tests/
   unit/                 vitest for lib/ logic and hooks; a test that never opens a page is a unit test, never a Playwright spec
+  components            interaction tests through Testing Library (or the repo's existing tool), by behaviour a user sees, not implementation details
   e2e/<feature>*.spec.ts  Playwright for critical flows, two projects: chromium and mobile-chromium (390x844); layout assertions in the mobile project too
   support/              a fake backend server validated in CI against the backend's published schema (and its CORS headers)
 ```
 
+- The specs cover critical flows, not components: the page loads without console errors, the primary action and navigation work, forms submit, each locale route renders its own copy, interactive pieces (menus, dialogs) open and close. A project with no Playwright yet gets `@playwright/test` and a `playwright.config.ts` with both projects; a config with only a desktop project gets the mobile one before anything else is verified, since the typical escape is a row that wraps at 390 and lands its actions on the wrong side.
 - Server-side fetches cannot be intercepted with `page.route`: Playwright gets two `webServer` entries, the fake backend first, then the production build pointed at it. Extend that fake instead of mocking in the page.
 - A `test:e2e:smoke` script (sign-in, home, the header at 390, route guards) is the fast CI tier; the full suite runs on a release tag and on a schedule.
 - Boundary and size rules are enforced by lint once the repo opts in (`eslint-plugin-boundaries` or `dependency-cruiser`, `max-lines`, `max-lines-per-function`) with a baseline of today's offenders that may only shrink. Never add a disable comment to get past them.

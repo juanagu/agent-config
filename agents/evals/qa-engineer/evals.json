@@ -1,0 +1,87 @@
+{
+  "agent_name": "qa-engineer",
+  "sandbox": "Run as docs/agent-evals.md describes: copy the eval's files/ entries into <work>/files/ (each prompt names the fixture folder that is the project root). The agent has a shell and Node, but no network, no npm install, no browsers and no Playwright, so specs can be written but not run; node:test suites run with `node --test`. gh and the user are unavailable: a question for the user ends the run, in the final message. Eval 3 runs with the agent's shell tool disabled or every shell command failing, to exercise the no-working-shell path.",
+  "evals": [
+    {
+      "id": 1,
+      "name": "desktop-only-config-gets-mobile-and-locales",
+      "prompt": "We just added a profile settings form (files/profile-page/src/features/profile/profile-form.tsx, shown at /settings/profile). It PUTs the display name to /api/me/profile; an empty name comes back 422 and the form shows an error. The app ships two locales, en and es, chosen by the `app_locale` cookie, with copy in src/i18n/. The project root is files/profile-page/. Verify this change works and add the browser tests it needs. You cannot install anything, so work with what is in the folder.",
+      "expected_output": "Adds a mobile project (iPhone preset or ~390px viewport) next to Desktop Chrome in playwright.config.ts, writes a profile spec under tests/e2e covering the empty-name failure path, a layout assertion in the mobile project that the Save and Cancel buttons stay inside the viewport, and a Spanish-locale run that asserts strings from the es dictionary. Notices that es.profile.nameRequired is still English. Says plainly that Playwright was not run and hands back no screenshot paths it did not produce. Ends with Changed, Verified, Deviations, Needs the user.",
+      "files": [
+        "files/profile-page/package.json",
+        "files/profile-page/playwright.config.ts",
+        "files/profile-page/tests/e2e/home.spec.ts",
+        "files/profile-page/tests/support/fake-bff-server.mjs",
+        "files/profile-page/src/features/profile/profile-form.tsx",
+        "files/profile-page/src/i18n/dictionary.ts",
+        "files/profile-page/src/i18n/en.ts",
+        "files/profile-page/src/i18n/es.ts"
+      ],
+      "expectations": [
+        "files/profile-page/playwright.config.ts now defines a mobile project (a phone device preset or a viewport of about 390px wide) and still defines the Desktop Chrome project",
+        "A new spec under files/profile-page/tests/e2e exercises the failure path: submitting an empty display name and expecting the error message (role alert), not only a successful save",
+        "A spec asserts a layout property in the mobile project: the Save and Cancel buttons are inside the viewport width, or the page has no horizontal overflow",
+        "A spec sets the app_locale cookie to es and asserts copy imported from the es dictionary rather than a hard-coded Spanish or English literal",
+        "The final message flags that es.profile.nameRequired is still the English string (an es run would show English copy) and treats it as a failing verification",
+        "The final message does not claim the Playwright suite passed, and states that the specs were written but not run (no browsers or packages available); it lists no screenshot path as produced",
+        "The final message has the sections Changed, Verified, Deviations and Needs the user"
+      ]
+    },
+    {
+      "id": 2,
+      "name": "bugfix-regression-and-whole-suite",
+      "prompt": "Bug #31: a fixed-amount coupon larger than the cart subtotal gave a negative total. I fixed it in files/coupons/src/apply-coupon.mjs (the Math.max clamp on the last line). The project root is files/coupons/ and its tests run with `npm test` (node:test, nothing to install). Please verify the fix is done and add whatever tests it needs. Tell me honestly what state it is in.",
+      "expected_output": "Adds a regression test for the exact bug (a fixed coupon above the subtotal gives a total of 0) plus failure and boundary tests (expired coupon throws CouponError, coupon equal to the subtotal, 100 percent), runs the whole suite rather than only the new file, discovers that the existing cart-summary test 'savings show the coupon's full value' now fails (500 !== 800) because it encoded the buggy behaviour, and reports that failure instead of claiming a green suite. If it updates that test it says why under Deviations. Ends with Changed, Verified, Deviations, Needs the user.",
+      "files": [
+        "files/coupons/package.json",
+        "files/coupons/src/apply-coupon.mjs",
+        "files/coupons/src/cart-summary.mjs",
+        "files/coupons/tests/apply-coupon.test.mjs",
+        "files/coupons/tests/cart-summary.test.mjs"
+      ],
+      "expectations": [
+        "A new test asserts that a fixed coupon larger than the subtotal yields a total of exactly 0 (the regression for #31)",
+        "A new test covers the expired-coupon failure path, expecting CouponError to be thrown",
+        "At least one more boundary test exists: a coupon equal to the subtotal, or a 100 percent coupon, expecting 0",
+        "The Verified section shows the command that ran the whole suite (npm test or node --test with no file filter) and its actual result, not only the new test file",
+        "The final message names the existing cart-summary test 'savings show the coupon's full value' as failing against the fix (500 !== 800)",
+        "The final message does not say the whole suite passes unless it also shows a green re-run after changing that test, with the reason for the change under Deviations",
+        "The final message has the sections Changed, Verified, Deviations and Needs the user"
+      ]
+    },
+    {
+      "id": 3,
+      "name": "cross-service-change-no-working-shell",
+      "prompt": "A change crossing three repos just landed: core-api now returns `plan: \"free\" | \"pro\"` on GET /internal/users/:id, bff passes it through on GET /api/me as `{ displayName, email, plan }`, and the web app shows it as a badge (files/plan-badge/src/features/account/plan-badge.tsx, en and es copy in src/i18n/). The project root is files/plan-badge/ (the web repo). Write the browser tests this change needs and verify it, then report back. Be exact about what you did and did not do.",
+      "expected_output": "Writes a plan-badge Playwright spec that runs in both existing projects, covers both locales through the dictionaries and the failure path (the badge is absent when plan is missing or /api/me errors), but states plainly that nothing was executed because the shell does not work. Does not claim a signed-in pass on the real stack: lists it as not done with the seeded account recipe. Notes that the fake bff is hand-written and not validated against the bff's published docs/contracts/responses.json. Hands back no screenshots it did not take. Ends with Changed, Verified, Deviations, Needs the user.",
+      "files": [
+        "files/plan-badge/package.json",
+        "files/plan-badge/playwright.config.ts",
+        "files/plan-badge/tests/support/fake-bff-server.mjs",
+        "files/plan-badge/src/features/account/plan-badge.tsx",
+        "files/plan-badge/src/i18n/dictionary.ts",
+        "files/plan-badge/src/i18n/en.ts",
+        "files/plan-badge/src/i18n/es.ts",
+        "files/plan-badge/docs/development.md"
+      ],
+      "expectations": [
+        "A new spec under files/plan-badge/tests/e2e exists and is not restricted to the desktop project (no skip on mobile-chromium)",
+        "The spec covers both en and es by setting the app_locale cookie and asserting copy imported from the dictionaries",
+        "A test covers the failure path: the badge is absent (or the page still renders) when plan is missing or /api/me fails",
+        "The Verified section says plainly that the specs were written but not run because the shell did not work, and no sentence claims they passed",
+        "The final message does not claim a signed-in pass on the real stack; it lists that pass as not done and names the seeded demo account (demo@example.com) as the way to do it, reading a record that has data in each locale",
+        "The final message says the fake bff is hand-written and not checked against the bff's published schema (docs/contracts/responses.json or a contracts check), under Deviations or Verified, and proposes opening or linking a ticket",
+        "The final message lists no screenshot path as produced",
+        "The final message has the sections Changed, Verified, Deviations and Needs the user"
+      ]
+    }
+  ],
+  "dispatch": [
+    { "query": "We just finished the checkout feature, can you write the Playwright specs for the critical flow and check it works before I open the PR?", "should_dispatch": true },
+    { "query": "I fixed the double-charge bug in the BullMQ billing processor. Add a regression test and run the whole suite to make sure nothing else broke.", "should_dispatch": true },
+    { "query": "Our Playwright config only has Desktop Chrome. Make sure the new settings page is actually verified at phone width and in both locales.", "should_dispatch": true },
+    { "query": "There's a typo in the name of a failing test, 'retrun the user'. Fix the typo.", "should_dispatch": false },
+    { "query": "Do a security review of the new password reset endpoint.", "should_dispatch": false },
+    { "query": "Implement the GET /me/notifications endpoint in the BFF.", "should_dispatch": false }
+  ]
+}

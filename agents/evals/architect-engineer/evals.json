@@ -1,0 +1,85 @@
+{
+  "agent_name": "architect-engineer",
+  "sandbox": "Run as docs/agent-evals.md describes: the runner creates <work>, copies files/* into <work>/files/ and tells the agent to write any ADR or design under <work>/outputs/. There is no real repo: files/ is everything the agent can read about the codebase. gh, the network and the user are unavailable; a question for the user ends the run, in the final message.",
+  "evals": [
+    {
+      "id": 1,
+      "name": "bff-decided-for-a-single-client",
+      "prompt": "Team decided we're adding a BFF between parcelo-web and parcelo-core. Context is in files/architecture.md. Reasons given: we may do a mobile app next year and we want logic out of the web app. Design it (where it sits, what it owns, what changes for web and core) and write the ADR in outputs/adr/. Don't write the implementation, backend-engineer will do that.",
+      "expected_output": "Does not accept the BFF as an unquestioned deliverable: says plainly that one client calling one service with one session model does not need a BFF yet (unnecessary indirection), names the real tradeoff against the speculative mobile benefit, and records an ADR in the repo's convention (next number 0005, Context/Decision/Consequences) with a revisit trigger. No implementation code. Exercises 'BFF vs direct: a single client calling a single service through a BFF is unnecessary indirection, say so' and 'prefer the boring option over a hypothetical future need'.",
+      "files": ["files/architecture.md"],
+      "expectations": [
+        "States that a BFF is not justified now because there is one client, one service and one session model",
+        "Names a concrete cost of adding the BFF (for example an extra hop, another deployable, duplicated plumbing)",
+        "Treats the possible mobile app as speculative and does not make it the reason to build now",
+        "Gives a revisit trigger (for example when a second client exists or a screen needs aggregation across services)",
+        "An ADR file exists under outputs/adr/ named 0005-<short-title>.md",
+        "The ADR has Context, Decision and Consequences sections and is under about 60 lines",
+        "No Fastify route code, handler or implementation snippet is written",
+        "The final message uses the report shape: Changed, Verified, Deviations, Needs the user"
+      ]
+    },
+    {
+      "id": 2,
+      "name": "everything-a-bullmq-job",
+      "prompt": "Checkout redesign needs an async/sync call per operation. (a) Promo code validation: when the user types a code in the cart we look it up in core's MongoDB, check expiry and remaining uses, and return the discount. About 20-40 ms. The cart total updates from the answer. (b) After payment succeeds: send the receipt email through Resend (external, 1-3 s, fails now and then) and generate a PDF invoice (about 5 s). The PM wrote 'make all of it BullMQ jobs, we want it scalable and decoupled'. Stack is Fastify + BullMQ + Redis already in use (ADR 0004 is the first queue use). Give me the decision per operation and a short ADR in outputs/adr/0005-checkout-sync-and-async.md. No implementation please.",
+      "expected_output": "Splits the decision: promo validation stays a synchronous Fastify call because the caller needs the result immediately to continue, receipt email and PDF invoice become BullMQ jobs because they are slow, retryable and shouldn't block the response. Pushes back on 'all jobs' by naming the cost of queuing something nothing downstream benefits from, writes a short ADR with consequences (retries and idempotent processors, failure visibility), and names the handoff to backend-engineer. Exercises 'queue it when slow/retryable/non-blocking; keep sync when the caller needs the result; don't queue just to be async'.",
+      "files": [],
+      "expectations": [
+        "Promo code validation is decided as synchronous",
+        "The reason given for keeping validation synchronous is that the cart needs the answer immediately (or equivalent)",
+        "Receipt email is decided as a BullMQ job",
+        "PDF invoice generation is decided as a BullMQ job",
+        "The agent pushes back on making everything a job and names a cost of doing so",
+        "The ADR file exists at outputs/adr/0005-checkout-sync-and-async.md with Context, Decision and Consequences",
+        "The consequences mention retries or idempotency for the queued work",
+        "The handoff names backend-engineer as the implementer",
+        "The final message uses the report shape: Changed, Verified, Deviations, Needs the user"
+      ]
+    },
+    {
+      "id": 3,
+      "name": "follow-the-grain-that-breaks-the-rules",
+      "prompt": "Need a design for refunds in shop-core. It touches orders (mark the order refunded, restock items) and payments (call the payment provider's refund API, record the refund). Repo layout and one repository excerpt are in files/repo-tree.txt and files/order-repository.ts. I'd say follow how orders works today, consistency matters, but it's your call. Write the design to outputs/design.md. No code changes, backend-engineer builds it after.",
+      "expected_output": "Notices that the repo's grain (repositories under shared/, a 900-line order-service, inline error mapping, no feature folders) breaks the AGENTS.md structure rules, and says so as the reason not to follow it. Designs refunds as its own feature with feature-owned narrow ports, accessing orders and payments through narrow ports or their public surface rather than the full OrderRepository, and plans the way out for the existing code as a separate tracked refactor instead of bundling it. Exercises 'when the grain breaks the Structure rules, design the new work to the rules and plan the way out; don't extend the violation'.",
+      "files": ["files/repo-tree.txt", "files/order-repository.ts"],
+      "expectations": [
+        "States explicitly that the existing layout (repositories in shared/, the 900-line order-service, or similar) breaks the structure rules and is not being followed for that reason",
+        "Places refunds in its own feature folder (for example src/features/refunds/) rather than in shared/repositories or in order-service.ts",
+        "The refunds feature declares its own port(s) listing only the operations it uses (for example find the order, mark it refunded, restock), not the whole OrderRepository",
+        "Does not put a refund repository or use-case under shared/",
+        "The way out for the existing code is proposed as a separate issue or follow-up, not as part of this change",
+        "The design says refunds' business rules sit in a use-case that does not import the Mongo driver or HTTP types",
+        "No file outside outputs/ was created or modified",
+        "Names backend-engineer as the implementer and mentions a feature_readme.md for the new feature",
+        "The final message uses the report shape: Changed, Verified, Deviations, Needs the user"
+      ]
+    }
+  ],
+  "dispatch": [
+    {
+      "query": "Should the new reporting module be its own microservice or live inside core-api? It has its own data but only two screens use it.",
+      "should_dispatch": true
+    },
+    {
+      "query": "We want one session module that web, the BFF and the admin app all depend on. Where should it live and who is allowed to import it?",
+      "should_dispatch": true
+    },
+    {
+      "query": "Invoice generation takes 8 seconds. Should it be a sync endpoint, or go through the queue? Write down the decision so the team agrees.",
+      "should_dispatch": true
+    },
+    {
+      "query": "Add a `nickname` field to the user profile endpoint, same way `displayName` is already done in that feature.",
+      "should_dispatch": false
+    },
+    {
+      "query": "Write the Dockerfile and Compose service for the new worker.",
+      "should_dispatch": false
+    },
+    {
+      "query": "Review this diff for bugs and security problems before I merge it.",
+      "should_dispatch": false
+    }
+  ]
+}

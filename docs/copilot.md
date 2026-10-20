@@ -35,7 +35,7 @@ Reload VS Code afterwards.
 
 - **Dispatch an agent**: pick it in the Agent dropdown, or `@designer` in chat; agents can hand off to each other through `handoffs` if you add them in your fork.
 - **Review pass**: select `code-reviewer` and ask for "a medium pass on this branch". It reports verdicts and never edits.
-- **Skills**: `/open-pr`, `/resolve-pr-comments`, `/retro`, or let Copilot pick one by its description.
+- **Skills**: `/open-pr`, `/merge-gate`, `/resolve-pr-comments`, `/retro`, or let Copilot pick one by its description.
 - **Models**: set in the model picker; agents do not pin one. To pin, add `model` to the Copilot row of `AGENT_TARGETS` in `scripts/build/targets.mjs` in your fork and rebuild.
 - **Protected checkouts**: `~/.config/agent-config/git-guard.json`:
 

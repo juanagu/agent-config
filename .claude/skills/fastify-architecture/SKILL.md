@@ -112,6 +112,7 @@ The dependency rule as a table. A row imports only the ticked columns; "own" mea
 tests/ (or alongside features)
   unit:         services/use-cases with the repository mocked behind its interface (vitest)
   integration:  repositories against mongodb-memory-server or a test MongoDB; routes through fastify.inject
+  bff:          the shaping and aggregation logic, and what it returns when a downstream service is slow or errors, not only the passthrough
   jobs:         processors unit-tested; *.redis.test.ts suites against a real Redis, run when REDIS_TEST_URL is set (CI sets it); cover success, the retry path (a throw keeps the job retryable) and idempotency
 ```
 

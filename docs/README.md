@@ -10,6 +10,7 @@ Start with the guide for your tool; the rest explains how the pieces fit and why
 - [compatibility.md](compatibility.md): the matrix of what each tool reads, with the documentation each row was verified against and the date.
 - [git-guard.md](git-guard.md): what the hook refuses, how it is wired into each tool, how to try it by hand.
 - [skill-evals.md](skill-evals.md): running each skill's evals.
+- [agent-evals.md](agent-evals.md): running each agent's evals and grading its description's routing.
 
 **Changing it**
 

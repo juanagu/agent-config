@@ -1,0 +1,8 @@
+{
+  "zone": "example.test",
+  "redirect_rules": [
+    { "description": "apex to www", "expression": "http.host eq \"example.test\"", "target": "https://www.example.test" }
+  ],
+  "cache_rules": [],
+  "rate_limit_rules": []
+}

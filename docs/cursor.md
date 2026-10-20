@@ -35,7 +35,7 @@ Restart Cursor or reload the window afterwards: hooks are read on start.
 
 - **Dispatch an agent**: `/designer where should the export button live` or "use the `qa-engineer` subagent to verify this". The Agent also delegates on its own when a description matches.
 - **Review pass**: `/code-reviewer review this branch at medium`. It reports findings with `CONFIRMED` or `PLAUSIBLE` verdicts and never edits; you apply the fixes.
-- **Skills**: `/open-pr`, `/resolve-pr-comments`, `/retro`; the architecture skills are picked up when the Agent judges them relevant.
+- **Skills**: `/open-pr`, `/merge-gate`, `/resolve-pr-comments`, `/retro`; the architecture skills are picked up when the Agent judges them relevant.
 - **Models**: `inherit` means an agent runs on the model you selected. To pin one, change the Cursor row of `AGENT_TARGETS` in `scripts/build/targets.mjs` in your fork and rebuild.
 - **Protected checkouts**: `~/.config/agent-config/git-guard.json`, the same file for every tool:
 

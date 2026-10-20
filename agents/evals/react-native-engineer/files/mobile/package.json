@@ -1,0 +1,21 @@
+{
+  "name": "tidepool-mobile",
+  "version": "1.4.0",
+  "main": "expo-router/entry",
+  "scripts": {
+    "lint": "eslint .",
+    "typecheck": "tsc --noEmit",
+    "test": "jest"
+  },
+  "dependencies": {
+    "@tanstack/react-query": "5.59.0",
+    "expo": "~53.0.0",
+    "expo-router": "~5.0.0",
+    "expo-secure-store": "~14.2.0",
+    "expo-updates": "~0.28.0",
+    "react": "19.0.0",
+    "react-native": "0.79.0",
+    "zod": "3.23.8",
+    "zustand": "5.0.0"
+  }
+}

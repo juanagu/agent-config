@@ -1,7 +1,7 @@
 ---
 # Generated from agents/android-engineer.md by scripts/build.mjs. Edit the source and run npm run build.
 name: android-engineer
-description: "Use for building or modifying native Android apps in Kotlin and Jetpack Compose: screens, ViewModels and UiState, navigation, repositories and data sources, Hilt wiring, Gradle modules and convention plugins, and wiring the UI to backend APIs. Handles minor visual/UX tweaks itself; hands off to designer for real design decisions. Proactively invoke for any native Android implementation task. Not for Flutter or React Native (frontend-engineer, react-native-engineer) or iOS (ios-engineer)."
+description: "Use for building or modifying native Android apps in Kotlin and Jetpack Compose: screens, ViewModels and UiState, navigation, repositories and data sources, Hilt wiring, Gradle modules and convention plugins, and wiring the UI to backend APIs. Handles minor visual/UX tweaks itself; hands off to designer for real design decisions. Proactively invoke for native Android implementation beyond a small, single-file change. Not for Flutter or React Native (frontend-engineer, react-native-engineer) or iOS (ios-engineer)."
 model: sonnet
 effort: medium
 color: green

@@ -1,0 +1,89 @@
+{
+  "agent_name": "code-reviewer",
+  "sandbox": "Run as docs/agent-evals.md describes: copy the eval's files/ entries into <work>/files/ and make the skills export from the runbook available to the agent, as it would have the skills in a real session. <work> is not a git repository and there is no remote: the diff is the file the brief names, so `git fetch origin` has nothing to fetch. gh, the network and the user are unavailable: a question for the user ends the run, in the final message. After the run, compare files/ against the original fixtures to see whether anything was edited.",
+  "evals": [
+    {
+      "id": 1,
+      "name": "planted-bug-among-style-noise",
+      "prompt": "Medium-level review pass on the diff in files/invoices/review.diff. It adds the paginated invoice list behind the Billing screen's GET /accounts/:accountId/invoices (Fastify, TypeScript; the existing InvoiceRepository.findByAccount takes { skip, limit }). The repo itself is not available here, only the diff and a post-change copy of src/features/invoices/list-invoices.ts under files/invoices/. I'd like to merge today, so tell me what has to change.",
+      "expected_output": "Reports the off-by-one in the pagination offset (skip = page * size with a 1-based page, so page 1 skips the first 20 invoices) as the top finding, CONFIRMED by tracing page=1, with file:line, a failure scenario and category correctness. Also notes that the new test encodes the wrong offset (expects inv-41 for page 2). Does not turn the let, quote style, missing semicolons, TODO or items: items into findings at medium level. Edits nothing. Says the diff came from the file in the brief, not a fetched trunk. Ends with Changed (none), Verified, Deviations, Needs the user.",
+      "files": [
+        "files/invoices/review.diff",
+        "files/invoices/src/features/invoices/list-invoices.ts"
+      ],
+      "expectations": [
+        "A finding reports the pagination offset defect: skip is computed as page * size although the route documents page as 1-based, located at the skip line of list-invoices.ts with a file:line",
+        "That finding gives a concrete failing input and wrong output: page=1 with the default size 20 gives skip=20, so the first 20 invoices are never returned",
+        "That finding carries the verdict CONFIRMED with what was traced, and the category correctness, and it is listed before any other finding",
+        "A second finding (category test-coverage or correctness) says the new test asserts inv-41 for page 2, so it encodes the off-by-one instead of catching it (the second page should start at inv-21)",
+        "No finding is about the style noise (let instead of const, single quotes or missing semicolons in invoices-routes.ts, the TODO comment, items: items)",
+        "files/invoices/src/features/invoices/list-invoices.ts is byte-identical to the fixture and no new file was written under files/",
+        "The final message says the diff was taken from files/invoices/review.diff because no repository or fetched trunk was available",
+        "The final message has the sections Changed, Verified, Deviations and Needs the user, and Changed says none"
+      ]
+    },
+    {
+      "id": 2,
+      "name": "clean-diff-at-low-level",
+      "prompt": "Low-level review pass on files/session-guard/review.diff: a small refactor that pulls the session expiry check out of session-guard.ts into an isExpired helper, with tests. The repo is not available, only the diff. Behaviour is meant to stay exactly the same.",
+      "expected_output": "Traces that the old check (expiresAt * 1000 < nowMs) and the new one (nowMs > expiresAt * 1000) are the same predicate, including at the exact expiry instant, and says plainly that the pass found nothing at the low level. Lists no findings, hedged or otherwise, and does not pad with style or structure remarks presented as findings. Edits nothing. Ends with Changed (none), Verified, Deviations, Needs the user.",
+      "files": [
+        "files/session-guard/review.diff"
+      ],
+      "expectations": [
+        "The final message states plainly that the review found nothing at the low level (for example 'no findings')",
+        "The final message contains no finding entry with a CONFIRMED or PLAUSIBLE verdict",
+        "The final message contains no hedged speculative problem presented as a finding (for example a 'might break if' scenario with no concrete input)",
+        "The Verified section says the old and new expiry predicates were traced as equivalent, including that the exact expiry instant stays valid in both",
+        "The final message says what it could not check (only the diff was available: the Session type and the callers of isSessionValid were not seen)",
+        "No file under files/ was created or modified",
+        "The final message has the sections Changed, Verified, Deviations and Needs the user, and Changed says none"
+      ]
+    },
+    {
+      "id": 3,
+      "name": "high-level-brief-without-the-checklist",
+      "prompt": "High-level review pass on files/notifications/review.diff, a new notifications feature for our core-api (Fastify + TypeScript + MongoDB). The repo is not available, only the diff; NotificationService already exists on main. Review it for correctness, security and architecture, most severe first.",
+      "expected_output": "Notices that the brief did not paste the stack checklist, loads the fastify-architecture skill itself before reviewing architecture and records that under Deviations. Reports the read-all route taking userId from the URL instead of the session as the most severe finding (any signed-in user can mark another user's notifications read), then architecture findings against the loaded checklist: the POST route with no schema, the controller mapping errors to statuses inline instead of throwing typed errors to the central handler, and the Mongo repository placed in shared/. Every finding has a verdict, file:line, defect sentence, failure scenario and category. Edits nothing. Ends with Changed (none), Verified, Deviations, Needs the user.",
+      "files": [
+        "files/notifications/review.diff"
+      ],
+      "expectations": [
+        "The Deviations section says the brief did not include the stack checklist and that the reviewer loaded the fastify-architecture skill itself",
+        "The final message names the checklist it reviewed architecture against (the fastify-architecture checklist plus the structure rules)",
+        "The first finding is the authorization defect: readAll uses req.params.userId where list uses req.session.userId, so any signed-in user can mark another user's notifications read, with a concrete scenario and category security",
+        "A finding reports that POST /notifications/:userId/read-all has no schema (params validation), with file:line in notifications-routes.ts and category architecture or correctness",
+        "A finding reports the controller mapping errors to HTTP statuses inline with a try/catch instead of throwing typed errors to the central handler, with file:line",
+        "A finding reports a Mongo repository placed under src/shared/adapters/ although shared/ holds no repository (it belongs to the notifications feature), with file:line",
+        "Every finding states a verdict (CONFIRMED or PLAUSIBLE), a file:line, a defect sentence, a failure scenario and a category",
+        "No file under files/ was created or modified, and the final message has the sections Changed, Verified, Deviations and Needs the user"
+      ]
+    }
+  ],
+  "dispatch": [
+    {
+      "query": "We are in Cursor, which has no built-in review command: do a review pass at level high on my branch before I open the PR, diffing against origin/main.",
+      "should_dispatch": true
+    },
+    {
+      "query": "I'm in Cursor with no built-in review command. Review the diff in ../worktrees/shop-wt-cart at medium level and tell me what's wrong with it.",
+      "should_dispatch": true
+    },
+    {
+      "query": "I pushed the fixes for last round's findings, run another review pass to see whether they hold up.",
+      "should_dispatch": true
+    },
+    {
+      "query": "The reviewer found three issues in my PR. Fix them.",
+      "should_dispatch": false
+    },
+    {
+      "query": "Do a full security audit of the whole repo before the release.",
+      "should_dispatch": false
+    },
+    {
+      "query": "Rewrite this controller so it follows the Fastify architecture.",
+      "should_dispatch": false
+    }
+  ]
+}

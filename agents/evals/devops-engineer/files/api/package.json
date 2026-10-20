@@ -1,0 +1,16 @@
+{
+  "name": "api",
+  "type": "module",
+  "scripts": {
+    "build": "tsc -p .",
+    "start": "node dist/server.js",
+    "start:worker": "node dist/worker.js",
+    "lint": "eslint .",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "bullmq": "^5.0.0",
+    "fastify": "^5.0.0",
+    "mongodb": "^6.0.0"
+  }
+}

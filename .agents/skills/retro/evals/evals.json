@@ -1,6 +1,6 @@
 {
   "skill_name": "retro",
-  "sandbox": "Run as docs/skill-evals.md describes: skill-creator ignores this field. The runner copies each eval's files into the agent's work dir and adds config-repo/, a read-only snapshot of this repo's trunk without any skill's evals, which hold this eval's answers (`mkdir -p <work>/config-repo && git archive origin/main ':(exclude)skills/*/evals' | tar -x -C <work>/config-repo`). The session log stands in for the conversation and open-issues.json for `gh issue list`. The agent edits nothing in config-repo/ and gives, in its final message, the full text of each issue it would open and each comment it would post, then its message to the user.",
+  "sandbox": "Run as docs/skill-evals.md describes: skill-creator ignores this field. The runner copies each eval's files into the agent's work dir and adds config-repo/, a read-only snapshot of this repo's trunk without any skill's evals, which hold this eval's answers (`mkdir -p <work>/config-repo && git archive origin/main -- . ':(exclude).agents/skills/*/evals/*' | tar -x -C <work>/config-repo`). The session log stands in for the conversation and open-issues.json for `gh issue list`. The agent edits nothing in config-repo/ and gives, in its final message, the full text of each issue it would open and each comment it would post, then its message to the user.",
   "evals": [
     {
       "id": 1,

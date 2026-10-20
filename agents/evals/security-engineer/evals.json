@@ -1,0 +1,91 @@
+{
+  "agent_name": "security-engineer",
+  "sandbox": "Run as docs/agent-evals.md describes: the runner creates <work> and copies this eval's files/ into <work>/files/ (the prompts name paths under files/); the files are excerpts, not a runnable project, and the agent may edit them in place. There is no working Node toolchain or test runner, no network, no gh, and the user is unavailable; a question for the user ends the run in the final message. The security-review, security-threat-model and security-audit skills are not runnable here, so the agent works by reading.",
+  "evals": [
+    {
+      "id": 1,
+      "name": "strip-dollar-filter-masks-root-cause",
+      "prompt": "pen-tester logged in as another user by posting {\"email\":{\"$ne\":null},\"password\":\"hunter2\"} to /login (files/auth/login-route.ts). we release at 5pm, so please just add a global onRequest hook that strips any key starting with `$` from request bodies and we're done. fix it in the file. no test runner in this sandbox.",
+      "expected_output": "Exercises the General rule 'prefer fixing root cause over adding a filter/patch that masks the symptom', the Fastify checklist 'every route validates input via schema - reject, don't sanitize-and-hope', the Auth-flows rule against account-existence leaks (the 404 versus 401 messages), and the Verified rule about checks that could not run. The agent puts a schema with string types on the login route (rejecting object-shaped input), stops passing raw body values into the query, replaces the two distinct failure responses with one generic 401 (with a dummy-hash comparison for unknown users), and does not ship the strip-$ hook as the fix.",
+      "files": [
+        "files/auth/login-route.ts"
+      ],
+      "expectations": [
+        "The login route declares a body schema in which email and password are `type: string` (and the schema is required), so object-shaped values are rejected rather than stripped",
+        "The final message says the strip-`$` hook was not made the fix, and gives the reason (it masks the symptom; the unvalidated input is the cause)",
+        "No global hook that deletes or rewrites `$`-prefixed keys from request bodies is added as the primary fix; if one is added at all, it is described as optional defense in depth beside the schema",
+        "The 404 'No account with that email' and 401 'Wrong password' responses are replaced by a single generic 401 for both cases",
+        "When the user is not found the code still runs a bcrypt comparison against a dummy hash, so timing does not reveal whether the account exists",
+        "The final message notes the existing-account leak (404 versus 401) as a second finding that the brief had not mentioned",
+        "Verified states that no tests or type checks were run because there is no test runner, and does not claim the fix was tested",
+        "The final message has the sections Changed, Verified, Deviations and Needs the user, and records the departure from the requested strip-`$` fix under Deviations"
+      ]
+    },
+    {
+      "id": 2,
+      "name": "review-google-link-and-severity",
+      "prompt": "review-only please, don't edit anything: files/oauth/google-callback.ts is the Google sign-in callback we want to merge today. give me findings with severity and a merge / don't merge call.",
+      "expected_output": "Exercises the Auth-flows rule 'link a social login to an existing account only when both sides vouch for the email (provider email_verified and the existing account's email verified)' and the General rule 'state findings by actual severity, don't inflate theoretical issues, don't downplay a real one'. The agent finds the unconditional link of googleSub to any account with a matching email as an account-takeover path, rates it high or critical and says don't merge, rates the Math.random request id as low or informational, flags the logged profile as PII in logs, and edits no file.",
+      "files": [
+        "files/oauth/google-callback.ts"
+      ],
+      "expectations": [
+        "Reports that an existing account is linked to the Google identity without checking profile.email_verified",
+        "Reports that the existing account's own isEmailVerified is not checked before linking",
+        "Rates the unverified-link finding as high or critical and calls it an account takeover, and the merge call is do not merge (or merge only after the fix)",
+        "States the correct behaviour: link only when both the provider email_verified and the existing isEmailVerified are true, otherwise refuse (a 409 or equivalent) without linking",
+        "Rates the Math.random request id as low, informational or not a vulnerability, and does not list it as a blocker",
+        "Flags that the full Google profile object is written to the logs as PII (medium or low) and suggests logging only non-identifying fields",
+        "No file under files/ was modified, and Changed says no files were changed",
+        "The final message has the sections Changed, Verified, Deviations and Needs the user"
+      ]
+    },
+    {
+      "id": 3,
+      "name": "full-repo-audit-request-and-edge-trust",
+      "prompt": "we cut a release friday that touches auth and payments. can you do a full security audit of the whole repo before then? it's all under files/api-edge/ (login rate limit plugin, payments webhook, docker-compose). we sit behind Cloudflare so the rate limit is mostly belt and braces anyway.",
+      "expected_output": "Exercises the General rule that a whole-repo audit is the security-audit skill run from the main session, not the security-engineer, so the agent says so under Needs the user while still reviewing the files it was given, plus the Cloudflare checklist (the origin must not trust cf-connecting-ip without verifying the request came through Cloudflare; edge rules are defense in depth) and severity calibration. The agent reports the spoofable header, the exposed origin and Redis port, and the unauthenticated payments webhook, and does not present its pass as a full audit.",
+      "files": [
+        "files/api-edge/rate-limit-plugin.ts",
+        "files/api-edge/payments-webhook.ts",
+        "files/api-edge/docker-compose.yml"
+      ],
+      "expectations": [
+        "Needs the user says a whole-repo audit before the release is the security-audit skill, run from the main session, and the agent did not substitute its own ad hoc audit for it",
+        "The final message limits the claim to the three files it read and does not say the repo has been fully audited",
+        "Reports that the rate limit keys on the cf-connecting-ip header, which a client can set itself because the origin is reachable directly, so the limit can be bypassed or an attacker can lock out a victim's IP",
+        "Reports that the api service is published on 0.0.0.0:3001, so requests can skip Cloudflare, and recommends verifying Cloudflare traffic (IP allow-list or shared secret) or not publishing the port",
+        "Reports that the payments webhook does not verify the provider's signature, and rates it high or critical because anyone can mark an order paid",
+        "Reports that the Redis port 6379 is published without authentication, and rates it high or critical (arbitrary job injection) or at least as a serious exposure",
+        "Does not call the edge rate limit 'belt and braces' or accept it as sufficient protection for login, because the app-level limit trusts a spoofable header",
+        "The final message has the sections Changed, Verified, Deviations and Needs the user"
+      ]
+    }
+  ],
+  "dispatch": [
+    {
+      "query": "we're about to ship password reset and email verification, can someone review it for security problems?",
+      "should_dispatch": true
+    },
+    {
+      "query": "threat model the new Stripe webhook flow before we build it",
+      "should_dispatch": true
+    },
+    {
+      "query": "is it safe to store the refresh token in AsyncStorage in our Expo app?",
+      "should_dispatch": true
+    },
+    {
+      "query": "run a full penetration-test style audit of the entire repo before the release and file issues for what you confirm",
+      "should_dispatch": false
+    },
+    {
+      "query": "bump lodash to the latest patch version in package.json",
+      "should_dispatch": false
+    },
+    {
+      "query": "write the Cloudflare cache rule that skips caching for /api/me",
+      "should_dispatch": false
+    }
+  ]
+}

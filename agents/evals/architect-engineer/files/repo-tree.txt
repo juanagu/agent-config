@@ -1,0 +1,31 @@
+shop-core (Fastify + TypeScript + MongoDB), src/ only. Numbers are lines of code.
+
+src/
+  server.ts                                   42
+  shared/
+    config.ts                                 60
+    logger.ts                                 25
+    errors.ts                                 48
+    repositories/
+      order-repository.ts                     210   (Mongo driver, returns raw documents)
+      product-repository.ts                   180
+      payment-repository.ts                   165
+      customer-repository.ts                  120
+    types/
+      order.ts                                95    (OrderDocument with _id: ObjectId)
+  services/
+    order-service.ts                          900   (checkout, cancel, restock, shipping, discounts)
+    payment-service.ts                        340
+  routes/
+    orders.ts                                 280   (inline try/catch mapping errors to statuses)
+    payments.ts                               190
+  jobs/
+    send-receipt.ts                           70
+tests/
+  order-service.test.ts                       410
+
+Notes from the team:
+- Every route pulls repositories straight from `shared/repositories/*`.
+- A refactor into feature folders is wanted but has no issue yet.
+- No import-boundary lint is configured.
+- `feature_readme.md` files do not exist anywhere.
