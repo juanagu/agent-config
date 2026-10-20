@@ -49,4 +49,12 @@ The first prints the reason on stderr and exits 2 (when run on `main`); the seco
 
 ## Changing it
 
-A change is verified the way the QA agent's rules say: by every spelling a shell produces, in `git-guard.test.mjs`, never by trying one command. Add the test first, then the rule. A new tool is a new adapter and a new `describe` block, plus a row in `HOOK_TARGETS` and in `docs/compatibility.md`.
+A change is verified by every spelling a shell produces, in `git-guard.test.mjs` with each tool's own payload shape (`--tool`), never by trying one command or only the forms the issue named. Add the test first, then the rule. The spellings that have slipped before:
+
+- a flag before the subcommand, and a flag that takes a value (`gh -R owner/repo pr checkout`);
+- the `.exe` names;
+- a compound command where an earlier segment changes state (`cd`, `pushd`/`popd`, a switch before a push);
+- PowerShell's named-parameter and no-argument forms;
+- the help forms, which must stay allowed.
+
+A new blocked form is tested beside its allowed sibling. The suite points the hook at a temporary home (`GIT_GUARD_HOME`), so it never reads or writes your own `~/.config/agent-config/git-guard.json`; a test that edits that fixture restores it. A new tool is a new adapter and a new `describe` block, plus a row in `HOOK_TARGETS` and in `docs/compatibility.md`.

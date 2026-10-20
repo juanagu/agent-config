@@ -1,0 +1,83 @@
+{
+  "agent_name": "product-strategist",
+  "sandbox": "Run as docs/agent-evals.md describes: the runner creates <work>, copies files/* into <work>/files/ and tells the agent to write any plan under <work>/outputs/. gh, the network and the user are unavailable, and nothing outside <work> may be touched; a question for the user ends the run, in the final message.",
+  "evals": [
+    {
+      "id": 1,
+      "name": "founder-asks-to-confirm-the-stack",
+      "prompt": "New greenfield idea from a founder, needs a plan before anything else happens. Product: PeerPass, a marketplace where university students sell short recorded tutorial sessions (10-20 min videos on a single topic, e.g. 'integrals in 15 minutes') to high-school students and their parents. First market is Spain, Spanish only at launch. Founder is solo, bootstrapped, no deadline pressure except he wants real paying users within about 3 months, and he's not worried about competitors beyond YouTube and private tutors. He's also already decided on Next.js with MongoDB and asked me to have you confirm that stack and sketch the data model (collections, fields) so the architect doesn't have to. Write the plan to outputs/plan.md.",
+      "expected_output": "A plan in outputs/plan.md covering problem, primary (buyers) and secondary (student sellers) users, a must-have vs later cut with a one-line reason per deferral, business model and risk assumptions, key flows and a phased roadmap. It does NOT confirm Next.js/MongoDB or sketch a data model: the founder's preference is recorded as an input and both stack and data model are handed to architect-engineer. Exercises the boundary 'you decide what and for whom, not how; note technical ideas as a handoff, not a decision'.",
+      "files": [],
+      "expectations": [
+        "A plan file exists at outputs/plan.md",
+        "The plan does not state that Next.js or MongoDB is the right choice, and its text contains no collection names, field lists or schema sketch",
+        "The founder's stack preference appears only as an input or note passed to architect-engineer, not as an endorsed decision",
+        "The plan has an explicit Handoff section naming what architect-engineer must decide next and what designer needs to start on (key flows, target platforms)",
+        "The plan separates a primary user group from a secondary one (buyers versus student sellers)",
+        "The plan splits features into must-have for a first version and later, with a one-line reason for at least three deferred items",
+        "The roadmap has at least two phases and each phase says what it proves or unlocks",
+        "The final message uses the report shape: Changed, Verified, Deviations, Needs the user"
+      ]
+    },
+    {
+      "id": 2,
+      "name": "fifteen-item-mvp",
+      "prompt": "Founder's notes for a boutique fitness class booking app are in files/mvp-notes.md. He calls the whole numbered list his MVP and wants a plan he can hand to his developer on Monday: users, what really goes in v1, how it makes money, and a roadmap. Write it to outputs/plan.md. Keep it short enough that he'll read it.",
+      "expected_output": "Pushes back on the 16-item 'MVP' and names a real cut (a handful of must-haves tied to the 'book in under a minute' and 'studios pay' goals), defers the rest with a one-line reason each, frames the business model and its riskiest assumptions, and a phased roadmap. Technical items in the notes (WebSockets, Stripe Connect, Next.js/MongoDB) are passed on as handoff notes, not decided. Exercises 'push back on scope creep: if the MVP has 15 must-haves, name the real cut'.",
+      "files": ["files/mvp-notes.md"],
+      "expectations": [
+        "The plan says explicitly that the 16-item list is not an MVP (or equivalent wording that it is too large)",
+        "The plan's must-have list for the first version has at most 7 items",
+        "Every item moved to later has a one-line reason in the plan",
+        "Live spot availability, gift cards and reviews are all placed after the first phase, or each has a stated reason for staying in it",
+        "The business model section names studio monthly fee and discusses the per-booking cut as an open question or risk",
+        "The plan lists at least two business-risk assumptions to test (for example studios paying for it, or customers leaving WhatsApp)",
+        "The plan does not decide on WebSockets, Stripe Connect, Next.js or MongoDB; they appear, if at all, as items for architect-engineer in the handoff",
+        "The plan is under about 150 lines",
+        "The final message uses the report shape: Changed, Verified, Deviations, Needs the user"
+      ]
+    },
+    {
+      "id": 3,
+      "name": "one-line-idea-no-context",
+      "prompt": "founder just said 'an app for dog people, like Strava but for dogs?' and that is literally all I have, no market, no budget, nothing. can you make a plan? write it to outputs/plan.md if you can",
+      "expected_output": "Recognises the problem, user and market are not derivable from the idea, so it asks the few questions that change the plan's shape (who the user and payer are, first market, solo/funded and timeline, what they compete against) in Needs the user, without a long questionnaire and without asking about tech or UI. Any plan it does write labels its assumptions and does not present an invented target user as fact. Exercises 'if the problem isn't clear, it's the first thing to ask about, not assume' and 'don't pepper them with questions a default would answer'.",
+      "files": [],
+      "expectations": [
+        "Needs the user contains between 2 and 5 questions",
+        "At least one question asks who the target user is or who pays",
+        "At least one question asks about market, budget, timeline or whether this is a funded or side project",
+        "No question asks about tech stack, framework, database, platform choice or visual design",
+        "If outputs/plan.md exists, every claim about the target user or market is labelled as an assumption or hypothesis",
+        "The final message does not present a complete phased roadmap with dates or prices as settled",
+        "The final message uses the report shape: Changed, Verified, Deviations, Needs the user"
+      ]
+    }
+  ],
+  "dispatch": [
+    {
+      "query": "I have a rough idea for an app that matches freelance translators with small agencies. Can you help me work out who it's for and what to build first?",
+      "should_dispatch": true
+    },
+    {
+      "query": "Starting a new SaaS for restaurant inventory from scratch. Need scope, an MVP cut and a phased roadmap before we touch any code.",
+      "should_dispatch": true
+    },
+    {
+      "query": "We're thinking about a two-sided marketplace for local plumbers and homeowners. Which features go in v1 and which wait, and how would it make money?",
+      "should_dispatch": true
+    },
+    {
+      "query": "For our new idea, should we use Postgres or MongoDB, and one service or several?",
+      "should_dispatch": false
+    },
+    {
+      "query": "Design the onboarding screens for the app: what goes on step one and how do the steps look on a phone?",
+      "should_dispatch": false
+    },
+    {
+      "query": "Change the empty-state text on the projects page from 'Nothing here' to 'No projects yet'.",
+      "should_dispatch": false
+    }
+  ]
+}

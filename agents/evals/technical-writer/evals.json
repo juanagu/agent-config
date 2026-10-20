@@ -1,0 +1,91 @@
+{
+  "agent_name": "technical-writer",
+  "sandbox": "Run as docs/agent-evals.md describes: the runner creates <work> and copies this eval's files/ into <work>/files/ (the prompts name paths under files/), and the agent edits the docs there in place. There is no working shell, so the Archify CLI (`node archify/bin/archify.mjs`) cannot be run; gh, the network and the user are unavailable, and a question for the user ends the run in the final message.",
+  "evals": [
+    {
+      "id": 1,
+      "name": "document-rate-limit-the-brief-gets-wrong",
+      "prompt": "add a Rate limiting section to files/api/README.md. what to say: every API key gets 100 requests a minute, and when you go over you get a 429 with a Retry-After header so clients know when to back off. the implementation is files/api/src/rate-limit.ts if you want to look.",
+      "expected_output": "Exercises 'verify claims against the actual code before documenting them; never document intended behavior as if it's confirmed current behavior' and Process step 1 (read the code, don't infer from the brief). The code limits per client IP at 60 requests per minute and its 429 body is `{ error: 'rate_limited' }` with no Retry-After header, so the section documents what the code does and reports the mismatch with the brief under Deviations instead of writing the brief's claims.",
+      "files": [
+        "files/api/README.md",
+        "files/api/src/rate-limit.ts"
+      ],
+      "expectations": [
+        "The README has a rate limiting section that states a limit of 60 requests per minute",
+        "The README says the limit is per client IP and does not say it is per API key",
+        "The README does not say the 429 response includes a Retry-After header",
+        "The README does not state a limit of 100 requests per minute",
+        "The README shows the 429 response body as `{ \"error\": \"rate_limited\" }`",
+        "Deviations lists the mismatches between the brief and the code (100 versus 60, API key versus IP, Retry-After absent)",
+        "rate-limit.ts was not modified",
+        "The final message has the sections Changed, Verified, Deviations and Needs the user, and Verified says the claims were checked by reading rate-limit.ts"
+      ]
+    },
+    {
+      "id": 2,
+      "name": "readme-after-v1-to-v2-move",
+      "prompt": "export endpoint moved to v2 and v1 is deleted (code: files/export/src/routes.ts). update files/export/README.md so it's right again. make sure people know it used to be synchronous so they're not surprised.",
+      "expected_output": "Exercises the Standards 'docs describe current state, not history' and 'no stale content: when updating a doc, check for other sections/examples it invalidates and fix those too', plus Process step 5 (amending a living doc means making it true again, not appending a narrative). The README describes POST /v2/exports returning 202 and polling GET /v2/exports/:id, uses the x-api-key header, drops the stale bearer-token text and the 30-second/50k-row limit, and contains no 'used to'/'previously'/'v1' history framing even though the brief asked for a heads-up.",
+      "files": [
+        "files/export/README.md",
+        "files/export/src/routes.ts"
+      ],
+      "expectations": [
+        "No `/v1/export` path or example remains anywhere in the README",
+        "The quickstart shows POST /v2/exports with an x-api-key header and then polling GET /v2/exports/:id until the status is done, and the example does not use `Authorization: Bearer`",
+        "The Authentication section describes the x-api-key header and no longer mentions bearer tokens",
+        "The stale 30-second timeout and 50k-row limit text is removed or rewritten; the README does not claim a limit that routes.ts does not show",
+        "The README documents the 202 response with `id` and `status`, and the status values queued, running, done and failed with the optional downloadUrl",
+        "The README does not use history framing (no 'used to be', 'previously', 'recently', 'was moved', 'no longer synchronous') as a changelog narrative",
+        "Deviations records that the brief's 'it used to be synchronous' heads-up was not written into the README because it documents history, and suggests the changelog or release notes as its home",
+        "The final message has the sections Changed, Verified, Deviations and Needs the user"
+      ]
+    },
+    {
+      "id": 3,
+      "name": "adr-with-diagram-no-shell",
+      "prompt": "write ADR 0004 into files/docs/adr/ (index is files/docs/adr/README.md, update it). the decision is already made, don't reopen it: exports with more than 5,000 rows run async. POST /v2/exports enqueues a job on a BullMQ `exports` queue, a worker builds the CSV, uploads it to object storage and the client polls GET /v2/exports/:id until it has a downloadUrl. we looked at streaming the CSV synchronously (still hits Cloudflare's 100s timeout for the biggest accounts) and at websockets for push (more moving parts than polling needs). consequence: a worker process to run and monitor, and clients have to poll. include a sequence diagram of the flow. no shell in this sandbox.",
+      "expected_output": "Exercises the Process rule that an ADR keeps to decision, context and consequences, fits a page or two and cites only the earlier decisions that constrain it (0003, BullMQ on Redis), and the Diagrams rule: use the archify skill, never ASCII art or an unvalidated Mermaid block, and when the shell does not work hand the JSON source back and say it has not been validated. The report says the diagram was not validated.",
+      "files": [
+        "files/docs/adr/README.md"
+      ],
+      "expectations": [
+        "A new ADR file numbered 0004 exists under files/docs/adr/ with context, decision and consequences content",
+        "The ADR states the decision as given (more than 5,000 rows run async via a BullMQ `exports` queue, polled via GET /v2/exports/:id) and lists both rejected alternatives with their reasons",
+        "The ADR is no longer than about two pages (roughly 80 lines) and has no tutorial content or setup walkthrough",
+        "The ADR cites ADR 0003 and does not cite 0001 or 0002 as constraints",
+        "files/docs/adr/README.md gains a row for 0004 with its title and status",
+        "The sequence diagram is not ASCII art and not a Mermaid code block; it is delivered as Archify JSON source (in a file or in the final message)",
+        "Verified says the Archify CLI was not run, so the diagram has not been validated, and the final message hands over the JSON source for validation",
+        "The final message has the sections Changed, Verified, Deviations and Needs the user"
+      ]
+    }
+  ],
+  "dispatch": [
+    {
+      "query": "write a README for the new notifications service, it has zero docs right now",
+      "should_dispatch": true
+    },
+    {
+      "query": "we chose BullMQ over Kafka last week, can you write the ADR for it?",
+      "should_dispatch": true
+    },
+    {
+      "query": "the API changed the pagination params and docs/api.md is out of date, bring it back in line with the code",
+      "should_dispatch": true
+    },
+    {
+      "query": "fix the typo 'recieve' in the README",
+      "should_dispatch": false
+    },
+    {
+      "query": "should we document this in an ADR or just keep it in the PR description?",
+      "should_dispatch": false
+    },
+    {
+      "query": "write the commit message for these changes",
+      "should_dispatch": false
+    }
+  ]
+}

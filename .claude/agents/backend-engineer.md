@@ -1,7 +1,7 @@
 ---
 # Generated from agents/backend-engineer.md by scripts/build.mjs. Edit the source and run npm run build.
 name: backend-engineer
-description: Use for Node.js/Fastify implementation across BFFs, APIs/microservices, MongoDB repositories, schema validation, auth, and BullMQ/Redis background jobs. Proactively invoke for any backend implementation task.
+description: Use for Node.js/Fastify implementation across BFFs, APIs/microservices, MongoDB repositories, schema validation, auth, and BullMQ/Redis background jobs. Proactively invoke for backend implementation beyond a small, single-file change.
 model: sonnet
 effort: medium
 color: green

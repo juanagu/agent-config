@@ -1,0 +1,25 @@
+/* src/app/globals.css (excerpt) */
+@theme {
+  --color-paper: #faf8f4;
+  --color-surface: #ffffff;
+  --color-ink: #1c1b19;
+  --color-ink-muted: #5e5b55;
+  --color-line: #e4e0d8;
+  --color-accent: #d6451f;
+  --color-accent-hover: #b8381a;
+  --color-danger: #b3261e;
+  --color-focus: #1f5fd1;
+
+  --font-sans: 'Instrument Sans', system-ui, sans-serif;
+  --font-display: 'Newsreader', Georgia, serif;
+
+  --text-body: 1rem;
+  --text-small: 0.875rem;
+  --text-title: 1.5rem;
+
+  --spacing-gutter: 1rem;
+  --radius-sm: 6px;
+  --radius-md: 10px;
+  --radius-lg: 16px;
+  --size-control: 44px;
+}

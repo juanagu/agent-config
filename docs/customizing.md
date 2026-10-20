@@ -46,7 +46,7 @@ color: green
 You implement data pipelines. The standards (`AGENTS.md`) define the general code principles; ...
 ```
 
-Write the body in the standards' vocabulary (agent, skill, review pass, load the skill), never a tool's command or built-in tool name, because the same body is installed in four tools. End with the four-section report the other agents use (changed, verified, deviations, needs the user). Then add it to the roster in `AGENTS.md` → Agents and run `npm run build && npm test`.
+Write the body in the standards' vocabulary (agent, skill, review pass, load the skill), never a tool's command or built-in tool name, because the same body is installed in four tools. End with the four-section report the other agents use (changed, verified, deviations, needs the user). Then add it to the roster in `AGENTS.md` → Agents, give it `agents/evals/<name>/evals.json` (two or three evals that test what its file adds beyond the standards, plus routing cases for its description; [agent-evals.md](agent-evals.md)), and run `npm run build && npm test`, which fails until the evals exist.
 
 ## Keeping a fork in sync
 

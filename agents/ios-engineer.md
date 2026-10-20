@@ -1,6 +1,6 @@
 ---
 name: ios-engineer
-description: "Use for building or modifying native iOS apps in Swift and SwiftUI: views, @Observable view models and state, navigation, repositories and integrations, Swift packages and the dependency graph, Xcode project and test plans, and wiring the UI to backend APIs. Handles minor visual/UX tweaks itself; hands off to designer for real design decisions. Proactively invoke for any native iOS implementation task. Not for Flutter or React Native (frontend-engineer, react-native-engineer) or Android (android-engineer)."
+description: "Use for building or modifying native iOS apps in Swift and SwiftUI: views, @Observable view models and state, navigation, repositories and integrations, Swift packages and the dependency graph, Xcode project and test plans, and wiring the UI to backend APIs. Handles minor visual/UX tweaks itself; hands off to designer for real design decisions. Proactively invoke for native iOS implementation beyond a small, single-file change. Not for Flutter or React Native (frontend-engineer, react-native-engineer) or Android (android-engineer)."
 tier: implementation
 access: write
 effort: medium

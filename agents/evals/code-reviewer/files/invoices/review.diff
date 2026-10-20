@@ -1,0 +1,69 @@
+diff --git a/src/features/invoices/list-invoices.ts b/src/features/invoices/list-invoices.ts
+new file mode 100644
+--- /dev/null
++++ b/src/features/invoices/list-invoices.ts
+@@ -0,0 +1,16 @@
++import type { InvoiceRepository } from "./invoice-repository";
++
++const DEFAULT_PAGE_SIZE = 20;
++
++export type ListInvoicesInput = { accountId: string; page: number; pageSize?: number };
++
++export async function listInvoices(repo: InvoiceRepository, input: ListInvoicesInput) {
++  let size = input.pageSize ?? DEFAULT_PAGE_SIZE;
++  const skip = input.page * size;
++  const [items, total] = await Promise.all([
++    repo.findByAccount(input.accountId, { skip, limit: size }),
++    repo.countByAccount(input.accountId),
++  ]);
++  // TODO: tidy
++  return { items: items, total: total, page: input.page, pageSize: size };
++}
+diff --git a/src/features/invoices/invoices-routes.ts b/src/features/invoices/invoices-routes.ts
+new file mode 100644
+--- /dev/null
++++ b/src/features/invoices/invoices-routes.ts
+@@ -0,0 +1,22 @@
++import type { FastifyInstance } from 'fastify'
++import { listInvoices } from "./list-invoices";
++import type { InvoiceRepository } from "./invoice-repository";
++
++export async function invoicesRoutes(app: FastifyInstance, opts: { repo: InvoiceRepository }) {
++  app.get("/accounts/:accountId/invoices", {
++    schema: {
++      params: { type: "object", properties: { accountId: { type: "string" } }, required: ["accountId"] },
++      querystring: {
++        type: "object",
++        properties: {
++          page: { type: "integer", minimum: 1, default: 1, description: "1-based page number" },
++          pageSize: { type: "integer", minimum: 1, maximum: 100 },
++        },
++      },
++    },
++  }, async (req) => {
++    const { accountId } = req.params as { accountId: string };
++    const { page, pageSize } = req.query as { page: number; pageSize?: number };
++    return listInvoices(opts.repo, { accountId, page, pageSize });
++  })
++}
+diff --git a/src/features/invoices/list-invoices.test.ts b/src/features/invoices/list-invoices.test.ts
+new file mode 100644
+--- /dev/null
++++ b/src/features/invoices/list-invoices.test.ts
+@@ -0,0 +1,16 @@
++import { describe, expect, it } from "vitest";
++import { listInvoices } from "./list-invoices";
++
++const makeRepo = (count: number) => ({
++  findByAccount: async (_id: string, { skip, limit }: { skip: number; limit: number }) =>
++    Array.from({ length: count }, (_, i) => ({ id: `inv-${i + 1}` })).slice(skip, skip + limit),
++  countByAccount: async () => count,
++});
++
++describe("listInvoices", () => {
++  it("returns the second page", async () => {
++    const res = await listInvoices(makeRepo(45) as never, { accountId: "a1", page: 2 });
++    expect(res.items[0]?.id).toBe("inv-41");
++    expect(res.total).toBe(45);
++  });
++});

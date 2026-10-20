@@ -1,0 +1,8 @@
+require File.join(File.dirname(`node --print "require.resolve('expo/package.json')"`), "scripts/autolinking")
+
+platform :ios, '15.1'
+
+target 'Tidepool' do
+  use_expo_modules!
+  use_react_native!(:path => '../node_modules/react-native')
+end

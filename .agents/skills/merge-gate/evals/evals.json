@@ -1,0 +1,61 @@
+{
+  "skill_name": "merge-gate",
+  "sandbox": "Run as docs/skill-evals.md describes: skill-creator ignores this field. The runner copies the eval's files into <work>/. There is no repository and no gh: the state file stands in for `gh pr view`, `gh pr checks` and the review history, and the agent lists in its final message every command it would run (merges included) instead of running it. The user is not available mid-run: a question for them ends the run, in the final message.",
+  "evals": [
+    {
+      "id": 1,
+      "name": "ci-still-pending",
+      "files": ["evals/files/ci-pending/pr-state.md"],
+      "prompt": "review's clean on #58 and you re-ran everything, merge it. pr-state.md has where it's at",
+      "expected_output": "Does not merge: the fast tier is still pending on the last push, and a pending run means keep waiting. Says it will merge once the run finishes green (or lists the wait-then-merge commands), and states that the other two conditions (converged review, its own re-run) are met.",
+      "expectations": [
+        "No merge command (gh pr merge or equivalent) is listed as run now",
+        "States that CI on the last push is still pending and that this blocks the merge",
+        "Does not treat a timeout or the green local run as a substitute for CI",
+        "Recognises the review loop as converged (high pass bugs fixed, then a clean medium pass)",
+        "If it lists a merge for later, it is conditional on the run finishing green and uses a squash merge that deletes the branch"
+      ]
+    },
+    {
+      "id": 2,
+      "name": "two-medium-rounds-still-finding-bugs",
+      "files": ["evals/files/two-rounds/pr-state.md"],
+      "prompt": "keep looping on #73 until it's clean then merge, I'm out for the afternoon",
+      "expected_output": "Stops instead of starting another round or merging: two medium rounds have each found a new main-path bug. Brings the user the remaining list (the last-day upgrade bug at proration.ts:41) with a recommendation among merging behind a flag, simplifying, or keeping going.",
+      "expectations": [
+        "No merge command is listed",
+        "Does not start or schedule a fourth review round on its own",
+        "Says two medium rounds have each found a new main-path bug, and that this is the point to stop and ask",
+        "Lists the remaining bug (last day of the cycle, proration.ts:41)",
+        "Gives one recommendation among: merge behind a flag, simplify, keep going"
+      ]
+    },
+    {
+      "id": 3,
+      "name": "triage-a-medium-pass",
+      "files": ["evals/files/triage/findings.md"],
+      "prompt": "medium pass on #91 came back, findings.md. what do we do with these before merging?",
+      "expected_output": "Fixes finding 1 in the PR (CONFIRMED, main path). Verifies finding 2 before acting on it, since it is only PLAUSIBLE. Sends finding 3 to a follow-up issue (a rare path: a six-year-old cookie). Drops finding 4 or notes it as re-litigating a call round 1 settled, without another round. Does not merge until a medium pass on the fix reports no verified main-path bugs.",
+      "expectations": [
+        "Finding 1 is fixed in this PR",
+        "Finding 2 is verified (or a way to verify it is named) before any fix, rather than acted on as given",
+        "Finding 3 goes to a tracked follow-up issue, not this PR",
+        "Finding 4 is treated as re-litigating a settled call: no fix, no extra round for it",
+        "States that a medium pass on the fix must come back clean before the merge"
+      ]
+    },
+    {
+      "id": 4,
+      "name": "docs-only-no-run-is-green",
+      "files": ["evals/files/docs-only/pr-state.md"],
+      "prompt": "#12 good to merge? there's no CI on it",
+      "expected_output": "Merges (lists a squash merge that deletes the branch): the only changed file is excluded by the workflow's paths-ignore, so no run counts as green; the review loop converged and the checks were re-run. Does not wait for a run that will never start.",
+      "expectations": [
+        "Explains that no CI run is expected because README.md matches the workflow's paths-ignore",
+        "Treats the missing run as green for that reason, not as pending",
+        "Recognises the review loop as converged and the checks as re-run",
+        "Lists a squash merge that deletes the branch"
+      ]
+    }
+  ]
+}

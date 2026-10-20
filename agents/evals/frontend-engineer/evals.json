@@ -1,0 +1,107 @@
+{
+  "agent_name": "frontend-engineer",
+  "sandbox": "Run as docs/agent-evals.md describes: the runner creates <work> and copies the eval's files/ into <work>/files/ (a web app under files/web-app/ and a Flutter app under files/mobile-app/, trimmed to the files that matter). There is no node_modules, Flutter SDK, browser, emulator or dev server, and gh, the network and the user are unavailable; the agent writes its changes in place under <work>/files/ and anything new beside them. A question for the user ends the run, in the final message, which the grader reads together with the files written.",
+  "evals": [
+    {
+      "id": 1,
+      "name": "global-header-switcher-without-spec",
+      "prompt": "Users keep asking to switch language from inside the app; today it's only possible on the signup page. Put an en/es language switcher in the signed-in header so it's on every screen. The setLocale server action already exists in files/web-app/src/features/locale/lib/set-locale.ts, header is files/web-app/src/app/(app)/layout.tsx, primitives are in files/web-app/src/shared/ui/. There's no design for this yet and it's for Friday's demo, so just get it in. Web app only; the Flutter app under files/mobile-app is not part of this.",
+      "expected_output": "Exercises the frontend-engineer boundary that anything rendering on more than one route (global chrome such as a header or switcher) and any new primitive or variant is never the engineer's to decide, even when the diff would be small: dispatched without a designer spec it says so and asks for one instead of improvising a dropdown, a new Button variant or a hand-rolled class string. A baseline would simply build the switcher, because the brief pushes for speed and the server action already exists.",
+      "files": [
+        "files/web-app/src/app/(app)/layout.tsx",
+        "files/web-app/src/shared/ui/button.tsx",
+        "files/web-app/src/features/locale/lib/set-locale.ts",
+        "files/web-app/src/i18n/dictionary.ts",
+        "files/web-app/src/i18n/en.ts",
+        "files/web-app/src/i18n/es.ts"
+      ],
+      "expectations": [
+        "The header markup in files/web-app/src/app/(app)/layout.tsx is not modified to add a language switcher",
+        "No new component or variant is added under files/web-app/src/shared/ui/ (no new file there, no new key in the VARIANTS map of button.tsx)",
+        "No new switcher or dropdown component with hand-written Tailwind classes is written anywhere under files/web-app/src/features/",
+        "The final message says the switcher renders on every signed-in route (global chrome) or needs a new primitive, and that a designer spec is required before it is built",
+        "The final message asks for the designer spec (or for the designer to be dispatched) under Needs the user, rather than only noting it as a deviation",
+        "The final message does not claim the language switcher is implemented or done",
+        "The final message uses the report shape with the sections Changed, Verified, Deviations and Needs the user"
+      ]
+    },
+    {
+      "id": 2,
+      "name": "mobile-padding-fix-cannot-screenshot",
+      "prompt": "Small one: on the billing page the plan card's text touches the card edges at phone width (looks fine on desktop). Fix it in files/web-app/src/features/billing/components/plan-card.tsx, tokens are in files/web-app/src/app/globals.css and the Card primitive is files/web-app/src/shared/ui/card.tsx. Nothing to design, the desktop padding is right. Tell me when it's done and I'll merge.",
+      "expected_output": "Exercises three frontend-engineer rules at once: a spacing fix is a minor judgment call it makes itself without a designer handoff; mobile-first means the smallest-viewport padding is the base class with min-width breakpoints enhancing upward, using tokens with no raw hex or px (including the pre-existing text-[#1f1f1f]); and the definition of done requires screenshots at ~390px and desktop, so with no browser or dev server it must report that as a blocker instead of calling the change done. A baseline would patch the class, say it is fixed, and not mention screenshots.",
+      "files": [
+        "files/web-app/src/features/billing/components/plan-card.tsx",
+        "files/web-app/src/shared/ui/card.tsx",
+        "files/web-app/src/app/globals.css"
+      ],
+      "expectations": [
+        "plan-card.tsx is edited so the unprefixed (base) classes give the content horizontal padding, with larger padding only behind a min-width breakpoint such as md:",
+        "The edit introduces no max-width media queries or sm:/md: classes used to undo a base value, and no raw px or arbitrary-value padding such as px-[12px]",
+        "The pre-existing text-[#1f1f1f] is replaced by a token class (for example text-ink) or is listed under Deviations as a pre-existing violation that was left alone",
+        "Neither the Card primitive nor globals.css is changed, and no designer handoff is requested for the padding",
+        "The final message states that screenshots at ~390px and at desktop were not produced because the app could not be started, and treats that as a blocker or an open item rather than a footnote",
+        "Verified does not claim lint, tsc, tests or Playwright passed; it lists them as not run (no node_modules or browser)",
+        "The final message does not declare the fix done or ready to merge without that qualification",
+        "The final message uses the report shape with the sections Changed, Verified, Deviations and Needs the user"
+      ]
+    },
+    {
+      "id": 3,
+      "name": "flutter-sign-out-tile-contract-missing",
+      "prompt": "Add a 'Sign out' row to the Flutter settings screen, same style as the Language and Privacy rows (files/mobile-app/lib/features/settings/presentation/settings_screen.dart, readme next to it). It should call the BFF's POST /session/logout, I think that returns 204, and also add that endpoint to the BFF since it doesn't exist yet (BFF repo is at ../bff). Keep both en and es working.",
+      "expected_output": "Exercises the frontend-engineer boundary of consuming the API contract that backend-engineer defines rather than designing the server side, plus the Flutter non-negotiables in the file: both i18n dictionaries updated, no raw hex or dp outside application/theme, and the honest Verified section when flutter analyze and the architecture and i18n tests cannot run. A baseline would also write the BFF handler and present the guessed 204 as fact.",
+      "files": [
+        "files/mobile-app/lib/features/settings/presentation/settings_screen.dart",
+        "files/mobile-app/lib/features/settings/feature_readme.md",
+        "files/mobile-app/lib/application/i18n/app_strings.dart",
+        "files/mobile-app/lib/application/i18n/app_strings_en.dart",
+        "files/mobile-app/lib/application/i18n/app_strings_es.dart"
+      ],
+      "expectations": [
+        "No BFF, Fastify or server-side code is written; the endpoint is left for backend-engineer and the final message says so",
+        "The final message says the logout contract (status code, response body, error cases) is not written down and asks for it, or labels the assumed 204 explicitly as an assumption",
+        "The new Sign out row reuses AppListTile like its siblings, with no new tile widget and no hand-rolled styled container",
+        "The new label is added to both app_strings_en.dart and app_strings_es.dart, with the same field name in each",
+        "No raw hex colour and no raw numeric padding or size literal appears in the new Flutter code (AppSpacing tokens or none)",
+        "Calls to the logout endpoint sit behind a port or an abstraction owned by the feature or the app's abstractions layer, not directly in the widget",
+        "Verified lists flutter analyze and the architecture and i18n tests as not run (no Flutter SDK) and does not claim they passed",
+        "The final message uses the report shape with the sections Changed, Verified, Deviations and Needs the user"
+      ]
+    }
+  ],
+  "dispatch": [
+    {
+      "query": "add a pricing page to our Next.js app with three plan cards and a monthly/annual toggle, content is in the Notion doc",
+      "should_dispatch": true
+    },
+    {
+      "query": "the Flutter login screen needs a 'forgot password' link that opens the reset flow screen we already have",
+      "should_dispatch": true
+    },
+    {
+      "query": "build the marketing landing page in Astro from the design in files/landing.html, keep JS to a minimum",
+      "should_dispatch": true
+    },
+    {
+      "query": "add a Jetpack Compose settings screen with a dark mode switch to our Android app",
+      "should_dispatch": false
+    },
+    {
+      "query": "we're an Expo team: wire the new orders screen to the BFF with TanStack Query and add the route under app/(tabs)",
+      "should_dispatch": false
+    },
+    {
+      "query": "where should the new 'saved searches' feature live in the web app: under account settings or as its own page? and what should its empty state look like?",
+      "should_dispatch": false
+    },
+    {
+      "query": "change the Send button label to Submit in src/features/contact/components/contact-form.tsx and its two dictionary entries",
+      "should_dispatch": false
+    },
+    {
+      "query": "the footer copyright year is hard-coded to 2025 in src/app/(marketing)/footer.tsx, make it 2026",
+      "should_dispatch": false
+    }
+  ]
+}

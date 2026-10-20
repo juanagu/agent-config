@@ -1,0 +1,19 @@
+services:
+  api:
+    build: ./api
+    ports:
+      - "0.0.0.0:3001:3001"
+    environment:
+      MONGO_URL: mongodb://mongo:27017/app
+      REDIS_URL: redis://redis:6379
+    depends_on:
+      - mongo
+      - redis
+
+  mongo:
+    image: mongo:7
+
+  redis:
+    image: redis:7
+    ports:
+      - "6379:6379"
