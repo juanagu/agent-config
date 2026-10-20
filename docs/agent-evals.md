@@ -4,9 +4,10 @@ Each agent in `agents/` has `agents/evals/<name>/evals.json`: behavioural evals 
 
 ## Before each run
 
-1. Pick a fresh work path per run, outside any real checkout, and copy the eval's `files` into `<work>/files/`. The agent writes anything it produces (an ADR, a spec, a test) under `<work>/`; an eval that hands it a project slice says which files it may edit.
-2. Put the sandbox's rules in the run's brief, as the eval's `sandbox` field states them: the work directory, that `gh`, the network, emulators and the user are unavailable, and that a question for the user ends the run in the final message. Nothing else stops a run from calling the real `gh`.
-3. Dispatch the agent with its file as the system prompt, the way the tool under test loads it (Claude Code: the generated `.claude/agents/<name>.md`), and the eval's `prompt` as the brief. The agent sees nothing else, which is the point: a brief that only works with the session's history is a bad brief, not a bad agent.
+1. Pick a fresh work path per run, outside any real checkout, and copy the eval's `files` into `<work>/files/`. Start the run from there, not from a session in this repo: `agents/evals/` and every skill's `evals/` hold the planted answers. The agent writes anything it produces (an ADR, a spec, a test) under `<work>/`; an eval that hands it a project slice says which files it may edit.
+2. Give the agent the skills without their evals, the same export in every configuration so a score never credits the agent file with what a skill did: `mkdir -p <work>/skills && git archive origin/main .agents/skills ':(exclude).agents/skills/*/evals' | tar -x -C <work>/skills`.
+3. Put the sandbox's rules in the run's brief, as the eval's `sandbox` field states them: the work directory, that `gh`, the network, emulators and the user are unavailable, and that a question for the user ends the run in the final message. Nothing else stops a run from calling the real `gh`.
+4. Dispatch the agent with its file as the system prompt, the way the tool under test loads it (Claude Code: the generated `.claude/agents/<name>.md`), and the eval's `prompt` as the brief. The agent sees nothing else, which is the point: a brief that only works with the session's history is a bad brief, not a bad agent.
 
 ## Comparing versions
 
@@ -23,4 +24,4 @@ Save each run's final message as `outputs/report.md`, grade every expectation wi
 
 ## What a result means
 
-`AGENTS.md` loads into every run, baseline included, so an agent's score is what its file adds on top of the standards and the skills it loads. Evals pin behaviour, not wording: a shorter file that keeps every expectation passing is an improvement. When `qa-engineer` was cut from about 2,100 words to 900, one run per eval scored 22/22 expectations with the old file and 21/22 with the new; the one miss (proposing a ticket for an unvalidated fake) is a sentence both versions carry, so read it as run-to-run variance and run more than once before trusting a one-point difference.
+`AGENTS.md` loads into every run, baseline included, so an agent's score is what its file adds on top of the standards and the skills it loads. Evals pin behaviour, not wording: a shorter file that keeps every expectation passing is an improvement. A one-expectation difference between two single runs is within run-to-run variance; run each configuration more than once before trusting it.

@@ -12,7 +12,7 @@ Merging is the user's call unless their standards grant it to the agent. Where t
 - **A main path** is one a documented user flow, a smoke spec or a published contract exercises; in a repo with none of those (the agent-config repo, a hook, a library) it is the behaviour the tests and the PR description claim. Everything else is a rare path.
 - **Treat a finding as unverified** unless it carries a `CONFIRMED` verdict, and verify it before acting on it.
 - **A verified bug on a main path is fixed in the PR.** A new edge case on a rare path, or a finding that only re-litigates a judgment call an earlier pass settled, goes to a tracked follow-up issue instead of another round.
-- **Converged** means every correctness bug a high pass found is fixed, and a medium pass then reports no verified correctness bugs on the main paths. High passes always find nitpicks, so they never converge on their own and are never the last pass before a merge.
+- **Converged** means every main-path correctness bug a high pass found is fixed (rare-path ones are in follow-up issues, as above), and a medium pass then reports no verified correctness bugs on the main paths. High passes always find nitpicks, so they never converge on their own and are never the last pass before a merge.
 - **After two medium rounds that still find new main-path bugs, stop** and bring the user the remaining list with a recommendation: merge behind a flag, simplify, or keep going.
 
 ## Merge only after all three

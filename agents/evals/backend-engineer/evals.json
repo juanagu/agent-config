@@ -1,6 +1,6 @@
 {
   "agent_name": "backend-engineer",
-  "sandbox": "Run as docs/agent-evals.md describes: the runner creates <work> and copies this eval's files/ into <work>/files/ (the prompts name paths under files/); the fastify-architecture skill is readable by the agent in the runs with the agent file and absent from the baseline. There is no working shell or Node toolchain (no npm, no vitest, no network), so the agent can only read and write files; gh and the user are unavailable, and a question for the user ends the run in the final message.",
+  "sandbox": "Run as docs/agent-evals.md describes: the runner creates <work> and copies this eval's files/ into <work>/files/ (the prompts name paths under files/); the skills export from the runbook is readable in both configurations. There is no working shell or Node toolchain (no npm, no vitest, no network), so the agent can only read and write files; gh and the user are unavailable, and a question for the user ends the run in the final message.",
   "evals": [
     {
       "id": 1,

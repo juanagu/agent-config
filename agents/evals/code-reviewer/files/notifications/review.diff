@@ -8,7 +8,7 @@ new file mode 100644
 +
 +export async function notificationsRoutes(app: FastifyInstance, opts: { controller: NotificationsController }) {
 +  app.get("/notifications", {
-+    schema: { response: { 200: { type: "array", items: { type: "object" } } } },
++    schema: { response: { 200: { type: "array", items: { type: "object", properties: { id: { type: "string" }, title: { type: "string" }, readAt: { type: ["string", "null"] } } } } } },
 +  }, (req, reply) => opts.controller.list(req, reply));
 +  app.post("/notifications/:userId/read-all", (req, reply) => opts.controller.readAll(req, reply));
 +}

@@ -1,6 +1,6 @@
 {
   "agent_name": "code-reviewer",
-  "sandbox": "Run as docs/agent-evals.md describes: copy the eval's files/ entries into <work>/files/ and make the repo's skills (.agents/skills/) available to the agent as it would have them. <work> is not a git repository and there is no remote: the diff is the file the brief names, so `git fetch origin` has nothing to fetch. gh, the network and the user are unavailable: a question for the user ends the run, in the final message. After the run, compare files/ against the original fixtures to see whether anything was edited.",
+  "sandbox": "Run as docs/agent-evals.md describes: copy the eval's files/ entries into <work>/files/ and make the skills export from the runbook available to the agent, as it would have the skills in a real session. <work> is not a git repository and there is no remote: the diff is the file the brief names, so `git fetch origin` has nothing to fetch. gh, the network and the user are unavailable: a question for the user ends the run, in the final message. After the run, compare files/ against the original fixtures to see whether anything was edited.",
   "evals": [
     {
       "id": 1,

@@ -9,7 +9,7 @@ tools: Read, Glob, Grep, Edit, Write, Bash, Skill
 ---
 You own test coverage and verification. Your job is to find out whether the code actually works, not to rubber-stamp it — treat "looks right" and "verified" as different claims.
 
-**Load the stack's architecture skill before writing a test** (`nextjs-architecture`, `fastify-architecture`, `flutter-architecture`, `android-architecture`, `ios-architecture`, `react-native-architecture`). Its tests section holds the layout, the tools, the commands and the e2e mechanics for that stack (the fake backend, the device matrix, the waits, the CI tier); its review checklist is what you verify against. This file holds what applies in every stack.
+**Load the stack's architecture skill before writing a test** (`nextjs-architecture`, `fastify-architecture`, `flutter-architecture`, `android-architecture`, `ios-architecture`, `react-native-architecture`). Its tests section holds the layout, the tools, the commands and the e2e mechanics for that stack (the fake backend, the device matrix, the waits, the CI tier); its review checklist is what you verify against. This file holds what applies in every stack. When no stack skill covers the code (a hook, a CLI, a build script), read the repo's own testing docs before writing a test; they name the spellings and fixtures that have slipped before.
 
 ## Test pyramid
 
@@ -27,7 +27,7 @@ You own test coverage and verification. Your job is to find out whether the code
 
 - **Two viewports, always.** A web suite runs a desktop and a ~390px project; Flutter runs a phone and a desktop window; native Android, iOS and React Native run a phone and a tablet, light and dark. If the suite has only ever run at one size, adding the second is part of your job before you sign off, and layout assertions (inside the viewport, actions on the expected side, nothing overflowing) belong in the small one too.
 - **Every shipped locale.** Assert on strings loaded from that locale's dictionary or resources, never hard-coded. A screen in the second locale showing the first locale's strings is a failing verification.
-- **Screenshots** for every relevant state (signed in/out, error, pending, empty), at both sizes, in every locale the change touches, from the tests or a throwaway script. Hand back their paths. Green assertions plus a screenshot that looks wrong is a failing verification; say so.
+- **Screenshots** for every relevant state (signed in/out, error, pending, empty), at both sizes, on every route the change renders on, in every locale the project ships, from the tests or a throwaway script. Hand back their paths. Green assertions plus a screenshot that looks wrong is a failing verification; say so.
 - **Missing tiers are yours to add.** No e2e setup, no mobile project, no in-memory backend, no smoke suite, no screenshot tests: scaffold what the stack skill describes before you sign off, rather than reporting the gap and stopping.
 - **A fake for a boundary is only as good as its agreement with the real thing.** When a suite runs against a fake server or canned responses, check that the project validates that fake against the real service's schema and headers. If it doesn't, say so in Deviations and link or open the ticket; a green run against an unverified fake is not evidence about the boundary.
 

@@ -12,7 +12,7 @@ PRODUCER_DIR=""
 # CI_IGNORED='^(README\.md|AGENTS\.md|CLAUDE\.md)$|(^|/)feature_readme\.md$|^docs/'
 # CI_RUNS_ANYWAY='^docs/contracts/'
 CI_IGNORED='^(CONTRIBUTING\.md|LICENSE)$|^docs/'
-CI_RUNS_ANYWAY='^docs/skill-evals\.md$'
+CI_RUNS_ANYWAY='^docs/skill-evals\.md$|^docs/assets/'
 
 [ -n "$CI" ] && exit 0
 

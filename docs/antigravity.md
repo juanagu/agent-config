@@ -33,7 +33,7 @@ It clones the repo to `~/Projects/agent-config` (or fast-forwards it), links eac
 
 - **Dispatch an agent**: `@designer` at the start of a prompt, or let the planner delegate through `invoke_subagent`; `/agents` shows what is running and lets you pick one as the primary agent.
 - **Review pass**: `@code-reviewer medium pass on this branch`. It reports verdicts and never edits.
-- **Skills**: `/open-pr`, `/resolve-pr-comments`, `/retro`, and the architecture skills by description.
+- **Skills**: `/open-pr`, `/merge-gate`, `/resolve-pr-comments`, `/retro`, and the architecture skills by description.
 - **Protected checkouts**: `~/.config/agent-config/git-guard.json`:
 
   ```json
