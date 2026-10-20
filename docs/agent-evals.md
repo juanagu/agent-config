@@ -4,8 +4,8 @@ Each agent in `agents/` has `agents/evals/<name>/evals.json`: behavioural evals 
 
 ## Before each run
 
-1. Pick a fresh work path per run, outside any real checkout, and copy the eval's `files` into `<work>/files/`. Start the run from there, not from a session in this repo: `agents/evals/` and every skill's `evals/` hold the planted answers. The agent writes anything it produces (an ADR, a spec, a test) under `<work>/`; an eval that hands it a project slice says which files it may edit.
-2. Give the agent the skills without their evals, the same export in every configuration so a score never credits the agent file with what a skill did: `mkdir -p <work>/skills && git archive origin/main .agents/skills ':(exclude).agents/skills/*/evals' | tar -x -C <work>/skills`.
+1. Pick a fresh work path per run, outside any real checkout, and copy the eval folder's `files/` to `<work>/files/` (each `files` entry is relative to the eval folder, so `files/app/x.ts` lands at `<work>/files/app/x.ts`, where the prompt expects it). Start the run from there, not from a session in this repo: `agents/evals/` and every skill's `evals/` hold the planted answers. The agent writes anything it produces (an ADR, a spec, a test) under `<work>/`; an eval that hands it a project slice says which files it may edit.
+2. Give the agent the skills without their evals, the same export in every configuration so a score never credits the agent file with what a skill did: `mkdir -p <work>/skills && git archive HEAD:.agents/skills -- . ':(exclude)*/evals/*' | tar -x -C <work>/skills`, run on the branch under test, so a change that moves guidance from an agent into a skill is measured with the skill that now holds it.
 3. Put the sandbox's rules in the run's brief, as the eval's `sandbox` field states them: the work directory, that `gh`, the network, emulators and the user are unavailable, and that a question for the user ends the run in the final message. Nothing else stops a run from calling the real `gh`.
 4. Dispatch the agent with its file as the system prompt, the way the tool under test loads it (Claude Code: the generated `.claude/agents/<name>.md`), and the eval's `prompt` as the brief. The agent sees nothing else, which is the point: a brief that only works with the session's history is a bad brief, not a bad agent.
 
@@ -13,14 +13,14 @@ Each agent in `agents/` has `agents/evals/<name>/evals.json`: behavioural evals 
 
 Run every eval twice in the same turn, on the model the agent's tier maps to:
 
-- **when changing an agent**: the current file (snapshot it first, e.g. `git show origin/main:agents/<name>.md`) against the edited one;
+- **when changing an agent**: the current generated file (snapshot it first, e.g. `git show origin/main:.claude/agents/<name>.md`) against the edited one after `npm run build`, so both carry the same model and tools and only the wording differs;
 - **when judging what an agent adds**: the agent file against a general-purpose agent given the same brief and no agent file.
 
 Save each run's final message as `outputs/report.md`, grade every expectation with quoted evidence (from the report or the files written), and aggregate as `docs/skill-evals.md` describes. An expectation that passes in both configurations does not test the agent file; replace it with a harder case before relying on that eval to judge an edit.
 
 ## Grading `dispatch`
 
-`dispatch` grades routing: given the user's request in the main session, would the orchestrator hand it to this agent? Give a fresh session the request plus every agent's `description` (the same list the tool shows its orchestrator) and ask which agent, if any, it would dispatch, and why. A `should_dispatch: true` entry passes when it names this agent; a `false` entry passes when it names another agent or none. The false entries are near-misses on purpose (a neighbouring stack, a small single-file change, a review instead of a fix): a description that wins only the easy cases routes badly in practice.
+`dispatch` grades routing: given the user's request in the main session, would the orchestrator hand it to this agent? Give a fresh session the standards (`AGENTS.md`, which a real session loads too), every agent's `description` (the same list the tool shows its orchestrator) and the request, and ask which agent, if any, it would dispatch, and why. Some `false` entries rest on the standards rather than the description: a small, single-file change skips the pipeline, and a tool with a built-in review pass uses it instead of `code-reviewer`. A `should_dispatch: true` entry passes when it names this agent; a `false` entry passes when it names another agent or none. The false entries are near-misses on purpose (a neighbouring stack, a small single-file change, a review instead of a fix): a description that wins only the easy cases routes badly in practice.
 
 ## What a result means
 

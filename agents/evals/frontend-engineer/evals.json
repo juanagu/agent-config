@@ -96,7 +96,7 @@
       "should_dispatch": false
     },
     {
-      "query": "change the Send button label to Submit in src/features/contact/components/contact-form.tsx and its two dictionary entries",
+      "query": "the Spanish dictionary says 'Enviar' where it should say 'Guardar' for the profile form's save button, fix that one entry in src/i18n/es.ts",
       "should_dispatch": false
     },
     {

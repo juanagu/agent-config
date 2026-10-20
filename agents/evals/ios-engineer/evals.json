@@ -75,7 +75,7 @@
       "should_dispatch": true
     },
     {
-      "query": "snapshot tests for the iOS onboarding screens are failing after the font change, update the references and check the diff",
+      "query": "add a Notifications settings screen to our SwiftUI app: a toggle per notification type, an @Observable view model, saved through the existing SettingsRepository",
       "should_dispatch": true
     },
     {

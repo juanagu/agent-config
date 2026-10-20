@@ -61,11 +61,29 @@
     }
   ],
   "dispatch": [
-    { "query": "Do a high-level review pass on my branch before I open the PR, diffing against origin/main.", "should_dispatch": true },
-    { "query": "I'm in Cursor with no built-in review command. Review the diff in ../worktrees/shop-wt-cart at medium level and tell me what's wrong with it.", "should_dispatch": true },
-    { "query": "I pushed the fixes for last round's findings, run another review pass to see whether they hold up.", "should_dispatch": true },
-    { "query": "The reviewer found three issues in my PR. Fix them.", "should_dispatch": false },
-    { "query": "Do a full security audit of the whole repo before the release.", "should_dispatch": false },
-    { "query": "Rewrite this controller so it follows the Fastify architecture.", "should_dispatch": false }
+    {
+      "query": "We are in Cursor, which has no built-in review command: do a review pass at level high on my branch before I open the PR, diffing against origin/main.",
+      "should_dispatch": true
+    },
+    {
+      "query": "I'm in Cursor with no built-in review command. Review the diff in ../worktrees/shop-wt-cart at medium level and tell me what's wrong with it.",
+      "should_dispatch": true
+    },
+    {
+      "query": "I pushed the fixes for last round's findings, run another review pass to see whether they hold up.",
+      "should_dispatch": true
+    },
+    {
+      "query": "The reviewer found three issues in my PR. Fix them.",
+      "should_dispatch": false
+    },
+    {
+      "query": "Do a full security audit of the whole repo before the release.",
+      "should_dispatch": false
+    },
+    {
+      "query": "Rewrite this controller so it follows the Fastify architecture.",
+      "should_dispatch": false
+    }
   ]
 }

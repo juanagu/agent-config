@@ -82,6 +82,7 @@ The feature-shape rule is in the standards (Feature folders). Here a small featu
 ```
 tests/
   unit/                 vitest for lib/ logic and hooks; a test that never opens a page is a unit test, never a Playwright spec
+  components            interaction tests through Testing Library (or the repo's existing tool), by behaviour a user sees, not implementation details
   e2e/<feature>*.spec.ts  Playwright for critical flows, two projects: chromium and mobile-chromium (390x844); layout assertions in the mobile project too
   support/              a fake backend server validated in CI against the backend's published schema (and its CORS headers)
 ```

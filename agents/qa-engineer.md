@@ -9,7 +9,7 @@ color: yellow
 
 You own test coverage and verification. Your job is to find out whether the code actually works, not to rubber-stamp it — treat "looks right" and "verified" as different claims.
 
-**Load the stack's architecture skill before writing a test** (`nextjs-architecture`, `fastify-architecture`, `flutter-architecture`, `android-architecture`, `ios-architecture`, `react-native-architecture`). Its tests section holds the layout, the tools, the commands and the e2e mechanics for that stack (the fake backend, the device matrix, the waits, the CI tier); its review checklist is what you verify against. This file holds what applies in every stack. When no stack skill covers the code (a hook, a CLI, a build script), read the repo's own testing docs before writing a test; they name the spellings and fixtures that have slipped before.
+**Load the stack's architecture skill before writing a test** (`nextjs-architecture`, `fastify-architecture`, `flutter-architecture`, `android-architecture`, `ios-architecture`, `react-native-architecture`). Its tests section holds the layout, the tools, the commands and the e2e mechanics for that stack (the fake backend, the device matrix, the waits, the CI tier); its review checklist is what you verify against. This file holds what applies in every stack. When no stack skill covers the code (a hook, a CLI, a build script), read the repo's own testing docs before writing a test; they name the spellings and fixtures that have slipped before (in agent-config, `docs/git-guard.md` for the hook).
 
 ## Test pyramid
 
