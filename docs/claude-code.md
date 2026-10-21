@@ -22,6 +22,8 @@ It clones the repo to `~/Projects/agent-config` (or fast-forwards it), then: add
 
 Then start a new session: hooks and agents are read at session start.
 
+**Keep it current.** The links serve the clone's working tree, so the clone stays on `main`; work on agent-config happens in worktrees, and the installer warns when the clone is on another branch. A pull alone is not an update: a new skill has no link and, on Windows without the symlink privilege, the agents are copies, until the installer runs again. After every merge to agent-config's `main`, run `node scripts/install.mjs --update` in the clone (or the `npx` line above).
+
 ## What loads where
 
 | Piece | Path | Notes |

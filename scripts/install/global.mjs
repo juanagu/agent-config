@@ -5,7 +5,7 @@
 import { existsSync, mkdirSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { linkRepoAgents } from "./agents.mjs";
-import { hasCommand } from "./env.mjs";
+import { hasCommand, offDefaultBranchWarning } from "./env.mjs";
 import { readJson, writeJson } from "./json.mjs";
 import { createLinker } from "./link.mjs";
 import * as settings from "./settings.mjs";
@@ -36,6 +36,8 @@ export async function installGlobal(tool, repoDir, home, prompter, flags) {
   if (agents.removed.length) console.log(`Removed agents the clone no longer has: ${agents.removed.join(", ")}`);
   if (swept.length) console.log(`Removed broken skill links: ${swept.join(", ")}`);
   if (NOTES[tool]) console.log(NOTES[tool]);
+  const branchWarning = offDefaultBranchWarning(repoDir);
+  if (branchWarning) console.warn(branchWarning);
   const backup = linker.backupDir();
   if (backup) console.log(`Replaced files were moved to ${backup}`);
   return { linker, skillsDir: target.skillsDir };

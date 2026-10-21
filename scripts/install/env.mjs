@@ -33,6 +33,19 @@ export function gitPull(repoDir) {
   if (run("git", ["-C", repoDir, "pull", "--ff-only"]) !== 0) throw new Error("git pull --ff-only failed.");
 }
 
+// The tools' folders link into the clone's working tree, so they serve whatever branch is checked
+// out, and a pull fast-forwards that branch, not the default one. A detached HEAD (a pinned tag)
+// or a clone without origin/HEAD gets no warning.
+export function offDefaultBranchWarning(repoDir) {
+  const current = git(repoDir, ["symbolic-ref", "--short", "-q", "HEAD"]);
+  const remoteHead = git(repoDir, ["symbolic-ref", "--short", "-q", "refs/remotes/origin/HEAD"]);
+  if (current.status !== 0 || remoteHead.status !== 0) return null;
+  const branch = current.stdout.trim();
+  const defaultBranch = remoteHead.stdout.trim().replace(/^origin\//, "");
+  if (!branch || !defaultBranch || branch === defaultBranch) return null;
+  return `Warning: ${repoDir} is on branch ${branch}, not ${defaultBranch}, and the installed links serve the checked-out branch. Run: git -C "${repoDir}" switch ${defaultBranch}, then update again.`;
+}
+
 export function gitOriginUrl(repoDir) {
   const result = git(repoDir, ["remote", "get-url", "origin"]);
   return result.status === 0 ? result.stdout.trim() : null;
