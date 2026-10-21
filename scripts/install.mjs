@@ -47,13 +47,14 @@ async function installEverywhere(flags) {
   }
   const failed = flags.skipSkills ? [] : await installSkills(prompter, home, installed);
   prompter.save();
+  // Last, whatever the outcome: a warning before the pull is easily lost above the installer's output.
+  const branchWarning = offDefaultBranchWarning(repoDir);
   if (failed.length) {
     console.error(`Failed to install: ${failed.join(", ")}`);
+    if (branchWarning) console.warn(branchWarning);
     return 1;
   }
   console.log("Start a new session in each tool to pick up the config.");
-  // Repeated last: before the pull it is easily lost above the installer's output.
-  const branchWarning = offDefaultBranchWarning(repoDir);
   if (branchWarning) console.warn(branchWarning);
   return 0;
 }

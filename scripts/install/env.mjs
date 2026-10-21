@@ -49,7 +49,7 @@ export function offDefaultBranchWarning(repoDir) {
   return [
     `Warning: ${repoDir} is on branch ${branch}, not ${defaultBranch}; the installed links serve the checked-out branch.`,
     `Unless the clone is pinned to ${branch} on purpose, move any work on it to a worktree, run`,
-    `git -C "${repoDir}" switch ${defaultBranch}, and update again.`,
+    `git -C "${repoDir}" switch ${defaultBranch}, and run the installer again.`,
   ].join("\n");
 }
 
