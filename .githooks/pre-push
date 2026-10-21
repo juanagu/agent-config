@@ -4,7 +4,8 @@
 # scripts/install-git-hooks.mjs installs a shim, in the repo's shared hooks dir, that runs it.
 # Where the full unit suite is slow, switch `test` to: npx vitest run --changed origin/main
 
-# Sibling clone of the service whose contract this repo vendors; leave empty if none.
+# Sibling clone of the service whose contract this repo vendors; leave empty if none. A relative
+# path is looked up beside this checkout, then beside the main worktree (for a worktree elsewhere).
 PRODUCER_DIR=""
 
 # Paths CI ignores (mirror the `paths` filter in .github/workflows/ci.yml); a push touching only
@@ -123,7 +124,7 @@ if has_script contracts:check; then
       || echo "pre-push: could not fetch $PRODUCER_DIR; contracts:check will run on stale refs" >&2
     run contracts:check
   else
-    echo "pre-push: producer clone $PRODUCER_DIR not found; skipping contracts:check"
+    echo "pre-push: producer clone $PRODUCER_DIR not found (beside this checkout or the main worktree); skipping contracts:check"
   fi
 fi
 exit 0
