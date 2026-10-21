@@ -76,10 +76,16 @@ fi
 # git exports these to hooks; they would point `git -C <producer>` at this repo.
 unset GIT_DIR GIT_WORK_TREE GIT_INDEX_FILE GIT_PREFIX
 
-# A relative PRODUCER_DIR names a sibling of the main clone; a worktree lives elsewhere, so resolve it there.
+# A relative PRODUCER_DIR names a sibling of the checkout. A worktree lives elsewhere, so when the
+# sibling isn't there, look beside the main worktree (the first one git lists).
 case $PRODUCER_DIR in
-  '' | /* | [A-Za-z]:*) ;;
-  *) PRODUCER_DIR="$(dirname "$(git rev-parse --path-format=absolute --git-common-dir)")/$PRODUCER_DIR" ;;
+  '' | /* | [A-Za-z]:[\\/]*) ;;
+  *)
+    if [ ! -e "$PRODUCER_DIR/.git" ]; then
+      main_worktree="$(git worktree list --porcelain | sed -n '1s/^worktree //p')"
+      [ -n "$main_worktree" ] && [ -e "$main_worktree/$PRODUCER_DIR/.git" ] && PRODUCER_DIR="$main_worktree/$PRODUCER_DIR"
+    fi
+    ;;
 esac
 
 # One read of package.json: a dependency flag, then the script names.

@@ -1,6 +1,7 @@
 // templates/pre-push under sh in a throwaway repo: tag pushes skip, a branch push runs the
 // scripts only when it is the checked-out HEAD, a mixed push still runs them, and a new branch
-// that only touches CI-ignored paths skips.
+// that only touches CI-ignored paths skips, and a relative PRODUCER_DIR is found from the main
+// clone and from a worktree elsewhere.
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { spawnSync, execFileSync } from "node:child_process";
@@ -95,7 +96,7 @@ pushTest("a new branch touching a path CI runs on is not skipped", { headFile: "
   assert.equal(ran(), true);
 });
 
-test("from a worktree, a relative PRODUCER_DIR resolves beside the main clone", { skip: sh ? false : "sh not available" }, () => {
+test("a relative PRODUCER_DIR is found from the main clone and from a worktree elsewhere", { skip: sh ? false : "sh not available" }, () => {
   const root = mkdtempSync(join(tmpdir(), "pre-push-producer-"));
   try {
     const main = join(root, "clones", "consumer");
@@ -118,9 +119,18 @@ test("from a worktree, a relative PRODUCER_DIR resolves beside the main clone", 
     git(worktree, "commit", "-q", "-m", "head");
     const head = git(worktree, "rev-parse", "HEAD");
     writeFileSync(join(worktree, "pre-push"), template.replace('PRODUCER_DIR=""', 'PRODUCER_DIR="../producer"'));
-    const result = push(worktree, [`refs/heads/f ${head} refs/heads/f ${ZERO}`]);
-    assert.equal(result.status, 0, result.stderr);
-    assert.equal(existsSync(join(worktree, "checked")), true, result.stdout);
+    const fromWorktree = push(worktree, [`refs/heads/f ${head} refs/heads/f ${ZERO}`]);
+    assert.equal(fromWorktree.status, 0, fromWorktree.stderr);
+    assert.equal(existsSync(join(worktree, "checked")), true, fromWorktree.stdout);
+
+    writeFileSync(join(main, "pre-push"), template.replace('PRODUCER_DIR=""', 'PRODUCER_DIR="../producer"'));
+    writeFileSync(join(main, "main.txt"), "x");
+    git(main, "add", "main.txt");
+    git(main, "commit", "-q", "-m", "main head");
+    const mainHead = git(main, "rev-parse", "HEAD");
+    const fromMain = push(main, [`refs/heads/g ${mainHead} refs/heads/g ${ZERO}`]);
+    assert.equal(fromMain.status, 0, fromMain.stderr);
+    assert.equal(existsSync(join(main, "checked")), true, fromMain.stdout);
   } finally {
     rmSync(root, { recursive: true, force: true });
   }
