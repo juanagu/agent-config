@@ -5,7 +5,9 @@
     {
       "id": 1,
       "name": "ci-still-pending",
-      "files": ["evals/files/ci-pending/pr-state.md"],
+      "files": [
+        "evals/files/ci-pending/pr-state.md"
+      ],
       "prompt": "review's clean on #58 and you re-ran everything, merge it. pr-state.md has where it's at",
       "expected_output": "Does not merge: the fast tier is still pending on the last push, and a pending run means keep waiting. Says it will merge once the run finishes green (or lists the wait-then-merge commands), and states that the other two conditions (converged review, its own re-run) are met.",
       "expectations": [
@@ -19,7 +21,9 @@
     {
       "id": 2,
       "name": "two-medium-rounds-still-finding-bugs",
-      "files": ["evals/files/two-rounds/pr-state.md"],
+      "files": [
+        "evals/files/two-rounds/pr-state.md"
+      ],
       "prompt": "keep looping on #73 until it's clean then merge, I'm out for the afternoon",
       "expected_output": "Stops instead of starting another round or merging: two medium rounds have each found a new main-path bug. Brings the user the remaining list (the last-day upgrade bug at proration.ts:41) with a recommendation among merging behind a flag, simplifying, or keeping going.",
       "expectations": [
@@ -33,7 +37,9 @@
     {
       "id": 3,
       "name": "triage-a-medium-pass",
-      "files": ["evals/files/triage/findings.md"],
+      "files": [
+        "evals/files/triage/findings.md"
+      ],
       "prompt": "medium pass on #91 came back, findings.md. what do we do with these before merging?",
       "expected_output": "Fixes finding 1 in the PR (CONFIRMED, main path). Verifies finding 2 before acting on it, since it is only PLAUSIBLE. Sends finding 3 to a follow-up issue (a rare path: a six-year-old cookie). Drops finding 4 or notes it as re-litigating a call round 1 settled, without another round. Does not merge until a medium pass on the fix reports no verified main-path bugs.",
       "expectations": [
@@ -47,7 +53,9 @@
     {
       "id": 4,
       "name": "docs-only-no-run-is-green",
-      "files": ["evals/files/docs-only/pr-state.md"],
+      "files": [
+        "evals/files/docs-only/pr-state.md"
+      ],
       "prompt": "#12 good to merge? there's no CI on it",
       "expected_output": "Merges (lists a squash merge that deletes the branch): the only changed file is excluded by the workflow's paths-ignore, so no run counts as green; the review loop converged and the checks were re-run. Does not wait for a run that will never start.",
       "expectations": [
@@ -55,6 +63,21 @@
         "Treats the missing run as green for that reason, not as pending",
         "Recognises the review loop as converged and the checks as re-run",
         "Lists a squash merge that deletes the branch"
+      ]
+    },
+    {
+      "id": 5,
+      "name": "push-when-converged",
+      "files": [
+        "evals/files/push-batch/pr-state.md"
+      ],
+      "prompt": "round 2's high pass on #73 found a bug, I fixed it and committed. push it and run the next round?",
+      "expected_output": "Does not push yet: the PR is open, so each push is a whole CI run; runs the next pass on the worktree's absolute path (which diffs against origin/main and sees the whole PR) and the local checks, and pushes once the loop has converged. Before merging, the local branch must equal origin/<branch>.",
+      "expectations": [
+        "Does not list a git push before the next review pass",
+        "Says the next pass runs on the worktree path, or otherwise against origin/main, not only the unpushed commits",
+        "Says the fixes go up in one push once the loop converges",
+        "Mentions re-running the local checks between rounds"
       ]
     }
   ]
