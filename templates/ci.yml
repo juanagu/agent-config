@@ -51,11 +51,11 @@ concurrency:
   cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 env:
-  # A push to trunk skips the build and the smoke set: the squash-merged PR's
-  # head already passed both, and the weekly run is the backstop.
-  TRUNK_PUSH: ${{ github.event_name == 'push' && !startsWith(github.ref, 'refs/tags/') }}
-  # The fast tier's smoke set, on PRs; the full tier runs those specs with the rest.
+  # The fast tier's smoke set runs on PRs only: a push to trunk is a merged PR
+  # whose head passed it, and the full tier runs those specs with the rest.
   RUN_SMOKE: ${{ github.event_name == 'pull_request' }}
+  # `e2e-full` builds for itself, so `checks` builds only when it runs alone.
+  FULL_TIER: ${{ startsWith(github.ref, 'refs/tags/') || github.event_name == 'schedule' || github.event_name == 'workflow_dispatch' }}
 
 jobs:
   # The fast tier in one job: every job pays its own runner setup and `npm ci`
@@ -74,7 +74,7 @@ jobs:
       - run: npm run typecheck
       - run: npm test
       - run: npm run build
-        if: env.TRUNK_PUSH != 'true'
+        if: env.FULL_TIER != 'true'
 
       # Web apps only: the describes tagged @smoke (sign-in, home, the header
       # at 390, the route guards), `playwright test --grep @smoke`. Keep it
