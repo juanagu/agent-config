@@ -76,6 +76,12 @@ fi
 # git exports these to hooks; they would point `git -C <producer>` at this repo.
 unset GIT_DIR GIT_WORK_TREE GIT_INDEX_FILE GIT_PREFIX
 
+# A relative PRODUCER_DIR names a sibling of the main clone; a worktree lives elsewhere, so resolve it there.
+case $PRODUCER_DIR in
+  '' | /* | [A-Za-z]:*) ;;
+  *) PRODUCER_DIR="$(dirname "$(git rev-parse --path-format=absolute --git-common-dir)")/$PRODUCER_DIR" ;;
+esac
+
 # One read of package.json: a dependency flag, then the script names.
 meta="$(node -e 'const p=JSON.parse(require("fs").readFileSync("package.json","utf8"));const deps=Object.keys({...p.dependencies,...p.devDependencies}).length;console.log([deps?"@deps":"@nodeps",...Object.keys(p.scripts??{})].join(" "))')" \
   || { echo "pre-push: cannot read package.json" >&2; exit 1; }

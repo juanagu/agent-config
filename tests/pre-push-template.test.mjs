@@ -94,3 +94,34 @@ pushTest("a new branch touching a path CI runs on is not skipped", { headFile: "
   assert.equal(push(dir, [`refs/heads/f ${head} refs/heads/f ${ZERO}`]).status, 0);
   assert.equal(ran(), true);
 });
+
+test("from a worktree, a relative PRODUCER_DIR resolves beside the main clone", { skip: sh ? false : "sh not available" }, () => {
+  const root = mkdtempSync(join(tmpdir(), "pre-push-producer-"));
+  try {
+    const main = join(root, "clones", "consumer");
+    const producer = join(root, "clones", "producer");
+    const worktree = join(root, "worktrees", "consumer-wt");
+    mkdirSync(producer, { recursive: true });
+    git(producer, "init", "-q", "-b", "main");
+    mkdirSync(main, { recursive: true });
+    git(main, "init", "-q", "-b", "main");
+    const touch = "node -e \"require('fs').appendFileSync('ran','x')\"";
+    const scripts = { lint: touch, "contracts:check": "node -e \"require('fs').writeFileSync('checked','x')\"" };
+    writeFileSync(join(main, "package.json"), JSON.stringify({ scripts }));
+    writeFileSync(join(main, ".gitignore"), "ran\nchecked\npre-push\n");
+    git(main, "add", "-A");
+    git(main, "commit", "-q", "-m", "base");
+    git(main, "update-ref", "refs/remotes/origin/main", "HEAD");
+    git(main, "worktree", "add", "-q", "-b", "f", worktree);
+    writeFileSync(join(worktree, "src.txt"), "x");
+    git(worktree, "add", "-A");
+    git(worktree, "commit", "-q", "-m", "head");
+    const head = git(worktree, "rev-parse", "HEAD");
+    writeFileSync(join(worktree, "pre-push"), template.replace('PRODUCER_DIR=""', 'PRODUCER_DIR="../producer"'));
+    const result = push(worktree, [`refs/heads/f ${head} refs/heads/f ${ZERO}`]);
+    assert.equal(result.status, 0, result.stderr);
+    assert.equal(existsSync(join(worktree, "checked")), true, result.stdout);
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
+});
