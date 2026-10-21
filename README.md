@@ -105,6 +105,7 @@ scripts/build.mjs    writes every generated file
 - Standards: edit `AGENTS.md`. Agents: edit `agents/<name>.md`, then `npm run build`. Skills: edit `.agents/skills/<name>/SKILL.md`, then `npm run build` (Claude Code reads a copy).
 - `npm test` checks all of it: frontmatter, cross-references, evals, the generated files, the installer, the hook in every tool's payload shape. The committed pre-push hook runs it before every push (`npm install` once installs the hook; there are no dependencies).
 - Ship it through a PR; the `open-pr` skill does it the way the standards describe.
+- After it merges, update each machine's install: `node scripts/install.mjs --update` in the clone (or the `npx` line above). A pull alone is not enough: a new skill gets its link, and copied agents (Windows without the symlink privilege) their new text, only when the installer runs. The links serve the clone's working tree, so the clone stays on `main` and work happens in worktrees; an update warns when the clone is on another branch.
 
 [CONTRIBUTING.md](CONTRIBUTING.md) has the details, including how to add support for another tool.
 
