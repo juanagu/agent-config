@@ -45,7 +45,7 @@ For each unresolved comment/thread, produce one line: file:line, a one-sentence 
 - Use the `conventional-commit` skill for the fix commit(s). Prefer a small number of focused commits (e.g. one per reviewer or per theme) over one commit per comment, but don't force everything into a single commit if the fixes are logically distinct.
 
 ### 5. Push — ask first
-- Pushing updates a shared PR others are watching: confirm with the user before `git push`, even though "resolve the PR comments" implies it. State what will be pushed (commit summary) when asking.
+- Pushing updates a shared PR others are watching: confirm with the user before `git push`, even though "resolve the PR comments" implies it. State what will be pushed (commit summary) when asking. Push the whole batch once, after any review pass on it has converged (`merge-gate`), not fix by fix: each push to an open PR is a whole CI run.
 
 ### 6. Reply to comments and resolve threads — ask first
 - Posting replies and resolving threads happen on the user's own GitHub identity and are visible to every other participant on the PR — always confirm before doing either, even within an otherwise-approved run of this skill.

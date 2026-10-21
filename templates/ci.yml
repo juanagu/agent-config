@@ -55,6 +55,8 @@ env:
   RUN_SMOKE: ${{ github.event_name == 'pull_request' || (github.event_name == 'push' && !startsWith(github.ref, 'refs/tags/')) }}
 
 jobs:
+  # The fast tier in one job: every job pays its own runner setup and `npm ci`
+  # and is billed rounded up to the minute, so split it only for a real reason.
   checks:
     runs-on: ubuntu-latest
     timeout-minutes: 15
