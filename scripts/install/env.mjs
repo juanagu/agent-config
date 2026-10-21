@@ -10,8 +10,8 @@ export function hasCommand(name) {
 
 // Runs a command sharing the terminal; the exit code comes back, 1 with a message when
 // the command could not be started at all.
-export function run(command, args) {
-  const result = spawnSync(command, args, { stdio: "inherit" });
+export function run(command, args, env = process.env) {
+  const result = spawnSync(command, args, { stdio: "inherit", env });
   if (result.error) {
     console.error(`${command} could not be started: ${result.error.message}`);
     return 1;
@@ -30,7 +30,27 @@ export function gitPull(repoDir) {
   if (status.error) throw new Error(`git could not be started: ${status.error.message}`);
   if (status.status !== 0) throw new Error(`${repoDir} is not a git clone, so there is nothing to pull.`);
   if (status.stdout.trim()) throw new Error(`${repoDir} has uncommitted changes. Commit or stash them before updating.`);
-  if (run("git", ["-C", repoDir, "pull", "--ff-only"]) !== 0) throw new Error("git pull --ff-only failed.");
+  const branchWarning = offDefaultBranchWarning(repoDir);
+  if (branchWarning) console.warn(branchWarning);
+  if (run("git", ["-C", repoDir, "pull", "--ff-only"], gitEnv()) !== 0) throw new Error("git pull --ff-only failed.");
+}
+
+// The tools' folders link into the clone's working tree, so they serve whatever branch is checked
+// out, and a pull fast-forwards that branch, not the default one. Checked before the pull, which
+// fails outright on a branch without an upstream. A detached HEAD (a pinned tag) or a clone
+// without origin/HEAD gets no warning.
+export function offDefaultBranchWarning(repoDir) {
+  const current = git(repoDir, ["symbolic-ref", "--short", "-q", "HEAD"]);
+  const remoteHead = git(repoDir, ["symbolic-ref", "--short", "-q", "refs/remotes/origin/HEAD"]);
+  if (current.status !== 0 || remoteHead.status !== 0) return null;
+  const branch = current.stdout.trim();
+  const defaultBranch = remoteHead.stdout.trim().replace(/^origin\//, "");
+  if (!branch || !defaultBranch || branch === defaultBranch) return null;
+  return [
+    `Warning: ${repoDir} is on branch ${branch}, not ${defaultBranch}; the installed links serve the checked-out branch.`,
+    `Unless the clone is pinned to ${branch} on purpose, move any work on it to a worktree, run`,
+    `git -C "${repoDir}" switch ${defaultBranch}, and run the installer again.`,
+  ].join("\n");
 }
 
 export function gitOriginUrl(repoDir) {
@@ -38,6 +58,15 @@ export function gitOriginUrl(repoDir) {
   return result.status === 0 ? result.stdout.trim() : null;
 }
 
+// Variables git exports to hooks would point `-C repoDir` at the hook's repository instead.
+const GIT_REPO_VARS = ["GIT_DIR", "GIT_WORK_TREE", "GIT_INDEX_FILE", "GIT_PREFIX", "GIT_COMMON_DIR"];
+
+function gitEnv() {
+  const env = { ...process.env };
+  for (const name of GIT_REPO_VARS) delete env[name];
+  return env;
+}
+
 function git(repoDir, args) {
-  return spawnSync("git", ["-C", repoDir, ...args], { encoding: "utf8" });
+  return spawnSync("git", ["-C", repoDir, ...args], { encoding: "utf8", env: gitEnv() });
 }

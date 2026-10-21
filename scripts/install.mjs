@@ -8,7 +8,7 @@ import { homedir } from "node:os";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { HELP, parseArgs } from "./install/args.mjs";
-import { gitPull, hasCommand, runNode } from "./install/env.mjs";
+import { gitPull, hasCommand, offDefaultBranchWarning, runNode } from "./install/env.mjs";
 import { installGlobal } from "./install/global.mjs";
 import { createPrompter } from "./install/prompts.mjs";
 import { installProject } from "./install/project.mjs";
@@ -47,11 +47,15 @@ async function installEverywhere(flags) {
   }
   const failed = flags.skipSkills ? [] : await installSkills(prompter, home, installed);
   prompter.save();
+  // Last, whatever the outcome: a warning before the pull is easily lost above the installer's output.
+  const branchWarning = offDefaultBranchWarning(repoDir);
   if (failed.length) {
     console.error(`Failed to install: ${failed.join(", ")}`);
+    if (branchWarning) console.warn(branchWarning);
     return 1;
   }
   console.log("Start a new session in each tool to pick up the config.");
+  if (branchWarning) console.warn(branchWarning);
   return 0;
 }
 
