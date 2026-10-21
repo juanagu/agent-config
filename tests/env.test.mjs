@@ -80,3 +80,18 @@ test("gitPull warns about the branch before a pull that then fails on a branch w
     assert.match(result.stderr, /on branch feat\/x, not main[\s\S]*git pull --ff-only failed/);
   });
 });
+
+test("gitPull acts on the clone even when a hook's GIT_DIR points elsewhere", () => {
+  withClone((clone) => {
+    const other = mkdtempSync(join(tmpdir(), "agent-config-other-"));
+    try {
+      gitIn(other, "init", "-q");
+      const call = "import { gitPull } from " + JSON.stringify(envModule) + "; gitPull(" + JSON.stringify(clone) + ");";
+      const env = { ...cleanGitEnv(), GIT_DIR: join(other, ".git") };
+      const result = spawnSync(process.execPath, ["--input-type=module", "-e", call], { encoding: "utf8", env });
+      assert.equal(result.status, 0, result.stderr);
+    } finally {
+      rmSync(other, { recursive: true, force: true });
+    }
+  });
+});

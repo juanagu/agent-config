@@ -8,7 +8,7 @@ import { homedir } from "node:os";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { HELP, parseArgs } from "./install/args.mjs";
-import { gitPull, hasCommand, runNode } from "./install/env.mjs";
+import { gitPull, hasCommand, offDefaultBranchWarning, runNode } from "./install/env.mjs";
 import { installGlobal } from "./install/global.mjs";
 import { createPrompter } from "./install/prompts.mjs";
 import { installProject } from "./install/project.mjs";
@@ -52,6 +52,9 @@ async function installEverywhere(flags) {
     return 1;
   }
   console.log("Start a new session in each tool to pick up the config.");
+  // Repeated last: before the pull it is easily lost above the installer's output.
+  const branchWarning = offDefaultBranchWarning(repoDir);
+  if (branchWarning) console.warn(branchWarning);
   return 0;
 }
 

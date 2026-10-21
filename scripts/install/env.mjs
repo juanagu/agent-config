@@ -10,8 +10,8 @@ export function hasCommand(name) {
 
 // Runs a command sharing the terminal; the exit code comes back, 1 with a message when
 // the command could not be started at all.
-export function run(command, args) {
-  const result = spawnSync(command, args, { stdio: "inherit" });
+export function run(command, args, env = process.env) {
+  const result = spawnSync(command, args, { stdio: "inherit", env });
   if (result.error) {
     console.error(`${command} could not be started: ${result.error.message}`);
     return 1;
@@ -32,7 +32,7 @@ export function gitPull(repoDir) {
   if (status.stdout.trim()) throw new Error(`${repoDir} has uncommitted changes. Commit or stash them before updating.`);
   const branchWarning = offDefaultBranchWarning(repoDir);
   if (branchWarning) console.warn(branchWarning);
-  if (run("git", ["-C", repoDir, "pull", "--ff-only"]) !== 0) throw new Error("git pull --ff-only failed.");
+  if (run("git", ["-C", repoDir, "pull", "--ff-only"], gitEnv()) !== 0) throw new Error("git pull --ff-only failed.");
 }
 
 // The tools' folders link into the clone's working tree, so they serve whatever branch is checked
@@ -61,8 +61,12 @@ export function gitOriginUrl(repoDir) {
 // Variables git exports to hooks would point `-C repoDir` at the hook's repository instead.
 const GIT_REPO_VARS = ["GIT_DIR", "GIT_WORK_TREE", "GIT_INDEX_FILE", "GIT_PREFIX", "GIT_COMMON_DIR"];
 
-function git(repoDir, args) {
+function gitEnv() {
   const env = { ...process.env };
   for (const name of GIT_REPO_VARS) delete env[name];
-  return spawnSync("git", ["-C", repoDir, ...args], { encoding: "utf8", env });
+  return env;
+}
+
+function git(repoDir, args) {
+  return spawnSync("git", ["-C", repoDir, ...args], { encoding: "utf8", env: gitEnv() });
 }
