@@ -83,6 +83,7 @@ const NO_FIX = report({ tar: { name: "tar", severity: "critical", range: "*", fi
 const DOWNGRADE = report({ "eslint-config-next": { name: "eslint-config-next", severity: "high", range: ">=15", fixAvailable: { name: "eslint-config-next", version: "14.2.35", isSemVerMajor: true } } });
 const DOWNGRADE_LOCK = { packages: { "node_modules/eslint-config-next": { version: "16.3.8" } } };
 const DOWN = { out: JSON.stringify({ error: { code: "ETIMEDOUT", summary: "timed out" } }), code: 1 };
+const NO_LOCK = (code) => ({ out: JSON.stringify({ error: { code, summary: "This command requires an existing lockfile." } }), code: 1 });
 const skip = !sh && "no POSIX sh";
 
 test("the audit is its own job on the weekly schedule only, bounded, with its own issue", () => {
@@ -133,6 +134,24 @@ test("an advisory with no fix, or only an older major, warns and passes", { skip
   assert.equal(downgrade.status, 0, downgrade.stderr);
   assert.match(downgrade.stdout, /::warning::high eslint-config-next/);
   assert.equal(runStep(t, [DOWNGRADE]).status, 1, "without a lockfile a major is still a fix");
+});
+
+test("a repo npm cannot audit is a warning naming the code, at once and without retries", { skip }, (t) => {
+  for (const code of ["ENOLOCK", "ENOAUDIT", "EAUDITNOLOCK"]) {
+    const result = runStep(t, [NO_LOCK(code)]);
+    assert.equal(result.status, 0, result.stderr);
+    assert.equal(result.calls, 1, code);
+    assert.equal(result.verdict, "misconfigured");
+    assert.match(result.stdout, new RegExp(`::warning::npm audit cannot run in this repo \\(${code}\\)`));
+    assert.doesNotMatch(result.stdout, /could not reach|attempt/);
+  }
+});
+
+test("the service-repo instructions leave only npm-audit on the weekly schedule", () => {
+  const header = lines.slice(0, lines.findIndex((line) => line.startsWith("on:"))).join(" ").replace(/#\s*/g, "").replace(/\s+/g, " ");
+  assert.match(header, /A service repo .* delete, together, .* the `e2e-full` and `report-full-tier` jobs, and give `checks` `if: github\.event_name != 'schedule'`, so only `npm-audit` runs on the `schedule` trigger you keep/);
+  assert.ok(!jobLines("checks").some((line) => /^ {4}if:/.test(line)), "checks itself still runs weekly where the full tier reports for it");
+  assert.ok(jobLines("report-full-tier").some((line) => line.includes("needs: [checks, e2e-full]")), "in a web repo a red weekly checks still reports");
 });
 
 test("an endpoint that recovers is retried; one that stays down is a warning, not a failure", { skip }, (t) => {

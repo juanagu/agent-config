@@ -4,8 +4,10 @@ name: CI
 # is the fast tier, `e2e-full` the full one, and `npm-audit` the weekly dependency
 # audit. Copy this file into a new repo's .github/workflows/. A service repo has no
 # browser suite: delete, together, the RUN_SMOKE env with the smoke steps in
-# `checks`, and the `e2e-full` and `report-full-tier` jobs; keep the `schedule`
-# trigger, which `npm-audit` runs on. Whoever pushes a tag watches its run.
+# `checks`, and the `e2e-full` and `report-full-tier` jobs, and give `checks`
+# `if: github.event_name != 'schedule'`, so only `npm-audit` runs on the
+# `schedule` trigger you keep (a weekly `checks` would report to no one).
+# Whoever pushes a tag watches its run.
 #
 # Two things GitHub does that this file cannot change: a push the `paths`
 # filter excludes creates no run at all, so never make `checks` a required
@@ -94,7 +96,9 @@ jobs:
   # no project code (`npm audit` reads the lockfile; no `npm ci`), so it may write issues.
   # An advisory with no fix, or whose only "fix" is an older major, is a warning, not a
   # failure, or every weekly run would stay red. Each attempt is bounded, and an endpoint
-  # that stays down, a failed checkout or setup, or the step's timeout is a warning too:
+  # that stays down, a repo npm cannot audit (no lockfile: ENOLOCK, ENOAUDIT, EAUDITNOLOCK,
+  # reported at once, without retries), a failed checkout or setup, or the step's timeout
+  # is a warning too:
   # none of them is a vulnerability. Only the audit step's `fixable` verdict opens the
   # issue and turns the run red.
   npm-audit:
@@ -120,11 +124,19 @@ jobs:
         timeout-minutes: 10
         env:
           # Exit 0: nothing to fix (unfixable advisories are printed as warnings); 1: a high or
-          # critical advisory with a fix; 2: not an audit report (the endpoint failed or timed out).
+          # critical advisory with a fix; 2: no report, worth a retry (a timeout, a dropped
+          # connection, a 5xx); 3: no report, and a retry would fail the same way (no lockfile,
+          # ENOAUDIT, EAUDITNOLOCK), printed as a warning naming the code.
           TRIAGE: |
             const fs = require("fs");
+            const TRANSIENT = /^(ETIMEDOUT|ESOCKETTIMEDOUT|ECONNRESET|ECONNREFUSED|ECONNABORTED|EPIPE|EAI_AGAIN|ENOTFOUND|EHOSTUNREACH|ENETUNREACH|E429|E5\d\d)$/;
             let report;
             try { report = JSON.parse(fs.readFileSync("audit.json", "utf8")); } catch { process.exit(2); }
+            const code = report?.error?.code;
+            if (code && !TRANSIENT.test(code)) {
+              console.log(`::warning::npm audit cannot run in this repo (${code}): ${report.error.summary ?? ""}`);
+              process.exit(3);
+            }
             if (!report || typeof report.vulnerabilities !== "object") process.exit(2);
             let lock = {};
             try { lock = JSON.parse(fs.readFileSync("package-lock.json", "utf8")); } catch {}
@@ -152,6 +164,7 @@ jobs:
             node -e "$TRIAGE" || verdict=$?
             if [ "$verdict" -eq 1 ]; then echo "verdict=fixable" >> "$GITHUB_OUTPUT"; exit 1; fi
             if [ "$verdict" -eq 0 ]; then echo "verdict=clean" >> "$GITHUB_OUTPUT"; exit 0; fi
+            if [ "$verdict" -eq 3 ]; then echo "verdict=misconfigured" >> "$GITHUB_OUTPUT"; exit 0; fi
             echo "npm audit gave no report (exit $status), attempt $attempt: $(head -c 300 audit.json)"
             if [ "$attempt" -lt 3 ]; then sleep $((attempt * 30)); fi
           done
