@@ -94,7 +94,9 @@ jobs:
   # no project code (`npm audit` reads the lockfile; no `npm ci`), so it may write issues.
   # An advisory with no fix, or whose only "fix" is an older major, is a warning, not a
   # failure, or every weekly run would stay red. Each attempt is bounded, and an endpoint
-  # that stays down is a warning too: neither is a vulnerability.
+  # that stays down, a failed checkout or setup, or the step's timeout is a warning too:
+  # none of them is a vulnerability. Only the audit step's `fixable` verdict opens the
+  # issue and turns the run red.
   npm-audit:
     if: ${{ github.event_name == 'schedule' }}
     runs-on: ubuntu-latest
@@ -103,11 +105,18 @@ jobs:
       contents: read
       issues: write
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - id: checkout
+        uses: actions/checkout@v4
+        continue-on-error: true
+      - id: node
+        uses: actions/setup-node@v4
+        continue-on-error: true
         with:
           node-version: '22'
       - name: npm audit (production, high and above)
+        id: audit
+        if: ${{ steps.checkout.outcome == 'success' && steps.node.outcome == 'success' }}
+        continue-on-error: true
         timeout-minutes: 10
         env:
           # Exit 0: nothing to fix (unfixable advisories are printed as warnings); 1: a high or
@@ -141,13 +150,15 @@ jobs:
             timeout 120 npm audit --omit=dev --audit-level=high --json > audit.json || status=$?
             verdict=0
             node -e "$TRIAGE" || verdict=$?
-            if [ "$verdict" -ne 2 ]; then exit "$verdict"; fi
+            if [ "$verdict" -eq 1 ]; then echo "verdict=fixable" >> "$GITHUB_OUTPUT"; exit 1; fi
+            if [ "$verdict" -eq 0 ]; then echo "verdict=clean" >> "$GITHUB_OUTPUT"; exit 0; fi
             echo "npm audit gave no report (exit $status), attempt $attempt: $(head -c 300 audit.json)"
             if [ "$attempt" -lt 3 ]; then sleep $((attempt * 30)); fi
           done
+          echo "verdict=unreachable" >> "$GITHUB_OUTPUT"
           echo "::warning::npm audit could not reach the registry's audit endpoint after 3 attempts; this is not a vulnerability finding."
       - name: Open the audit issue, or comment on the open one
-        if: ${{ failure() }}
+        if: ${{ steps.audit.outcome == 'failure' && steps.audit.outputs.verdict == 'fixable' }}
         env:
           GH_TOKEN: ${{ github.token }}
           GH_REPO: ${{ github.repository }}
@@ -162,6 +173,12 @@ jobs:
             gh issue create --title "$TITLE" \
               --body "The weekly npm audit found a high or critical advisory with a fix in a production dependency: $RUN_URL. Run the dependency-audit skill to triage it, and add this issue to the project board."
           fi
+      - name: Fail the run on a fixable finding
+        if: ${{ steps.audit.outputs.verdict == 'fixable' }}
+        run: exit 1
+      - name: Warn when the audit did not finish
+        if: ${{ !cancelled() && steps.audit.outcome != 'success' && steps.audit.outputs.verdict != 'fixable' }}
+        run: echo "::warning::The weekly npm audit did not finish (checkout, setup-node or its timeout); no finding was recorded."
 
   e2e-full:
     if: ${{ startsWith(github.ref, 'refs/tags/') || github.event_name == 'schedule' || github.event_name == 'workflow_dispatch' }}

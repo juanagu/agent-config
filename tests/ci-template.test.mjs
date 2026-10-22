@@ -1,6 +1,7 @@
-// templates/ci.yml's weekly npm audit: a job of its own that runs on the schedule only, reports to
-// its own issue, and under sh with a fake npm passes on a clean audit, fails on a fixable high
-// advisory, warns on one with no fix (or only a downgrade), and warns when the endpoint stays down.
+// templates/ci.yml's weekly npm audit: a job of its own that runs on the schedule only and opens its
+// own issue on the audit step's `fixable` verdict alone. Under sh with a fake npm the step reports
+// clean, fixable (a high advisory with a fix), clean with a warning (no fix, or only a downgrade),
+// or unreachable (the endpoint stays down).
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { execFileSync, spawnSync } from "node:child_process";
@@ -67,9 +68,12 @@ function runStep(t, answers, lock = null) {
     chmodSync(join(bin, name), 0o755);
   }
   writeFileSync(join(dir, "step.sh"), SCRIPT);
-  const env = cleanGitEnv({ TRIAGE, PATH: `${bin}${delimiter}${dirname(process.execPath)}${delimiter}${process.env.PATH}` });
+  const output = join(dir, "github-output");
+  writeFileSync(output, "");
+  const env = cleanGitEnv({ TRIAGE, GITHUB_OUTPUT: output, PATH: `${bin}${delimiter}${dirname(process.execPath)}${delimiter}${process.env.PATH}` });
   const result = spawnSync(sh, ["-e", "step.sh"], { cwd: dir, encoding: "utf8", env });
-  return { ...result, calls: +readFileSync(join(dir, "calls"), "utf8") };
+  const verdict = readFileSync(output, "utf8").match(/^verdict=(\w+)$/m)?.[1] ?? null;
+  return { ...result, verdict, calls: +readFileSync(join(dir, "calls"), "utf8") };
 }
 
 const report = (vulnerabilities) => ({ out: JSON.stringify({ vulnerabilities }), code: Object.keys(vulnerabilities).length ? 1 : 0 });
@@ -89,22 +93,34 @@ test("the audit is its own job on the weekly schedule only, bounded, with its ow
   assert.ok(auditStep.some((line) => /timeout-minutes: \d+/.test(line)), "the step has a timeout");
   assert.match(SCRIPT, /timeout \d+ npm audit --omit=dev --audit-level=high/);
   const report = job.slice(reportStart).join("\n");
-  assert.match(report, /if: \$\{\{ failure\(\) \}\}/);
+  assert.ok(report.includes("if: ${{ steps.audit.outcome == 'failure' && steps.audit.outputs.verdict == 'fixable' }}"), "the issue opens on the audit's verdict only");
+  assert.doesNotMatch(job.join("\n"), /failure\(\)/, "no step reacts to any failure, only to the audit's verdict");
   assert.match(report, /TITLE: "Weekly npm audit: high or critical in production dependencies"/);
   assert.match(report, /gh issue comment "\$existing"/);
   assert.doesNotMatch(jobLines("report-full-tier").join("\n"), /npm-audit/, "the full tier's issue never folds in the audit");
   assert.doesNotMatch(jobLines("checks").join("\n"), /npm audit/, "checks does not run the audit");
 });
 
+test("a failed checkout, setup or step timeout is a warning, never the audit issue", () => {
+  const text = job.join("\n");
+  for (const id of ["checkout", "node", "audit"]) assert.ok(job.some((line) => /^-? *id: /.test(line.trim()) && line.trim().endsWith(`id: ${id}`)), `no step with id ${id}`);
+  assert.equal((text.match(/continue-on-error: true/g) ?? []).length, 3, "checkout, setup-node and the audit continue on error");
+  assert.ok(auditStep.some((line) => line.includes("if: ${{ steps.checkout.outcome == 'success' && steps.node.outcome == 'success' }}")));
+  assert.ok(text.includes("- name: Fail the run on a fixable finding\n        if: ${{ steps.audit.outputs.verdict == 'fixable' }}"));
+  assert.ok(text.includes("- name: Warn when the audit did not finish\n        if: ${{ !cancelled() && steps.audit.outcome != 'success' && steps.audit.outputs.verdict != 'fixable' }}"));
+});
+
 test("a clean audit passes on the first call", { skip }, (t) => {
   const result = runStep(t, [CLEAN]);
   assert.equal(result.status, 0, result.stderr);
+  assert.equal(result.verdict, "clean");
   assert.equal(result.calls, 1);
 });
 
 test("a high advisory with a fix fails the step and names the package", { skip }, (t) => {
   const result = runStep(t, [FIXABLE]);
   assert.equal(result.status, 1);
+  assert.equal(result.verdict, "fixable");
   assert.match(result.stdout, /high\tvite\t<6\.3\.6\tfix available/);
 });
 
@@ -112,6 +128,7 @@ test("an advisory with no fix, or only an older major, warns and passes", { skip
   const none = runStep(t, [NO_FIX]);
   assert.equal(none.status, 0, none.stderr);
   assert.match(none.stdout, /::warning::critical tar/);
+  assert.equal(none.verdict, "clean");
   const downgrade = runStep(t, [DOWNGRADE], DOWNGRADE_LOCK);
   assert.equal(downgrade.status, 0, downgrade.stderr);
   assert.match(downgrade.stdout, /::warning::high eslint-config-next/);
@@ -122,8 +139,10 @@ test("an endpoint that recovers is retried; one that stays down is a warning, no
   const recovered = runStep(t, [DOWN, FIXABLE]);
   assert.equal(recovered.status, 1);
   assert.equal(recovered.calls, 2);
+  assert.equal(recovered.verdict, "fixable");
   const down = runStep(t, [DOWN]);
   assert.equal(down.status, 0, down.stderr);
   assert.equal(down.calls, 3);
+  assert.equal(down.verdict, "unreachable");
   assert.match(down.stdout, /::warning::npm audit could not reach/);
 });
