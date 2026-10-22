@@ -639,6 +639,20 @@ test("--no-audit-nudge takes out only the nudge's own hook from a group the user
   assert.deepEqual(readJson(join(home, ".gemini", "config", "hooks.json"))["audit-nudge"], { SessionStart: [{ hooks: [{ type: "command", command: "./mine.sh" }] }] });
 });
 
+test("--no-audit-nudge keeps Copilot's nudge file when the user added hooks of their own to it", (t) => {
+  const clone = makeFixtureClone(t);
+  const home = freshDir(t);
+  assert.equal(global(clone, home, "--tool", "copilot").status, 0);
+  const file = join(home, ".copilot", "hooks", "audit-nudge.json");
+  const withMine = readJson(file);
+  const mine = { type: "command", bash: "./mine.sh", powershell: "./mine.ps1" };
+  withMine.hooks.sessionStart.push(mine);
+  withMine.hooks.sessionEnd = [mine];
+  writeJson(file, withMine);
+  assert.equal(global(clone, home, "--tool", "copilot", "--no-audit-nudge").status, 0);
+  assert.deepEqual(readJson(file), { version: 1, hooks: { sessionStart: [mine], sessionEnd: [mine] } });
+});
+
 test("--no-audit-nudge takes an installed nudge out of every tool's file, keeps the rest, and records the no", (t) => {
   const clone = makeFixtureClone(t);
   const home = freshDir(t);

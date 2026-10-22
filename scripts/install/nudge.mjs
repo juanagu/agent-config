@@ -16,7 +16,8 @@ export function nudgeCommand(repoDir, tool) {
 
 // Where each tool registers a session-start hook, and the entry's shape (docs/compatibility.md).
 // `file` is under the home directory; `path` is the hook array inside it; `root` holds keys a new
-// file needs; `ownFile` marks a file that holds nothing else, deleted with the last entry.
+// file needs; `ownFile` marks a file the installer creates for the nudge alone, deleted when
+// taking the nudge out leaves nothing of the user's in it.
 export const NUDGE_TARGETS = {
   claude: {
     file: [".claude", "settings.json"],
@@ -44,6 +45,12 @@ export const NUDGE_TARGETS = {
 };
 
 export const nudgeFile = (tool, home) => join(home, ...NUDGE_TARGETS[tool].file);
+
+// True when nothing but the keys the installer seeded (`version`) is left in a file.
+export function onlySeedKeys(settings, tool) {
+  const seeded = Object.keys(NUDGE_TARGETS[tool].root ?? {});
+  return Object.keys(settings).every((key) => seeded.includes(key));
+}
 
 export function hasNudge(settings, tool) {
   return arrayAt(settings, NUDGE_TARGETS[tool].path).some((entry) => runsScript(entry, NUDGE_NEEDLE));

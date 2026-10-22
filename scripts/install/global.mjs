@@ -73,10 +73,11 @@ async function installRegistration(tool, repoDir, target, linker, hooks, prompte
   for (const file of changed) writeHookFile(file, next.get(file), tool, file === hooks.nudgeFile);
 }
 
-// A file that only ever held the nudge (Copilot's) is deleted once the nudge is taken out of it.
+// The nudge's own file (Copilot's) is deleted once taking the nudge out leaves nothing else in it;
+// hooks the user added there keep it.
 function writeHookFile(file, value, tool, isNudgeFile) {
   const existed = existsSync(file);
-  if (isNudgeFile && nudge.NUDGE_TARGETS[tool].ownFile && !nudge.hasNudge(value, tool)) {
+  if (isNudgeFile && nudge.NUDGE_TARGETS[tool].ownFile && nudge.onlySeedKeys(value, tool)) {
     if (existed) rmSync(file);
     if (existed) console.log(`Removed ${file}.`);
     return;
