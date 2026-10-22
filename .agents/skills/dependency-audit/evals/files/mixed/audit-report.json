@@ -1,0 +1,29 @@
+{
+  "date": "2026-10-22T09:00:00.000Z",
+  "local": { "file": "node --version", "kind": "local", "raw": "v24.14.1", "status": "behind", "resolved": "v24.14.1", "latestSecurity": "v24.22.1", "securityReleasesBehind": 3, "eol": false, "end": "2028-04-30" },
+  "repos": [
+    {
+      "dir": "/work/shop-web",
+      "npm": {
+        "source": "npm audit",
+        "findings": [
+          { "package": "vite", "installed": "6.3.1", "severity": "high", "scope": "production", "direct": false, "fix": "patch-minor", "fixTo": null, "advisories": [{ "title": "Vite allows arbitrary file read via the dev server", "url": "https://github.com/advisories/GHSA-aaaa-bbbb-cccc", "ghsa": "GHSA-aaaa-bbbb-cccc", "severity": "high", "range": "<6.3.6" }], "via": [] },
+          { "package": "eslint-config-next", "installed": "16.3.8", "severity": "high", "scope": "dev", "direct": true, "fix": "downgrade", "fixTo": "eslint-config-next@14.2.35", "advisories": [], "via": ["@next/eslint-plugin-next"] },
+          { "package": "vitest", "installed": "2.1.4", "severity": "critical", "scope": "dev", "direct": true, "fix": "major", "fixTo": "vitest@4.1.11", "advisories": [{ "title": "When Vitest UI server is listening, arbitrary file can be read and executed", "url": "https://github.com/advisories/GHSA-5xrq-8626-4rwp", "ghsa": "GHSA-5xrq-8626-4rwp", "severity": "critical", "range": "<3.2.6" }], "via": [] },
+          { "package": "follow-redirects", "installed": "1.15.6", "severity": "moderate", "scope": "production", "direct": false, "fix": "patch-minor", "fixTo": null, "advisories": [{ "title": "follow-redirects leaks Proxy-Authorization header", "url": "https://github.com/advisories/GHSA-dddd-eeee-ffff", "ghsa": "GHSA-dddd-eeee-ffff", "severity": "moderate", "range": "<1.15.9" }], "via": [] }
+        ]
+      },
+      "runtime": [
+        { "file": ".github/workflows/ci.yml", "kind": "ci", "raw": "22", "status": "current", "resolved": "v22.23.4", "latestSecurity": "v22.23.4", "securityReleasesBehind": 0, "eol": false, "end": "2027-04-30" },
+        { "file": "Dockerfile", "kind": "docker", "raw": "22.11-alpine", "status": "behind", "resolved": "v22.11.0", "latestSecurity": "v22.23.4", "securityReleasesBehind": 9, "eol": false, "end": "2027-04-30" },
+        { "file": "package.json", "kind": "engines", "raw": ">=22", "status": "range", "floor": "22", "latestSecurity": "v22.23.4", "floorBelowSecurity": true, "eol": false, "end": "2027-04-30" }
+      ],
+      "dependabot": {
+        "slug": "acme/shop-web",
+        "alerts": [
+          { "number": 12, "package": "vite", "ecosystem": "npm", "manifest": "package-lock.json", "scope": "production", "severity": "high", "ghsa": "GHSA-aaaa-bbbb-cccc", "summary": "Vite allows arbitrary file read via the dev server", "vulnerableRange": "<6.3.6", "patched": "6.3.6", "url": "https://github.com/acme/shop-web/security/dependabot/12" }
+        ]
+      }
+    }
+  ]
+}

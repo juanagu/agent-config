@@ -1,0 +1,4 @@
+[
+  { "number": 41, "title": "deps: vite GHSA-aaaa-bbbb-cccc (dev server file read)", "body": "Dependabot alert #12. Bump vite to 6.3.6.", "state": "OPEN" },
+  { "number": 38, "title": "Checkout button misaligned at 390px", "body": "", "state": "OPEN" }
+]
