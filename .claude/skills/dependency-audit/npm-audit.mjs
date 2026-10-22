@@ -18,15 +18,22 @@ function spawnNpm(dir, args) {
 
 const wait = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 
+// Worth another try: a timeout, a dropped or refused connection, a DNS hiccup, a rate limit or a
+// 5xx. A missing lockfile or an audit endpoint that refuses the request (ENOAUDIT, EAUDITNOLOCK)
+// fails the same way every time.
+const TRANSIENT = /^(ETIMEDOUT|ESOCKETTIMEDOUT|ECONNRESET|ECONNREFUSED|ECONNABORTED|EPIPE|EAI_AGAIN|ENOTFOUND|EHOSTUNREACH|ENETUNREACH|E429|E5\d\d)$/;
+
 // A report has `vulnerabilities`; anything else (an `error` object, no JSON, a killed process) is
-// the endpoint or the tooling failing, never a finding.
+// the endpoint or the tooling failing, never a finding. Output that is not JSON at all is
+// treated as transient, since a dropped connection can cut it short.
 export function parseAuditOutput(stdout) {
   try {
     const parsed = JSON.parse(stdout);
     if (parsed && typeof parsed.vulnerabilities === "object") return { report: parsed };
-    return { error: parsed?.error?.summary || parsed?.error?.code || "no vulnerabilities field in npm's answer" };
+    const code = parsed?.error?.code ?? null;
+    return { error: parsed?.error?.summary || code || "no vulnerabilities field in npm's answer", retry: Boolean(code && TRANSIENT.test(code)) };
   } catch {
-    return { error: stdout.trim().slice(0, 200) || "npm audit printed no JSON" };
+    return { error: stdout.trim().slice(0, 200) || "npm audit printed no JSON", retry: true };
   }
 }
 
@@ -35,8 +42,8 @@ export async function runNpmAudit(dir, { omitDev, exec = spawnNpm, sleep = wait,
   let last = { error: "not run" };
   for (let attempt = 1; attempt <= attempts; attempt++) {
     const out = exec(dir, args);
-    last = out.timedOut ? { error: "npm audit timed out" } : parseAuditOutput(out.stdout);
-    if (last.report) return { ...last, attempts: attempt };
+    last = out.timedOut ? { error: "npm audit timed out", retry: true } : parseAuditOutput(out.stdout);
+    if (last.report || !last.retry) return { ...last, attempts: attempt };
     if (attempt < attempts) await sleep(baseDelayMs * 2 ** (attempt - 1));
   }
   return { ...last, attempts };
@@ -94,18 +101,20 @@ export function lockfileVersions(lock) {
     .filter((entry) => parseVersion(entry.version));
 }
 
+const plural = (n) => `${n} attempt${n === 1 ? "" : "s"}`;
+
 export async function auditNpm(dir, options = {}) {
   if (!existsSync(join(dir, "package.json"))) return { skipped: "no package.json" };
   const lock = readLock(dir);
   if (!lock) return { skipped: "no package-lock.json (npm audit needs one)" };
   const prod = await runNpmAudit(dir, { ...options, omitDev: true });
   if (!prod.report) {
-    return { source: "lockfile", error: `npm audit failed after ${prod.attempts} attempts: ${prod.error}`, packages: lockfileVersions(lock) };
+    return { source: "lockfile", error: `npm audit failed after ${plural(prod.attempts)}: ${prod.error}`, packages: lockfileVersions(lock) };
   }
   const prodNames = new Set(Object.keys(prod.report.vulnerabilities ?? {}));
   const all = await runNpmAudit(dir, { ...options, omitDev: false });
   if (!all.report) {
-    return { source: "npm audit, production only", error: `the dev audit failed after ${all.attempts} attempts: ${all.error}`, findings: findingsFrom(prod.report, lock, prodNames) };
+    return { source: "npm audit, production only", error: `the dev audit failed after ${plural(all.attempts)}: ${all.error}`, findings: findingsFrom(prod.report, lock, prodNames) };
   }
   return { source: "npm audit", findings: findingsFrom(all.report, lock, prodNames) };
 }

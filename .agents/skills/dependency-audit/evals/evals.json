@@ -5,9 +5,12 @@
     {
       "id": 1,
       "name": "mixed-findings-with-a-duplicate",
-      "files": ["evals/files/mixed/audit-report.json", "evals/files/mixed/open-issues.json"],
-      "prompt": "The weekly dependency audit is due. I already ran the helper on shop-web: its output is in audit-report.json, and open-issues.json is the repo's open issue list. Finish the audit.",
-      "expected_output": "One table with production first (vite, follow-redirects, the Dockerfile pin), then dev. Comments on #41 for vite instead of opening a new issue; a PR for follow-redirects and the Dockerfile pin bump; a separate issue for the vitest major with a reachability note about the UI server; eslint-config-next treated as no fix because npm's suggestion is a downgrade; engines reported as a floor; the local node mentioned to the user without an issue; never npm audit fix --force; records the run with --stamp.",
+      "files": [
+        "evals/files/mixed/audit-report.json",
+        "evals/files/mixed/open-issues.json"
+      ],
+      "prompt": "The weekly dependency audit is due. I already ran the helper's weekly sweep (`--all` over the project's clones; shop-web is the only one with findings): its output is in audit-report.json, and open-issues.json is shop-web's open issue list. Finish the audit.",
+      "expected_output": "One table with production first (vite, follow-redirects, the Dockerfile pin), then dev. Comments on #41 for vite instead of opening a new issue; a PR for follow-redirects and the Dockerfile pin bump; a separate issue for the vitest major with a reachability note about the UI server; eslint-config-next treated as no fix because npm's suggestion is a downgrade; engines reported as a floor; the local node mentioned to the user without an issue; never npm audit fix --force; records the weekly sweep with --stamp.",
       "expectations": [
         "Produces a single table that lists production findings before dev findings",
         "Merges the npm vite finding and Dependabot alert #12 into one row",
@@ -19,21 +22,24 @@
         "Routes the production patch/minor fixes (follow-redirects, the pin) through a normal PR",
         "Tells the user the local node is behind without filing an issue for it",
         "Never runs or suggests npm audit fix --force",
-        "Runs or lists `audit.mjs --stamp` to record the run"
+        "Runs or lists `audit.mjs --stamp` to record the weekly sweep"
       ]
     },
     {
       "id": 2,
       "name": "npm-endpoint-down",
-      "files": ["evals/files/npm-down/audit-report.json", "evals/files/npm-down/open-issues.json"],
+      "files": [
+        "evals/files/npm-down/audit-report.json",
+        "evals/files/npm-down/open-issues.json"
+      ],
       "prompt": "dependency audit for orders-api please. audit-report.json is what the helper printed; open-issues.json is the open issue list.",
-      "expected_output": "Says npm's audit endpoint timed out and the npm half is unchecked this run (lockfile versions only), relies on Dependabot's empty alert list as the only advisory source, does not call the repo clean, files no issues, and records the run.",
+      "expected_output": "Says npm's audit endpoint timed out and the npm half is unchecked this run (lockfile versions only), relies on Dependabot's empty alert list as the only advisory source, does not call the repo clean, files no issues, and does not stamp, since a single-repo run is not the weekly sweep.",
       "expectations": [
         "Says npm audit failed (endpoint timeout) and that the npm results are unchecked this run",
         "Does not claim the repo has no vulnerable dependencies",
         "Names Dependabot's alerts as the only advisory source for this run",
         "Opens no issues",
-        "Runs or lists `audit.mjs --stamp` to record the run"
+        "Does not run `audit.mjs --stamp`: a single-repo run is not the weekly sweep"
       ]
     }
   ]

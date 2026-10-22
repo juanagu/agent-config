@@ -17,11 +17,12 @@ const STAMP_MODULE = "../../skills/dependency-audit/stamp.mjs";
 
 export const NUDGE = "The weekly dependency audit is due: tell the user, and run the dependency-audit skill unless they say not now (it records the run when it finishes).";
 
-// The file holds an ISO date. Anything unparseable counts as never run; a date in the future
-// (a clock moved back) counts as recent.
+// The file holds an ISO date. Anything unparseable counts as never run. A date up to a day ahead
+// (time zones, a clock a little off) counts as recent; one further ahead is wrong and would
+// otherwise silence the nudge for as long, so it counts as due.
 export function isDue(stampText, now = Date.now()) {
   const last = Date.parse(String(stampText ?? "").trim());
-  if (Number.isNaN(last)) return true;
+  if (Number.isNaN(last) || last - now > DAY_MS) return true;
   return now - last >= DUE_AFTER_DAYS * DAY_MS;
 }
 

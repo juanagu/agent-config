@@ -53,13 +53,51 @@ function blockList(lines, keyIndent) {
   return items;
 }
 
-// `node-version` values, with `${{ matrix.x }}` replaced by every value the matrix lists for x.
+const indentOf = (line) => line.match(/^ */)[0].length;
+const isContent = (line) => line.trim() && !line.trim().startsWith("#");
+
+// Each job's lines: the keys one level under `jobs:`. A file with no `jobs:` is one block.
+function jobBlocks(lines) {
+  const at = lines.findIndex((line) => /^jobs:\s*(#.*)?$/.test(line));
+  if (at === -1) return [lines];
+  const blocks = [];
+  let jobIndent = null;
+  for (const line of lines.slice(at + 1)) {
+    if (!isContent(line)) {
+      blocks.at(-1)?.push(line);
+      continue;
+    }
+    if (indentOf(line) === 0) break;
+    jobIndent ??= indentOf(line);
+    if (indentOf(line) === jobIndent) blocks.push([line]);
+    else blocks.at(-1)?.push(line);
+  }
+  return blocks;
+}
+
+// The lines nested under the first `<key>:` that opens a block.
+function sectionUnder(lines, key) {
+  const at = lines.findIndex((line) => new RegExp(`^\\s*${escapeRegExp(key)}:\\s*(#.*)?$`).test(line));
+  if (at === -1) return [];
+  const section = [];
+  for (const line of lines.slice(at + 1)) {
+    if (isContent(line) && indentOf(line) <= indentOf(lines[at])) break;
+    section.push(line);
+  }
+  return section;
+}
+
+// `node-version` values per job, with `${{ matrix.x }}` replaced by every value that job's own
+// matrix lists for x; a reference it cannot resolve is kept as written.
 export function workflowVersions(text) {
-  return yamlValues(text, "node-version").flatMap((value) => {
-    const ref = value.match(MATRIX_REFERENCE);
-    if (!ref) return [value];
-    const listed = yamlValues(text, ref[1]).filter((v) => !MATRIX_REFERENCE.test(v));
-    return listed.length ? listed : [value];
+  return jobBlocks(text.split(/\r?\n/)).flatMap((job) => {
+    const matrix = sectionUnder(job, "matrix").join("\n");
+    return yamlValues(job.join("\n"), "node-version").flatMap((value) => {
+      const ref = value.match(MATRIX_REFERENCE);
+      if (!ref) return [value];
+      const listed = yamlValues(matrix, ref[1]).filter((v) => !MATRIX_REFERENCE.test(v));
+      return listed.length ? listed : [value];
+    });
   });
 }
 

@@ -32,7 +32,8 @@ test("isDue: a missing or unreadable date is due, a week-old one is due, a recen
   assert.equal(isDue("not a date", now), true);
   assert.equal(isDue(new Date(now - 7 * DAY).toISOString(), now), true);
   assert.equal(isDue(new Date(now - 6 * DAY).toISOString(), now), false);
-  assert.equal(isDue(`${new Date(now + DAY).toISOString()}\n`, now), false);
+  assert.equal(isDue(`${new Date(now + DAY).toISOString()}\n`, now), false, "up to a day ahead is a clock a little off");
+  assert.equal(isDue(new Date(now + 2 * DAY).toISOString(), now), true, "further ahead is a wrong date, and would silence the nudge");
 });
 
 test("a missing date file prints the nudge and exits 0", (t) => {

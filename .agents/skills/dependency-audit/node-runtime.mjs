@@ -7,8 +7,21 @@ export const INDEX_URL = "https://nodejs.org/dist/index.json";
 export const SCHEDULE_URL = "https://raw.githubusercontent.com/nodejs/Release/main/schedule.json";
 const FETCH_TIMEOUT_MS = 15_000;
 
-// Tags and aliases that move with every release: rebuilt or re-run, they pick up the newest.
-const FLOATING = /^(lts|current|latest|node|alpine|slim|bookworm|bullseye|iron|jod|krypton)\b|^lts\//i;
+// LTS codenames, as Docker tags (`hydrogen-alpine3.18`) and .nvmrc aliases (`lts/gallium`) use them:
+// each names the newest release of its major line, so it is judged as that major.
+export const CODENAMES = { argon: 4, boron: 6, carbon: 8, dubnium: 10, erbium: 12, fermium: 14, gallium: 16, hydrogen: 18, iron: 20, jod: 22, krypton: 24 };
+const CODENAME = new RegExp(`^(?:lts/)?(${Object.keys(CODENAMES).join("|")})\\b`, "i");
+// Anything else that starts with a letter (`lts`, `current`, `alpine3.20`, `bookworm-slim`) is
+// an alias or a bare variant: it moves to the newest release on every rebuild.
+const FLOATING = /^[a-z]/i;
+
+// The pin as a version prefix: "v22" → "22", "22.x" (the newest 22, as "22" is) → "22",
+// "hydrogen-alpine3.18" → "18".
+function normalise(raw) {
+  const codename = raw.match(CODENAME);
+  if (codename) return String(CODENAMES[codename[1].toLowerCase()]);
+  return raw.replace(/^v(?=\d)/, "").replace(/(\.(x|\*))+$/i, "");
+}
 
 export async function fetchJson(url, { attempts = 2, fetcher = fetch } = {}) {
   let lastError;
@@ -49,8 +62,7 @@ const isRange = (pin, raw) => pin.kind === "engines" || /[<>^~|\s]/.test(raw);
 // (engines: a floor, not a pin), behind, current, or unknown (no release under that prefix).
 export function evaluatePin(pin, releases, schedule, today = new Date()) {
   if (pin.raw.includes("$")) return { ...pin, status: "unresolved" };
-  // "22.x" in a workflow means the newest 22, as "22" does.
-  const raw = pin.raw.replace(/^v/, "").replace(/(\.(x|\*))+$/i, "");
+  const raw = normalise(pin.raw.trim());
   const floor = raw.match(/\d+(?:\.\d+){0,2}/)?.[0];
   if (FLOATING.test(raw) || !floor) return { ...pin, status: "floating" };
   const major = parseVersion(floor).major;

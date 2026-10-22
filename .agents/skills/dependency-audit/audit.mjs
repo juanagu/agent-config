@@ -20,13 +20,19 @@ export function parseArgs(argv) {
   for (let i = 0; i < argv.length; i++) {
     const arg = argv[i];
     if (arg === "--stamp") options.stamp = true;
-    else if (arg === "--all") options.all = argv[++i];
-    else if (arg === "--match") options.match = argv[++i] ?? "";
+    else if (arg === "--all") options.all = optionValue(argv, ++i, "--all needs a directory.");
+    else if (arg === "--match") options.match = optionValue(argv, ++i, "--match needs a prefix.");
     else if (arg.startsWith("--")) throw new Error(`Unknown option ${arg}.`);
     else options.dirs.push(arg);
   }
-  if (options.all === undefined) throw new Error("--all needs a directory.");
+  if (options.all && options.dirs.length) throw new Error(`--all audits every clone under one folder; drop the directories named as well (${options.dirs.join(", ")}).`);
   return options;
+}
+
+function optionValue(argv, i, message) {
+  const value = argv[i];
+  if (value === undefined || value.startsWith("--")) throw new Error(message);
+  return value;
 }
 
 // The sibling clones: every direct child that is a git checkout, worktrees folders and the like skipped.
@@ -78,11 +84,26 @@ export async function auditRepoSafely(dir, index, audit = auditRepo) {
 
 async function auditRepo(dir, index) {
   console.error(`Auditing ${dir} ...`);
-  const npm = await auditNpm(dir);
-  if (npm.error) console.error(`  ${npm.error}; ${npm.source === "lockfile" ? "reporting lockfile versions instead" : "dev findings are missing"}.`);
+  const npm = await guarded("npm audit", () => auditNpm(dir));
+  if (npm.error) console.error(`  ${npm.error}; ${npm.source === "lockfile" ? "reporting lockfile versions instead" : "that part is unchecked"}.`);
+  const runtime = await guarded("Node pins", () => runtimeVerdicts(dir, index));
+  const dependabot = await guarded("Dependabot", () => dependabotAlerts(dir));
+  return { dir, npm, runtime, dependabot };
+}
+
+function runtimeVerdicts(dir, index) {
   const pins = findPins(dir);
-  const runtime = index ? pins.map((pin) => evaluatePin(pin, index.releases, index.schedule)) : { unavailable: "release index unreachable", pins };
-  return { dir, npm, runtime, dependabot: dependabotAlerts(dir) };
+  return index ? pins.map((pin) => evaluatePin(pin, index.releases, index.schedule)) : { unavailable: "release index unreachable", pins };
+}
+
+// One check that throws is reported as that check's error; the repo's other checks still count.
+export async function guarded(name, check) {
+  try {
+    return await check();
+  } catch (error) {
+    console.error(`  ${name} failed: ${error.message}`);
+    return { error: `${name} failed: ${error.message}` };
+  }
 }
 
 async function main(argv) {

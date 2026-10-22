@@ -5,7 +5,7 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import { mkdirSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
-import { auditRepoSafely, parseArgs, resolveDirs, siblingRepos } from "../.agents/skills/dependency-audit/audit.mjs";
+import { auditRepoSafely, guarded, parseArgs, resolveDirs, siblingRepos } from "../.agents/skills/dependency-audit/audit.mjs";
 import { dependabotAlerts, repoSlug } from "../.agents/skills/dependency-audit/dependabot.mjs";
 import { evaluatePin, latestSecurity } from "../.agents/skills/dependency-audit/node-runtime.mjs";
 import { auditNpm, fixKind, parseAuditOutput, runNpmAudit } from "../.agents/skills/dependency-audit/npm-audit.mjs";
@@ -52,6 +52,19 @@ test("runNpmAudit retries with backoff and stops at the first report", async () 
   assert.ok(result.report);
   assert.equal(result.attempts, 3);
   assert.deepEqual(delays, [10, 20]);
+});
+
+test("deterministic npm errors are not retried; timeouts and transport errors are", async () => {
+  for (const code of ["ENOAUDIT", "EAUDITNOLOCK", "ENOLOCK"]) {
+    let calls = 0;
+    const result = await runNpmAudit("x", { exec: () => (calls++, { stdout: JSON.stringify({ error: { code, summary: code } }) }), sleep: noSleep });
+    assert.deepEqual([calls, result.attempts, result.error], [1, 1, code], code);
+  }
+  for (const out of [{ stdout: JSON.stringify({ error: { code: "ECONNRESET" } }) }, { stdout: JSON.stringify({ error: { code: "E503" } }) }, { stdout: "", timedOut: true }]) {
+    let calls = 0;
+    await runNpmAudit("x", { exec: () => (calls++, out), sleep: noSleep });
+    assert.equal(calls, 3, JSON.stringify(out));
+  }
 });
 
 test("fixKind: true is a patch or minor, a major is a major, an older version than installed is a downgrade", () => {
@@ -128,6 +141,17 @@ test("floating tags, engines ranges and end-of-life majors get their own verdict
   assert.equal(verdict("${NODE_VERSION}-alpine").status, "unresolved");
 });
 
+test("bare variants float; LTS codenames are judged as their major line", () => {
+  for (const tag of ["alpine3.20", "alpine", "bookworm-slim", "lts", "current", "lts/*"]) assert.equal(verdict(tag).status, "floating", tag);
+  const hydrogen = verdict("hydrogen-alpine3.18");
+  assert.equal(hydrogen.status, "unknown", "no 18.x in this fixture's index");
+  assert.equal(verdict("jod-alpine3.20").status, "current");
+  assert.equal(verdict("jod-alpine3.20").resolved, "v22.23.4");
+  assert.deepEqual([verdict("lts/iron", "version-file").resolved, verdict("lts/iron", "version-file").eol], ["v20.19.0", true], "lts/iron is Node 20, past its end in this schedule");
+  const gallium = evaluatePin({ file: "f", kind: "docker", raw: "gallium-alpine3.16" }, RELEASES, { v16: { end: "2023-09-11" } }, TODAY);
+  assert.equal(gallium.eol, true, "gallium is Node 16, past end of life");
+});
+
 test("workflowVersions reads scalars, inline and block lists, and the matrix a node-version points at", () => {
   const workflow = [
     "jobs:",
@@ -158,6 +182,38 @@ test("workflowVersions reads scalars, inline and block lists, and the matrix a n
     "          node-version: ${{ matrix.nowhere }}",
   ].join("\n");
   assert.deepEqual(workflowVersions(workflow), ["20", "22.x", "24", "22.11", "18", "21", "23", "${{ matrix.nowhere }}"]);
+});
+
+test("a matrix reference resolves from its own job's matrix, never from another job or an env key", () => {
+  const workflow = [
+    "env:",
+    "  node: foo",
+    "jobs:",
+    "  test:",
+    "    env:",
+    "      node: bar",
+    "    strategy:",
+    "      matrix:",
+    "        node: [20, 22]",
+    "    steps:",
+    "      - uses: actions/setup-node@v4",
+    "        with:",
+    "          node-version: ${{ matrix.node }}",
+    "  lint:",
+    "    steps:",
+    "      - uses: actions/setup-node@v4",
+    "        with:",
+    "          node-version: ${{ matrix.node }}",
+    "  release:",
+    "    strategy:",
+    "      matrix:",
+    "        node:",
+    "          - 24",
+    "    steps:",
+    "      - with:",
+    "          node-version: ${{ matrix.node }}",
+  ].join("\n");
+  assert.deepEqual(workflowVersions(workflow), ["20", "22", "${{ matrix.node }}", "24"]);
 });
 
 test("dockerVersions fills FROM node:${ARG} from the file's ARG defaults", () => {
@@ -213,6 +269,13 @@ test("dependabotAlerts summarises each open alert and reports gh trouble as unav
   assert.match(dependabotAlerts("x", () => ({ status: 2, stdout: "" })).unavailable, /no GitHub origin/);
 });
 
+test("--all takes a directory, not an option, and is not mixed with directories", (t) => {
+  assert.throws(() => parseArgs(["--all", "--match", "cmc-"]), /--all needs a directory/);
+  assert.throws(() => parseArgs(["--all", "../", "cmc-bff"]), /--all audits every clone under one folder; drop the directories named as well \(cmc-bff\)/);
+  assert.throws(() => parseArgs(["--all", "../", "--match"]), /--match needs a prefix/);
+  assert.deepEqual(parseArgs(["--all", "../", "--match", "cmc-"]), { dirs: [], all: "../", match: "cmc-", stamp: false });
+});
+
 test("the dirs named are checked before any is audited", (t) => {
   const dir = freshDir(t);
   assert.deepEqual(resolveDirs(parseArgs([dir])), [dir]);
@@ -227,6 +290,13 @@ test("a repo whose audit throws is reported with its error, and the run goes on"
   });
   assert.deepEqual(failing, { dir: "/repo/a", error: "EACCES reading Dockerfile" });
   assert.deepEqual(await auditRepoSafely("/repo/b", null, async (dir) => ({ dir, npm: {} })), { dir: "/repo/b", npm: {} });
+});
+
+test("a check that throws is reported on its own, and the repo's other checks still count", async () => {
+  assert.deepEqual(await guarded("Node pins", () => {
+    throw new Error("EACCES reading Dockerfile");
+  }), { error: "Node pins failed: EACCES reading Dockerfile" });
+  assert.deepEqual(await guarded("npm audit", async () => ({ source: "npm audit", findings: [] })), { source: "npm audit", findings: [] });
 });
 
 test("siblingRepos lists the git checkouts under a folder that match the prefix", (t) => {

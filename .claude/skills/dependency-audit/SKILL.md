@@ -40,6 +40,6 @@ Free checks only: npm's audit endpoint, nodejs.org's release index and GitHub's 
    - **No fix** (`none` or `downgrade`): an issue only for production and reachable, saying what mitigates it until upstream ships; otherwise the table row is enough.
    Never run `npm audit fix --force`: it installs whatever npm picks, downgrades and majors included.
 
-6. **Record the run**: `node <this skill's folder>/audit.mjs --stamp`, once the table is out. The session-start nudge reads that date and stays quiet for a week.
+6. **Record the weekly sweep**: after an `--all` run, once the table is out, `node <this skill's folder>/audit.mjs --stamp`. The session-start nudge reads that date and stays quiet for a week. A single-repo run (on request, before a tag) does not stamp: it checked one repo, not all of them.
 
-Before a release tag, run it on that repo and bring any production high or critical finding to the user before the tag is pushed.
+Before a release tag, run it on that repo alone (no stamp) and bring any production high or critical finding to the user before the tag is pushed.
