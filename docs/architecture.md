@@ -13,6 +13,7 @@ agent-config/
 ├── .agents/                  shared by Cursor, Copilot and Antigravity CLI
 │   ├── skills/<name>/        skills, Agent Skills standard (canonical copy)
 │   ├── hooks/git-guard/      the git guard: core + one adapter per tool
+│   ├── hooks/audit-nudge/    the weekly dependency-audit reminder (session start)
 │   ├── hooks.json            Antigravity CLI hook registration    (generated)
 │   └── agents/<name>.md      Antigravity CLI subagents             (generated)
 ├── .claude/
@@ -46,6 +47,7 @@ agent-config/
 | Agents | `.claude/agents/*.md` | `.cursor/agents/*.md` | `.github/agents/*.agent.md` | `.agents/agents/*.md` |
 | Hook registration | `.claude/settings.json` → `hooks.PreToolUse` | `.cursor/hooks.json` → `beforeShellExecution` | `.github/hooks/git-guard.json` → `preToolUse` | `.agents/hooks.json` → `PreToolUse` |
 | Hook code | `.agents/hooks/git-guard/` | same | same | same |
+| Dependency-audit nudge (user level) | `~/.claude/settings.json` → `hooks.SessionStart` | `~/.cursor/hooks.json` → `sessionStart` | `~/.copilot/hooks/audit-nudge.json` → `sessionStart` | `~/.gemini/config/hooks.json` → `SessionStart` |
 
 Cursor and Copilot also read `.claude/agents/` and `.claude/skills/`; the per-tool folders exist so that each tool gets frontmatter in its own dialect (Cursor's `readonly`, Copilot's `tools` list) and so a name conflict resolves predictably: a tool's own folder wins.
 
@@ -101,7 +103,7 @@ Protected checkouts (the ones serving a dev server) are listed in `~/.config/age
 `scripts/install.mjs` has two modes, both table-driven from `scripts/install/targets.mjs`:
 
 - **project** (`--project <dir>`, default the current directory): copies the drop-in files for the chosen tools (`--tool` repeatable; default all four) into the project, skipping `evals/` and `*.test.mjs`. A hook registration file the project already has (`.claude/settings.json`, `.cursor/hooks.json`, …) gets the git-guard entry merged in, or an older git-guard entry re-pointed; any other file that differs is reported as a conflict and left alone unless `--force`.
-- **global** (`--global`): links the clone into each tool's user folders where the tool documents one (Claude Code `~/.claude/`; Cursor `~/.cursor/`; Copilot `~/.copilot/`; Antigravity `~/.gemini/…`): one entry per agent and per skill, so the user's own stay beside them; the hook registration merged into the tool's user-level hooks file with an absolute command, re-pointing an entry from an older install; a copy of `AGENTS.md` where the tool reads a user-level standards file, refreshed while the user has not edited it (its hash is kept in `~/.config/agent-config/config-install.json`). Cursor has no user-level standards file (its User Rules live in the app's settings), so the installer prints the paste-in instruction instead.
+- **global** (`--global`): links the clone into each tool's user folders where the tool documents one (Claude Code `~/.claude/`; Cursor `~/.cursor/`; Copilot `~/.copilot/`; Antigravity `~/.gemini/…`): one entry per agent and per skill, so the user's own stay beside them; the hook registration merged into the tool's user-level hooks file with an absolute command, re-pointing an entry from an older install; the weekly dependency-audit nudge as a session-start hook (offered, yes by default, `--no-audit-nudge` to decline; global mode only, because the date it reads belongs to the machine); a copy of `AGENTS.md` where the tool reads a user-level standards file, refreshed while the user has not edited it (its hash is kept in `~/.config/agent-config/config-install.json`). Cursor has no user-level standards file (its User Rules live in the app's settings), so the installer prints the paste-in instruction instead.
 
 `bin/bootstrap.mjs` is the `npx` entry point: clones a permanent copy (default `~/Projects/agent-config`), or fast-forwards it, then runs that copy's installer.
 

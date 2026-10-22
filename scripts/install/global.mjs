@@ -1,5 +1,5 @@
 // Global mode: one function per tool, each linking the clone into that tool's user folders
-// and registering the git-guard hook there. Claude Code keeps the fuller flow (settings.json
+// and registering the git-guard hook and the weekly dependency-audit nudge there. Claude Code keeps the fuller flow (settings.json
 // from a template, the optional rtk and CodeGraph pieces); the other three get links plus a
 // merge into their hook file.
 import { existsSync, mkdirSync } from "node:fs";
@@ -8,6 +8,7 @@ import { linkRepoAgents } from "./agents.mjs";
 import { hasCommand } from "./env.mjs";
 import { readJson, writeJson } from "./json.mjs";
 import { createLinker } from "./link.mjs";
+import * as nudge from "./nudge.mjs";
 import * as settings from "./settings.mjs";
 import { linkRepoSkills } from "./skills.mjs";
 import { globalTargets } from "./targets.mjs";
@@ -24,6 +25,7 @@ export async function installGlobal(tool, repoDir, home, prompter, flags) {
   const target = globalTargets(tool, home);
   // Everything that must parse is read first, so a broken file leaves the folder as it was.
   const current = tool === "claude" ? settings.readSettings(target.dir) : readRegistration(target.hookFile);
+  if (tool !== "claude") readRegistration(nudge.nudgeFile(tool, home));
   mkdirSync(target.dir, { recursive: true });
   const linker = createLinker(target.dir, prompter.copies, prompter.imports);
   const agents = linkRepoAgents(linker, repoDir, target.agents);
@@ -31,7 +33,10 @@ export async function installGlobal(tool, repoDir, home, prompter, flags) {
   linkRepoSkills(linker, repoDir, target.skillsDir);
   const swept = linker.sweepBrokenLinks(target.skillsDir);
   if (tool === "claude") await installClaude(repoDir, target, linker, current, prompter, flags);
-  else installRegistration(repoDir, target, linker, current);
+  else {
+    installRegistration(repoDir, target, linker, current);
+    await installNudge(tool, repoDir, home, prompter, flags);
+  }
   console.log(`Linked ${target.dir} to ${repoDir} (${tool}${agents.copied ? "; agents copied, since file links need a privilege here" : ""}).`);
   if (agents.removed.length) console.log(`Removed agents the clone no longer has: ${agents.removed.join(", ")}`);
   if (swept.length) console.log(`Removed broken skill links: ${swept.join(", ")}`);
@@ -73,7 +78,12 @@ function reportCopy(path, outcome) {
 // below. An existing file is the user's: each addition is offered, and only the ones
 // accepted are merged in.
 async function configureSettings(repoDir, { path, settings: current, created }, prompter, flags) {
-  const added = [await offerGitGuard(repoDir, current, prompter), await offerRtk(current, prompter, flags), await offerCodegraph(current, prompter, flags)];
+  const added = [
+    await offerGitGuard(repoDir, current, prompter),
+    await offerRtk(current, prompter, flags),
+    await offerCodegraph(current, prompter, flags),
+    await offerNudge("claude", repoDir, current, prompter, flags),
+  ];
   if (!created && !added.includes(true)) return;
   writeJson(path, current);
   console.log(`${created ? "Wrote" : "Updated"} ${path}.`);
@@ -116,4 +126,29 @@ async function offerCodegraph(current, prompter, flags) {
   if (!add) return false;
   settings.addAllowRule(current, settings.CODEGRAPH_RULE);
   return true;
+}
+
+// The weekly dependency-audit nudge, for every tool: an entry from an earlier clone is re-pointed
+// without asking, a missing one is offered (yes by default; off under --no-optional). It mutates
+// `current` and returns whether it changed.
+async function offerNudge(tool, repoDir, current, prompter, flags) {
+  if (!nudge.hasNudge(current, tool) && !(await wantsNudge(prompter, flags))) return false;
+  const { value, changed } = nudge.registerNudge(current, tool, repoDir);
+  if (changed) Object.assign(current, value);
+  return changed;
+}
+
+function wantsNudge(prompter, flags) {
+  if (flags.auditNudge !== null) return prompter.decide("auditNudge", flags.auditNudge);
+  return prompter.confirm("auditNudge", "Add a weekly dependency-audit reminder at session start (it reads one local date, no network)?", true);
+}
+
+async function installNudge(tool, repoDir, home, prompter, flags) {
+  const file = nudge.nudgeFile(tool, home);
+  const existed = existsSync(file);
+  const current = readRegistration(file);
+  if (!(await offerNudge(tool, repoDir, current, prompter, flags))) return;
+  mkdirSync(dirname(file), { recursive: true });
+  writeJson(file, current);
+  console.log(`${existed ? "Updated" : "Wrote"} ${file} (dependency-audit nudge).`);
 }

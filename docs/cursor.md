@@ -18,7 +18,7 @@ This writes `AGENTS.md`, `.cursor/hooks.json`, `.cursor/agents/`, `.agents/skill
 npx -y github:juanagu/agent-config -- --global --tool cursor
 ```
 
-It clones the repo to `~/Projects/agent-config` (or fast-forwards it), links each agent into `~/.cursor/agents/` and each skill into `~/.cursor/skills/`, and merges a `beforeShellExecution` entry into `~/.cursor/hooks.json`. Cursor keeps User Rules in the app rather than in a file, so the installer prints the step you do by hand: open **Cursor Settings → Rules → User Rules** and paste the contents of `AGENTS.md` (or the sections you want everywhere; the stack sections are the ones most people change).
+It clones the repo to `~/Projects/agent-config` (or fast-forwards it), links each agent into `~/.cursor/agents/` and each skill into `~/.cursor/skills/`, and merges a `beforeShellExecution` entry (the git guard) and a `sessionStart` entry (the weekly dependency-audit nudge, `--no-audit-nudge` to decline) into `~/.cursor/hooks.json`. Cursor keeps User Rules in the app rather than in a file, so the installer prints the step you do by hand: open **Cursor Settings → Rules → User Rules** and paste the contents of `AGENTS.md` (or the sections you want everywhere; the stack sections are the ones most people change).
 
 Restart Cursor or reload the window afterwards: hooks are read on start.
 
@@ -30,12 +30,13 @@ Restart Cursor or reload the window afterwards: hooks are read on start.
 | Agents | `.cursor/agents/*.md` | `model: inherit`; `readonly: true` on `code-reviewer`. Cursor also reads `.claude/agents/` when both are present; `.cursor/` wins on a name conflict. |
 | Skills | `.agents/skills/*/SKILL.md` | Read natively. Type `/` in Agent chat to pick one for a message, or Alt+Enter to apply it as a mode. |
 | Git guard | `.cursor/hooks.json` → `beforeShellExecution` | Project hooks run from the project root. The matcher is `\b(git|gh)\b`, so the hook only spawns for git and gh commands. |
+| Dependency-audit nudge | `~/.cursor/hooks.json` → `sessionStart` (global install only) | Answers `{"additional_context": …}` when the last audit is a week old, nothing otherwise. Cursor does not run `sessionStart` in cloud agents. |
 
 ## Using it
 
 - **Dispatch an agent**: `/designer where should the export button live` or "use the `qa-engineer` subagent to verify this". The Agent also delegates on its own when a description matches.
 - **Review pass**: `/code-reviewer review this branch at medium`. It reports findings with `CONFIRMED` or `PLAUSIBLE` verdicts and never edits; you apply the fixes.
-- **Skills**: `/open-pr`, `/merge-gate`, `/resolve-pr-comments`, `/retro`; the architecture skills are picked up when the Agent judges them relevant.
+- **Skills**: `/open-pr`, `/merge-gate`, `/resolve-pr-comments`, `/retro`, `/dependency-audit`; the architecture skills are picked up when the Agent judges them relevant.
 - **Models**: `inherit` means an agent runs on the model you selected. To pin one, change the Cursor row of `AGENT_TARGETS` in `scripts/build/targets.mjs` in your fork and rebuild.
 - **Protected checkouts**: `~/.config/agent-config/git-guard.json`, the same file for every tool:
 

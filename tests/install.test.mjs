@@ -552,3 +552,73 @@ test("samePath treats a trailing slash, and on Windows a case difference, as the
   assert.equal(result.status, 0, result.stderr);
   assert.match(result.stdout, /--home is set: skipped the third-party skills/);
 });
+
+// ---- the weekly dependency-audit nudge ----
+
+const nudgeCommand = (clone, tool) => `node "${posix(clone)}/.agents/hooks/audit-nudge/audit-nudge.mjs" --tool ${tool}`;
+const sessionStartCommands = (settings) => (settings.hooks?.SessionStart ?? []).flatMap((entry) => entry.hooks.map((hook) => hook.command));
+
+test("Claude Code gets the nudge as a SessionStart hook once, beside the user's own, under --yes", (t) => {
+  const clone = makeFixtureClone(t);
+  const home = freshDir(t);
+  const claude = join(home, ".claude");
+  mkdirSync(claude);
+  const mine = { matcher: "startup", hooks: [{ type: "command", command: "echo hello" }] };
+  writeJson(join(claude, "settings.json"), { hooks: { SessionStart: [mine] } });
+  for (let i = 0; i < 2; i++) assert.equal(claudeHome(clone, home, "--yes", "--no-codegraph").status, 0);
+  const settings = readJson(join(claude, "settings.json"));
+  assert.deepEqual(sessionStartCommands(settings), ["echo hello", nudgeCommand(clone, "claude")]);
+  assert.deepEqual(settings.hooks.SessionStart[1], { matcher: "startup", hooks: [{ type: "command", command: nudgeCommand(clone, "claude"), timeout: 5 }] });
+  assert.ok(hookCommands(settings).includes(guardCommand(clone, "claude")), "the git guard is still added");
+});
+
+test("a run without a terminal adds the nudge by default; --no-optional and --no-audit-nudge leave it out, and the no is remembered", (t) => {
+  const clone = makeFixtureClone(t);
+  const byDefault = freshDir(t);
+  assert.equal(claudeHome(clone, byDefault, "--no-rtk", "--no-codegraph").status, 0);
+  assert.deepEqual(sessionStartCommands(readJson(join(byDefault, ".claude", "settings.json"))), [nudgeCommand(clone, "claude")]);
+
+  const core = freshDir(t);
+  assert.equal(claudeHome(clone, core, "--no-optional").status, 0);
+  assert.equal(readJson(join(core, ".claude", "settings.json")).hooks.SessionStart, undefined);
+
+  const declined = freshDir(t);
+  assert.equal(claudeHome(clone, declined, "--no-audit-nudge", "--no-rtk", "--no-codegraph").status, 0);
+  assert.equal(answers(declined).auditNudge, false);
+  assert.equal(claudeHome(clone, declined).status, 0, "a later run without the flag");
+  assert.equal(readJson(join(declined, ".claude", "settings.json")).hooks.SessionStart, undefined);
+});
+
+test("a nudge entry from an earlier clone is re-pointed at this one, even under --no-optional", (t) => {
+  const clone = makeFixtureClone(t);
+  const home = freshDir(t);
+  const claude = join(home, ".claude");
+  mkdirSync(claude);
+  const old = 'node "C:/old/.agents/hooks/audit-nudge/audit-nudge.mjs" --tool claude';
+  writeJson(join(claude, "settings.json"), { hooks: { SessionStart: [{ matcher: "startup", hooks: [{ type: "command", command: old, timeout: 9 }] }] } });
+  assert.equal(claudeHome(clone, home, "--no-optional").status, 0);
+  const settings = readJson(join(claude, "settings.json"));
+  assert.deepEqual(settings.hooks.SessionStart, [{ matcher: "startup", hooks: [{ type: "command", command: nudgeCommand(clone, "claude"), timeout: 9 }] }]);
+});
+
+test("Cursor, Copilot and Antigravity get the nudge in their own session-start shape, once, keeping the rest", (t) => {
+  const clone = makeFixtureClone(t);
+  const home = freshDir(t);
+  mkdirSync(join(home, ".cursor"));
+  writeJson(join(home, ".cursor", "hooks.json"), { version: 1, hooks: { sessionStart: [{ command: "./mine.sh" }] } });
+  const tools = ["--tool", "cursor", "--tool", "copilot", "--tool", "antigravity"];
+  for (let i = 0; i < 2; i++) assert.equal(global(clone, home, ...tools).status, 0);
+
+  const cursor = readJson(join(home, ".cursor", "hooks.json"));
+  assert.deepEqual(cursor.hooks.sessionStart, [{ command: "./mine.sh" }, { command: nudgeCommand(clone, "cursor"), timeout: 5 }]);
+  assert.equal(cursor.hooks.beforeShellExecution[0].command, guardCommand(clone, "cursor"));
+
+  const copilot = readJson(join(home, ".copilot", "hooks", "audit-nudge.json"));
+  const command = nudgeCommand(clone, "copilot");
+  assert.deepEqual(copilot, { version: 1, hooks: { sessionStart: [{ type: "command", bash: command, powershell: command, timeoutSec: 5 }] } });
+  assert.equal(readJson(join(home, ".copilot", "hooks", "git-guard.json")).hooks.sessionStart, undefined, "the guard's file stays the guard's");
+
+  const antigravity = readJson(join(home, ".gemini", "config", "hooks.json"));
+  assert.deepEqual(antigravity["audit-nudge"], { SessionStart: [{ type: "command", command: nudgeCommand(clone, "antigravity"), timeout: 5 }] });
+  assert.equal(antigravity["git-guard"].PreToolUse[0].hooks[0].command, guardCommand(clone, "antigravity"));
+});

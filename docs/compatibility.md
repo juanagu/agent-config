@@ -48,6 +48,17 @@ Antigravity's `tools` key is left out on purpose: its docs warn that an unmapped
 
 Copilot's reference types the shell tool's arguments as `unknown`; the adapter reads `toolArgs.command` and, for the PascalCase `PreToolUse` form, `tool_input.command`. If your Copilot version sends the command under another key the hook fails open, and the Copilot guide shows how to print a payload to find out.
 
+## The dependency-audit nudge
+
+A session-start hook, registered by the global installer only. It prints nothing unless the last `dependency-audit` run (`~/.config/agent-config/last-dependency-audit`) is missing or a week old; it reads no stdin, makes no network call and exits 0. Verified 2026-10-22.
+
+| Tool | User-level registration | Event | How the text reaches the agent | Source |
+| --- | --- | --- | --- | --- |
+| Claude Code | `~/.claude/settings.json` | `SessionStart`, matcher `startup` | plain stdout, added as context | [Hooks](https://code.claude.com/docs/en/hooks) |
+| Cursor | `~/.cursor/hooks.json` | `sessionStart` | `{"additional_context": …}`; not run in cloud agents | [Hooks](https://cursor.com/docs/agent/hooks) |
+| GitHub Copilot | `~/.copilot/hooks/audit-nudge.json` | `sessionStart` | `{"additionalContext": …}`; plain stdout is ignored | [CLI hooks reference](https://docs.github.com/en/copilot/reference/copilot-cli-reference/cli-hooks-reference) |
+| Antigravity CLI | `~/.gemini/config/hooks.json`, under `audit-nudge` | `SessionStart` | `{"injectSteps": [{"systemMessage": {"systemMessage": …}}]}` | [Hooks](https://antigravity.google/docs/hooks?tab=cli) |
+
 ## What does not port
 
 - **Review pass.** Claude Code has `/code-review`. The other tools get the `code-reviewer` agent, which reports at the same levels but is a prompt, not a tool.

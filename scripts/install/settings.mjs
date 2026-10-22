@@ -67,7 +67,7 @@ export function absolutizeGuard(value, repoDir) {
 // `hooks` array (Claude Code, Antigravity).
 const COMMAND_KEYS = ["command", "bash", "powershell"];
 
-function* commandSlots(entry) {
+export function* commandSlots(entry) {
   if (!isObject(entry)) return;
   for (const key of COMMAND_KEYS) if (typeof entry[key] === "string") yield [entry, key];
   for (const hook of Array.isArray(entry.hooks) ? entry.hooks : []) {
