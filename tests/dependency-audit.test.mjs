@@ -281,6 +281,8 @@ test("the dirs named are checked before any is audited", (t) => {
   assert.deepEqual(resolveDirs(parseArgs([dir])), [dir]);
   assert.throws(() => resolveDirs(parseArgs([dir, join(dir, "typo")])), /Not a directory: .*typo/);
   assert.throws(() => resolveDirs(parseArgs(["--all", join(dir, "nope")])), /--all: .* is not a directory/);
+  mkdirSync(join(dir, "other", ".git"), { recursive: true });
+  assert.throws(() => resolveDirs(parseArgs(["--all", dir, "--match", "cmc-"])), /--all: no repositories matched "cmc-" under /, "an empty sweep is an error, never a clean one");
   assert.throws(() => parseArgs(["--all"]), /--all needs a directory/);
 });
 

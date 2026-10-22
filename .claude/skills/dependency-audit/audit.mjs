@@ -56,7 +56,10 @@ export function resolveDirs(options) {
   if (options.all) {
     const parent = resolve(options.all);
     if (!isDirectory(parent)) throw new Error(`--all: ${parent} is not a directory.`);
-    return siblingRepos(parent, options.match);
+    const repos = siblingRepos(parent, options.match);
+    // An empty sweep would read as clean and be stamped as the week's audit.
+    if (!repos.length) throw new Error(`--all: no repositories matched "${options.match}" under ${parent}.`);
+    return repos;
   }
   const dirs = (options.dirs.length ? options.dirs : ["."]).map((dir) => resolve(dir));
   const missing = dirs.filter((dir) => !isDirectory(dir));
