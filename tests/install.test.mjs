@@ -623,6 +623,22 @@ test("Cursor, Copilot and Antigravity get the nudge in their own session-start s
   assert.equal(antigravity["git-guard"].PreToolUse[0].hooks[0].command, guardCommand(clone, "antigravity"));
 });
 
+test("--no-audit-nudge takes out only the nudge's own hook from a group the user shares, and keeps the group", (t) => {
+  const clone = makeFixtureClone(t);
+  const home = freshDir(t);
+  const claude = join(home, ".claude");
+  mkdirSync(claude);
+  const mine = { type: "command", command: "echo mine" };
+  const nudgeHook = { type: "command", command: 'node "C:/old/.agents/hooks/audit-nudge/audit-nudge.mjs" --tool claude' };
+  writeJson(join(claude, "settings.json"), { hooks: { SessionStart: [{ matcher: "startup", hooks: [nudgeHook, mine] }, { matcher: "startup", hooks: [nudgeHook] }] } });
+  mkdirSync(join(home, ".gemini", "config"), { recursive: true });
+  writeJson(join(home, ".gemini", "config", "hooks.json"), { "audit-nudge": { SessionStart: [{ hooks: [{ ...nudgeHook }, { type: "command", command: "./mine.sh" }] }] } });
+  const result = global(clone, home, "--tool", "claude", "--tool", "antigravity", "--no-audit-nudge", "--no-rtk", "--no-codegraph");
+  assert.equal(result.status, 0, result.stderr);
+  assert.deepEqual(readJson(join(claude, "settings.json")).hooks.SessionStart, [{ matcher: "startup", hooks: [mine] }]);
+  assert.deepEqual(readJson(join(home, ".gemini", "config", "hooks.json"))["audit-nudge"], { SessionStart: [{ hooks: [{ type: "command", command: "./mine.sh" }] }] });
+});
+
 test("--no-audit-nudge takes an installed nudge out of every tool's file, keeps the rest, and records the no", (t) => {
   const clone = makeFixtureClone(t);
   const home = freshDir(t);

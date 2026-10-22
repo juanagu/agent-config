@@ -64,7 +64,17 @@ export function registerNudge(settings, tool, repoDir) {
   return JSON.stringify(settings) !== before;
 }
 
-// Takes out every nudge entry; an array or group left empty goes too. Mutates `settings`;
+// An entry without the nudge: a flat entry (Cursor, Copilot) that runs it is dropped whole; a
+// group (Claude Code, Antigravity) loses only its hooks that run it, and goes only when nothing
+// of the user's is left in it.
+function withoutNudge(entry) {
+  if (!isObject(entry) || !Array.isArray(entry.hooks)) return runsScript(entry, NUDGE_NEEDLE) ? null : entry;
+  const hooks = entry.hooks.filter((hook) => !runsScript(hook, NUDGE_NEEDLE));
+  if (hooks.length === entry.hooks.length) return entry;
+  return hooks.length ? { ...entry, hooks } : null;
+}
+
+// Takes out every nudge hook; an array or group left empty goes too. Mutates `settings`;
 // returns whether it changed.
 export function removeNudge(settings, tool) {
   if (!hasNudge(settings, tool)) return false;
@@ -72,7 +82,7 @@ export function removeNudge(settings, tool) {
   const parents = [settings];
   for (const key of path.slice(0, -1)) parents.push(parents.at(-1)[key]);
   const last = path.at(-1);
-  const kept = parents.at(-1)[last].filter((entry) => !runsScript(entry, NUDGE_NEEDLE));
+  const kept = parents.at(-1)[last].map(withoutNudge).filter(Boolean);
   if (kept.length) parents.at(-1)[last] = kept;
   else delete parents.at(-1)[last];
   for (let i = path.length - 2; i >= 0; i--) {
