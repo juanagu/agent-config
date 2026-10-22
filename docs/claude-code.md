@@ -18,7 +18,7 @@ This writes `AGENTS.md`, `CLAUDE.md`, `.claude/settings.json`, `.claude/agents/`
 npx -y github:juanagu/agent-config -- --global --tool claude
 ```
 
-It clones the repo to `~/Projects/agent-config` (or fast-forwards it), then: adds a one-line `@` import at the top of `~/.claude/CLAUDE.md` (the rest of the file is yours), links each agent into `~/.claude/agents/` and each skill into `~/.claude/skills/` (one entry each, so your own agents and skills stay beside them), creates `~/.claude/settings.json` from a template when it is missing (otherwise offers the git guard hook, or re-points an entry from an older install), and installs the third-party skills in `skills.txt`. Re-running updates everything. Flags: `--yes`, `--no-optional`, `--help`.
+It clones the repo to `~/Projects/agent-config` (or fast-forwards it), then: adds a one-line `@` import at the top of `~/.claude/CLAUDE.md` (the rest of the file is yours), links each agent into `~/.claude/agents/` and each skill into `~/.claude/skills/` (one entry each, so your own agents and skills stay beside them), creates `~/.claude/settings.json` from a template when it is missing (otherwise offers the git guard hook, or re-points an entry from an older install), offers the weekly dependency-audit nudge as a `SessionStart` hook (yes by default; `--no-audit-nudge` declines), and installs the third-party skills in `skills.txt`. Re-running updates everything. Flags: `--yes`, `--no-optional`, `--help`.
 
 Then start a new session: hooks and agents are read at session start.
 
@@ -30,12 +30,13 @@ Then start a new session: hooks and agents are read at session start.
 | Agents | `.claude/agents/*.md` | `model: opus` for judgment-tier agents, `sonnet` for implementation; `tools`, `effort` and `color` set. Run `/agents` to list them. |
 | Skills | `.claude/skills/*/SKILL.md` | Generated copies of `.agents/skills/`. Type `/` to see them. |
 | Git guard | `.claude/settings.json` → `hooks.PreToolUse` | Matches `Bash|PowerShell`; blocks with exit 2 and the reason on stderr. `/hooks` shows it. |
+| Dependency-audit nudge | `~/.claude/settings.json` → `hooks.SessionStart` (global install only) | Matcher `startup`. Prints one line telling Claude to run `/dependency-audit` when the last run is missing or a week old, nothing otherwise; never fails or touches the network. |
 
 ## Using it
 
 - **Dispatch an agent**: Claude does it itself when a task matches an agent's description; or say "use the `designer` agent for this".
 - **Review pass**: `/code-review medium` (or `low`, `high`). The `code-reviewer` agent exists for the other tools; in Claude Code prefer the command, it has verified verdicts built in.
-- **Skills**: `/open-pr`, `/merge-gate`, `/resolve-pr-comments`, `/retro`; the `*-architecture` skills load on their own when you work in that stack.
+- **Skills**: `/open-pr`, `/merge-gate`, `/resolve-pr-comments`, `/retro`, `/dependency-audit`; the `*-architecture` skills load on their own when you work in that stack.
 - **Protected checkouts**: list the checkouts that serve a dev server in `~/.config/agent-config/git-guard.json`:
 
   ```json
@@ -46,7 +47,8 @@ Then start a new session: hooks and agents are read at session start.
 
 - `/memory` shows `AGENTS.md` (through `CLAUDE.md`) under memory files.
 - `/agents` lists `architect-engineer`, `designer`, `code-reviewer` and the rest.
-- `/hooks` shows `git-guard` under `PreToolUse`.
+- `/hooks` shows `git-guard` under `PreToolUse` and, after a global install, `audit-nudge` under `SessionStart`.
+- `AGENT_CONFIG_AUDIT_STAMP=/nonexistent node ~/Projects/agent-config/.agents/hooks/audit-nudge/audit-nudge.mjs` prints the nudge; after a `dependency-audit` run it prints nothing for a week.
 - In a scratch repo on `main`, ask Claude to run `git commit --allow-empty -m test`: it is blocked with the reason and the worktree recipe.
 
 ## Gotchas

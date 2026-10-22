@@ -22,6 +22,7 @@ Node.js 22+ and `git` are the only requirements. The pre-push hook (`.githooks/p
 | a skill | `.agents/skills/<name>/` (never `.claude/skills/`) | `npm run build && npm test` |
 | how a tool's agent file is written | `scripts/build/targets.mjs` → `AGENT_TARGETS` | `npm run build && npm test` |
 | the hook's rules | `.agents/hooks/git-guard/git-guard.mjs`, test first in `git-guard.test.mjs`, with the spellings [docs/git-guard.md](docs/git-guard.md) lists | `npm test` |
+| the dependency-audit nudge | `.agents/hooks/audit-nudge/audit-nudge.mjs` (each tool's answer), its registration in `scripts/install/nudge.mjs`; tests in `tests/audit-nudge.test.mjs` and `tests/install.test.mjs` | `npm test` |
 | how a tool registers or answers the hook | `scripts/build/targets.mjs` → `HOOK_TARGETS`; the adapter in `git-guard.mjs` | `npm run build && npm test` |
 | what a tool reads | `docs/compatibility.md`, with the documentation link and today's date | |
 | the installer | `scripts/install.mjs`, `scripts/install/*`, tests in `tests/install.test.mjs` | `npm test` |

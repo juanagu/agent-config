@@ -9,6 +9,7 @@ Each skill in `.agents/skills/` carries `evals/evals.json` in skill-creator's sc
    - architecture skills: create `<work>` and copy `evals/files/*` into `<work>/files/` (the prompts say `files/review.diff`);
    - `open-pr`, `resolve-pr-comments`: run the `setup` command with a `<work>` path that does not exist yet; `setup.sh` creates it, refuses an existing one, and is never shown to the agent, since it spells out the planted answers;
    - `merge-gate`: copy the eval's files flat into `<work>/` (the prompts say `pr-state.md` or `findings.md`);
+   - `dependency-audit`: copy the eval's files flat into `<work>/` (the prompts say `audit-report.json`, the helper's output, and `open-issues.json`); the agent runs neither the helper nor npm;
    - `retro`: copy the eval's files into `<work>/`, then `mkdir -p <work>/config-repo && git archive origin/main -- . ':(exclude).agents/skills/*/evals/*' | tar -x -C <work>/config-repo`. The exclude keeps every eval's expectations, this one's included, out of the agent's reach.
 3. Put the sandbox's rules in the run's prompt: the work directory, that `gh` and `/code-review` are not available and stand in through `gh-fixtures/` or `open-issues.json`, and that the final message lists every command it would have run. Nothing else stops a run from calling the real `gh`.
 

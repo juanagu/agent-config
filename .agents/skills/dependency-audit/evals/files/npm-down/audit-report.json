@@ -1,0 +1,22 @@
+{
+  "date": "2026-10-22T09:00:00.000Z",
+  "local": { "file": "node --version", "kind": "local", "raw": "v22.23.4", "status": "current", "resolved": "v22.23.4", "latestSecurity": "v22.23.4", "securityReleasesBehind": 0, "eol": false, "end": "2027-04-30" },
+  "repos": [
+    {
+      "dir": "/work/orders-api",
+      "npm": {
+        "source": "lockfile",
+        "error": "npm audit failed after 3 attempts: request to https://registry.npmjs.org/-/npm/v1/security/advisories/bulk failed, reason: ETIMEDOUT",
+        "packages": [
+          { "package": "fastify", "version": "5.2.1", "dev": false },
+          { "package": "bullmq", "version": "5.34.0", "dev": false },
+          { "package": "vitest", "version": "3.2.4", "dev": true }
+        ]
+      },
+      "runtime": [
+        { "file": ".github/workflows/ci.yml", "kind": "ci", "raw": "22", "status": "current", "resolved": "v22.23.4", "latestSecurity": "v22.23.4", "securityReleasesBehind": 0, "eol": false, "end": "2027-04-30" }
+      ],
+      "dependabot": { "slug": "acme/orders-api", "alerts": [] }
+    }
+  ]
+}

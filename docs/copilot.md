@@ -18,7 +18,7 @@ This writes `AGENTS.md`, `.github/hooks/git-guard.json`, `.github/agents/*.agent
 npx -y github:juanagu/agent-config -- --global --tool copilot
 ```
 
-It clones the repo to `~/Projects/agent-config` (or fast-forwards it), links each agent into `~/.copilot/agents/` and each skill into `~/.copilot/skills/`, writes `~/.copilot/hooks/git-guard.json`, and writes `~/.copilot/copilot-instructions.md` as a copy of `AGENTS.md` (Copilot has no import syntax). The copy is refreshed by each run until you edit it; after that it is left alone and the installer says so.
+It clones the repo to `~/Projects/agent-config` (or fast-forwards it), links each agent into `~/.copilot/agents/` and each skill into `~/.copilot/skills/`, writes `~/.copilot/hooks/git-guard.json` and `~/.copilot/hooks/audit-nudge.json` (the weekly dependency-audit nudge, `--no-audit-nudge` to decline), and writes `~/.copilot/copilot-instructions.md` as a copy of `AGENTS.md` (Copilot has no import syntax). The copy is refreshed by each run until you edit it; after that it is left alone and the installer says so.
 
 Reload VS Code afterwards.
 
@@ -30,12 +30,13 @@ Reload VS Code afterwards.
 | Agents | `.github/agents/*.agent.md` | `tools: [search, edit, runCommands]` for implementation agents, `[search, runCommands]` for `code-reviewer`; no `model`, so the picker's model is used. Copilot also reads `.claude/agents/`. |
 | Skills | `.agents/skills/*/SKILL.md` | Read natively alongside `.github/skills/`. Each shows up as a `/` command. |
 | Git guard | `.github/hooks/git-guard.json` → `preToolUse` | `version: 1`, camelCase event, `matcher: bash|powershell`, both a `bash` and a `powershell` command. The cloud agent runs only the `bash` one. |
+| Dependency-audit nudge | `~/.copilot/hooks/audit-nudge.json` → `sessionStart` (global install only) | Answers `{"additionalContext": …}` when the last audit is a week old, nothing otherwise; Copilot ignores plain stdout on this event. |
 
 ## Using it
 
 - **Dispatch an agent**: pick it in the Agent dropdown, or `@designer` in chat; agents can hand off to each other through `handoffs` if you add them in your fork.
 - **Review pass**: select `code-reviewer` and ask for "a medium pass on this branch". It reports verdicts and never edits.
-- **Skills**: `/open-pr`, `/merge-gate`, `/resolve-pr-comments`, `/retro`, or let Copilot pick one by its description.
+- **Skills**: `/open-pr`, `/merge-gate`, `/resolve-pr-comments`, `/retro`, `/dependency-audit`, or let Copilot pick one by its description.
 - **Models**: set in the model picker; agents do not pin one. To pin, add `model` to the Copilot row of `AGENT_TARGETS` in `scripts/build/targets.mjs` in your fork and rebuild.
 - **Protected checkouts**: `~/.config/agent-config/git-guard.json`:
 

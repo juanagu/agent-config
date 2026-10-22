@@ -55,7 +55,7 @@
       <text x="852" y="211" text-anchor="end" class="sans" font-size="15" fill="#8b98ad">13 specialists</text>
       <rect x="616" y="230" width="252" height="38" rx="8" fill="#16213a"/>
       <text x="632" y="255">.agents/skills/</text>
-      <text x="852" y="255" text-anchor="end" class="sans" font-size="15" fill="#8b98ad">10 skills</text>
+      <text x="852" y="255" text-anchor="end" class="sans" font-size="15" fill="#8b98ad">11 skills</text>
       <rect x="616" y="274" width="252" height="38" rx="8" fill="#16213a"/>
       <text x="632" y="299">git-guard</text>
       <text x="852" y="299" text-anchor="end" class="sans" font-size="15" fill="#8b98ad">hook</text>

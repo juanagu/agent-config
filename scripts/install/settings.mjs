@@ -67,7 +67,7 @@ export function absolutizeGuard(value, repoDir) {
 // `hooks` array (Claude Code, Antigravity).
 const COMMAND_KEYS = ["command", "bash", "powershell"];
 
-function* commandSlots(entry) {
+export function* commandSlots(entry) {
   if (!isObject(entry)) return;
   for (const key of COMMAND_KEYS) if (typeof entry[key] === "string") yield [entry, key];
   for (const hook of Array.isArray(entry.hooks) ? entry.hooks : []) {
@@ -76,26 +76,43 @@ function* commandSlots(entry) {
   }
 }
 
-const runsGuard = (entry) => [...commandSlots(entry)].some(([object, key]) => object[key].includes(GIT_GUARD_NEEDLE));
+// Whether a hook entry runs a command naming `needle` (a script's file name).
+export const runsScript = (entry, needle) => [...commandSlots(entry)].some(([object, key]) => object[key].includes(needle));
 
-// Where the guard lives in a registration: the paths of the hook arrays (`hooks.PreToolUse`,
+// Where a script lives in a registration: the paths of the hook arrays (`hooks.PreToolUse`,
 // `hooks.beforeShellExecution`, `git-guard.PreToolUse`) with an entry that runs it. Only those
 // arrays are ever rewritten in a user's file, so a `permissions` rule or a Stop hook that
 // happens to mention the script is left alone.
-function guardArrayPaths(value, path = []) {
-  if (Array.isArray(value)) return value.some(runsGuard) ? [path] : [];
+function hookArrayPaths(value, needle, path = []) {
+  if (Array.isArray(value)) return value.some((entry) => runsScript(entry, needle)) ? [path] : [];
   if (!isObject(value)) return [];
-  return Object.entries(value).flatMap(([key, item]) => guardArrayPaths(item, [...path, key]));
+  return Object.entries(value).flatMap(([key, item]) => hookArrayPaths(item, needle, [...path, key]));
 }
 
-const arrayAt = (value, path) => {
+export const arrayAt = (value, path) => {
   const found = path.reduce((current, key) => (isObject(current) ? current[key] : undefined), value);
   return Array.isArray(found) ? found : [];
 };
 
+// Points every command naming `needle`, in the arrays at `paths`, at `command`. Mutates `value`;
+// returns whether any was found.
+export function repointCommands(value, needle, command, paths) {
+  let found = false;
+  for (const path of paths) {
+    for (const entry of arrayAt(value, path)) {
+      for (const [object, key] of commandSlots(entry)) {
+        if (!object[key].includes(needle)) continue;
+        object[key] = command;
+        found = true;
+      }
+    }
+  }
+  return found;
+}
+
 // The guard command a registration carries: the first command that runs the script.
 export function guardCommandIn(registration) {
-  for (const path of guardArrayPaths(registration)) {
+  for (const path of hookArrayPaths(registration, GIT_GUARD_NEEDLE)) {
     for (const entry of arrayAt(registration, path)) {
       for (const [object, key] of commandSlots(entry)) if (object[key].includes(GIT_GUARD_NEEDLE)) return object[key];
     }
@@ -110,16 +127,7 @@ export function guardCommandIn(registration) {
 export function registerGuard(current, registration) {
   const command = guardCommandIn(registration);
   const next = structuredClone(current);
-  let found = false;
-  for (const path of guardArrayPaths(registration)) {
-    for (const entry of arrayAt(next, path)) {
-      for (const [object, key] of commandSlots(entry)) {
-        if (!object[key].includes(GIT_GUARD_NEEDLE)) continue;
-        object[key] = command;
-        found = true;
-      }
-    }
-  }
+  const found = repointCommands(next, GIT_GUARD_NEEDLE, command, hookArrayPaths(registration, GIT_GUARD_NEEDLE));
   const value = found ? next : mergeRegistration(current, registration);
   return { value, changed: JSON.stringify(value) !== JSON.stringify(current) };
 }
@@ -136,4 +144,4 @@ export function mergeRegistration(target, source) {
   return target === undefined ? source : target;
 }
 
-const isObject = (value) => value !== null && typeof value === "object" && !Array.isArray(value);
+export const isObject = (value) => value !== null && typeof value === "object" && !Array.isArray(value);
