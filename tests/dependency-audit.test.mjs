@@ -5,10 +5,11 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import { mkdirSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
-import { siblingRepos } from "../.agents/skills/dependency-audit/audit.mjs";
+import { auditRepoSafely, parseArgs, resolveDirs, siblingRepos } from "../.agents/skills/dependency-audit/audit.mjs";
 import { dependabotAlerts, repoSlug } from "../.agents/skills/dependency-audit/dependabot.mjs";
-import { evaluatePin, findPins, latestSecurity } from "../.agents/skills/dependency-audit/node-runtime.mjs";
+import { evaluatePin, latestSecurity } from "../.agents/skills/dependency-audit/node-runtime.mjs";
 import { auditNpm, fixKind, parseAuditOutput, runNpmAudit } from "../.agents/skills/dependency-audit/npm-audit.mjs";
+import { dockerVersions, findPins, workflowVersions } from "../.agents/skills/dependency-audit/pins.mjs";
 import { freshDir } from "./support/fixture-clone.mjs";
 
 const LOCK = {
@@ -124,6 +125,51 @@ test("floating tags, engines ranges and end-of-life majors get their own verdict
   assert.deepEqual([range.status, range.floor, range.floorBelowSecurity], ["range", "22", true]);
   assert.equal(verdict("20.19.0").eol, true);
   assert.equal(verdict("22.11-alpine").eol, false);
+  assert.equal(verdict("${NODE_VERSION}-alpine").status, "unresolved");
+});
+
+test("workflowVersions reads scalars, inline and block lists, and the matrix a node-version points at", () => {
+  const workflow = [
+    "jobs:",
+    "  a:",
+    "    strategy:",
+    "      matrix:",
+    "        node: [20, '22.x']  # supported lines",
+    "    steps:",
+    "      - uses: actions/setup-node@v4",
+    "        with:",
+    "          node-version: ${{ matrix.node }}",
+    "  b:",
+    "    strategy:",
+    "      matrix:",
+    "        runtime:",
+    "          - 24",
+    "          - \"22.11\"",
+    "    steps:",
+    "      - with:",
+    "          node-version: ${{ matrix.runtime }}",
+    "      - with:",
+    "          node-version: '18'",
+    "      - with:",
+    "          node-version:",
+    "            - 21",
+    "            - 23",
+    "      - with:",
+    "          node-version: ${{ matrix.nowhere }}",
+  ].join("\n");
+  assert.deepEqual(workflowVersions(workflow), ["20", "22.x", "24", "22.11", "18", "21", "23", "${{ matrix.nowhere }}"]);
+});
+
+test("dockerVersions fills FROM node:${ARG} from the file's ARG defaults", () => {
+  const dockerfile = [
+    "ARG NODE_VERSION=22.11",
+    "ARG VARIANT=\"alpine\"",
+    "FROM node:${NODE_VERSION}-${VARIANT} AS build",
+    "FROM node:$NODE_VERSION",
+    "FROM node:${OTHER:-20}-slim",
+    "FROM node:${UNSET}",
+  ].join("\n");
+  assert.deepEqual(dockerVersions(dockerfile), ["22.11-alpine", "22.11", "20-slim", "${UNSET}"]);
 });
 
 test("findPins reads Dockerfiles, workflow node-version, .nvmrc and engines, once per file and version", (t) => {
@@ -139,6 +185,7 @@ test("findPins reads Dockerfiles, workflow node-version, .nvmrc and engines, onc
   writeFileSync(join(dir, "node_modules", "x", "Dockerfile"), "FROM node:8\n");
   const pins = findPins(dir).map((p) => `${p.kind} ${p.file} ${p.raw}`).sort();
   assert.deepEqual(pins, [
+    "ci .github/workflows/ci.yml ${{ matrix.node }}",
     "ci .github/workflows/ci.yml 22",
     "docker Dockerfile 22.11-alpine",
     "docker docker/worker.Dockerfile 20-slim",
@@ -164,6 +211,22 @@ test("dependabotAlerts summarises each open alert and reports gh trouble as unav
   const forbidden = dependabotAlerts("x", (cmd) => (cmd === "git" ? { status: 0, stdout: "git@github.com:o/r.git" } : { status: 1, stdout: "", stderr: "HTTP 403" }));
   assert.match(forbidden.unavailable, /403/);
   assert.match(dependabotAlerts("x", () => ({ status: 2, stdout: "" })).unavailable, /no GitHub origin/);
+});
+
+test("the dirs named are checked before any is audited", (t) => {
+  const dir = freshDir(t);
+  assert.deepEqual(resolveDirs(parseArgs([dir])), [dir]);
+  assert.throws(() => resolveDirs(parseArgs([dir, join(dir, "typo")])), /Not a directory: .*typo/);
+  assert.throws(() => resolveDirs(parseArgs(["--all", join(dir, "nope")])), /--all: .* is not a directory/);
+  assert.throws(() => parseArgs(["--all"]), /--all needs a directory/);
+});
+
+test("a repo whose audit throws is reported with its error, and the run goes on", async () => {
+  const failing = await auditRepoSafely("/repo/a", null, async () => {
+    throw new Error("EACCES reading Dockerfile");
+  });
+  assert.deepEqual(failing, { dir: "/repo/a", error: "EACCES reading Dockerfile" });
+  assert.deepEqual(await auditRepoSafely("/repo/b", null, async (dir) => ({ dir, npm: {} })), { dir: "/repo/b", npm: {} });
 });
 
 test("siblingRepos lists the git checkouts under a folder that match the prefix", (t) => {

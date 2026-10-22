@@ -1,22 +1,29 @@
 // The session-start nudge (.agents/hooks/audit-nudge/): due when the dependency-audit skill's date
 // file is missing or a week old, silent otherwise, in each tool's answer shape, and always exit 0.
-// The skill's helper writes the file the hook reads, so the two resolve one path.
+// The path comes from the skill's stamp.mjs, which both import; both scripts also run when reached
+// through a junction or symlink, which is how a global install links the skill.
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { spawnSync } from "node:child_process";
-import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
+import { mkdirSync, readFileSync, symlinkSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
-import { answer, isDue, NUDGE, stampPath } from "../.agents/hooks/audit-nudge/audit-nudge.mjs";
-import { stampPath as skillStampPath, writeStamp } from "../.agents/skills/dependency-audit/stamp.mjs";
+import { answer, isDue, NUDGE, run } from "../.agents/hooks/audit-nudge/audit-nudge.mjs";
+import { stampPath, writeStamp } from "../.agents/skills/dependency-audit/stamp.mjs";
 import { freshDir } from "./support/fixture-clone.mjs";
 
 const repoDir = dirname(dirname(fileURLToPath(import.meta.url)));
 const HOOK = join(repoDir, ".agents", "hooks", "audit-nudge", "audit-nudge.mjs");
 const DAY = 24 * 60 * 60 * 1000;
 
+const SKILL = join(repoDir, ".agents", "skills", "dependency-audit");
+
 function runHook(stamp, ...args) {
-  return spawnSync(process.execPath, [HOOK, ...args], { encoding: "utf8", env: { ...process.env, AGENT_CONFIG_AUDIT_STAMP: stamp }, timeout: 10_000 });
+  return runScript(HOOK, stamp, ...args);
+}
+
+function runScript(script, stamp, ...args) {
+  return spawnSync(process.execPath, [script, ...args], { encoding: "utf8", env: { ...process.env, AGENT_CONFIG_AUDIT_STAMP: stamp }, timeout: 10_000 });
 }
 
 test("isDue: a missing or unreadable date is due, a week-old one is due, a recent or future one is not", () => {
@@ -66,12 +73,35 @@ test("each tool gets its own answer shape, and nothing when not due", (t) => {
   assert.deepEqual(JSON.parse(cursor.stdout), { additional_context: NUDGE });
 });
 
-test("the hook and the skill's helper resolve the same date file, by default and with the override", (t) => {
+test("the date file defaults to ~/.config/agent-config/last-dependency-audit, and run() reads it from there", async (t) => {
   const home = freshDir(t);
-  assert.equal(stampPath({}, home), skillStampPath({}, home));
   assert.equal(stampPath({}, home), join(home, ".config", "agent-config", "last-dependency-audit"));
-  const override = { AGENT_CONFIG_AUDIT_STAMP: join(home, "x") };
-  assert.equal(stampPath(override), skillStampPath(override));
+  assert.equal(await run(["--tool", "copilot"], { AGENT_CONFIG_AUDIT_STAMP: join(home, "missing") }), JSON.stringify({ additionalContext: NUDGE }));
+});
+
+// A junction on Windows (no privilege needed), a directory symlink elsewhere; skipped where neither can be made.
+function linkTo(t, target) {
+  const link = join(freshDir(t), "linked");
+  try {
+    symlinkSync(target, link, "junction");
+    return link;
+  } catch {
+    return null;
+  }
+}
+
+test("both scripts run when reached through a junction or symlink, as a global install links them", (t) => {
+  const skill = linkTo(t, SKILL);
+  const hooks = linkTo(t, dirname(HOOK));
+  if (!skill || !hooks) return t.skip("this OS cannot make a directory link here");
+  const stamp = join(freshDir(t), "last-dependency-audit");
+  assert.equal(runScript(join(hooks, "audit-nudge.mjs"), stamp).stdout, `${NUDGE}
+`, "the linked hook prints the nudge");
+  const stamped = runScript(join(skill, "audit.mjs"), stamp, "--stamp");
+  assert.equal(stamped.status, 0, stamped.stderr);
+  assert.match(stamped.stdout, /Recorded the audit/);
+  assert.ok(!Number.isNaN(Date.parse(readFileSync(stamp, "utf8").trim())), "the linked helper wrote the date");
+  assert.equal(runScript(join(hooks, "audit-nudge.mjs"), stamp).stdout, "", "and the hook is quiet after it");
 });
 
 test("a run recorded by the skill silences the hook for a week", (t) => {

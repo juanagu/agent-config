@@ -6,12 +6,13 @@
 //   node audit.mjs --stamp                        record that an audit finished (read by the nudge)
 //
 // Node built-ins only. Progress and fallbacks go to stderr, so stdout stays one JSON document.
-import { existsSync, readdirSync } from "node:fs";
+import { existsSync, readdirSync, realpathSync, statSync } from "node:fs";
 import { join, resolve } from "node:path";
-import { pathToFileURL } from "node:url";
+import { fileURLToPath } from "node:url";
 import { dependabotAlerts } from "./dependabot.mjs";
-import { evaluatePin, findPins, loadReleases } from "./node-runtime.mjs";
+import { evaluatePin, loadReleases } from "./node-runtime.mjs";
 import { auditNpm } from "./npm-audit.mjs";
+import { findPins } from "./pins.mjs";
 import { writeStamp } from "./stamp.mjs";
 
 export function parseArgs(argv) {
@@ -44,6 +45,37 @@ async function nodeReleases() {
   }
 }
 
+// Every directory named must exist before any of them is audited, so a typo fails at once.
+export function resolveDirs(options) {
+  if (options.all) {
+    const parent = resolve(options.all);
+    if (!isDirectory(parent)) throw new Error(`--all: ${parent} is not a directory.`);
+    return siblingRepos(parent, options.match);
+  }
+  const dirs = (options.dirs.length ? options.dirs : ["."]).map((dir) => resolve(dir));
+  const missing = dirs.filter((dir) => !isDirectory(dir));
+  if (missing.length) throw new Error(`Not a directory: ${missing.join(", ")}`);
+  return dirs;
+}
+
+function isDirectory(path) {
+  try {
+    return statSync(path).isDirectory();
+  } catch {
+    return false;
+  }
+}
+
+// One repo that throws is reported with its error; the others are still audited.
+export async function auditRepoSafely(dir, index, audit = auditRepo) {
+  try {
+    return await audit(dir, index);
+  } catch (error) {
+    console.error(`  ${dir} failed: ${error.message}`);
+    return { dir, error: error.message };
+  }
+}
+
 async function auditRepo(dir, index) {
   console.error(`Auditing ${dir} ...`);
   const npm = await auditNpm(dir);
@@ -59,16 +91,25 @@ async function main(argv) {
     console.log(`Recorded the audit in ${writeStamp()}.`);
     return;
   }
-  const dirs = options.all ? siblingRepos(resolve(options.all), options.match) : (options.dirs.length ? options.dirs : ["."]).map((dir) => resolve(dir));
+  const dirs = resolveDirs(options);
   const index = await nodeReleases();
   const local = index ? evaluatePin({ file: "node --version", kind: "local", raw: process.version }, index.releases, index.schedule) : { unavailable: "release index unreachable", raw: process.version };
   const repos = [];
-  for (const dir of dirs) repos.push(await auditRepo(dir, index));
+  for (const dir of dirs) repos.push(await auditRepoSafely(dir, index));
   console.log(JSON.stringify({ date: new Date().toISOString(), local, repos }, null, 2));
 }
 
-const invokedDirectly = process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href;
-if (invokedDirectly) {
+// realpath on both sides: a tool's skills folder reaches this file through a junction or symlink.
+function invokedDirectly() {
+  if (!process.argv[1]) return false;
+  try {
+    return realpathSync(resolve(process.argv[1])) === realpathSync(fileURLToPath(import.meta.url));
+  } catch {
+    return false;
+  }
+}
+
+if (invokedDirectly()) {
   main(process.argv.slice(2)).catch((error) => {
     console.error(error.message);
     process.exitCode = 1;

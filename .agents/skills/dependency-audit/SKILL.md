@@ -16,7 +16,7 @@ Free checks only: npm's audit endpoint, nodejs.org's release index and GitHub's 
    node <this skill's folder>/audit.mjs --all <folder holding the clones> --match <prefix, e.g. cmc->
    ```
 
-   It prints one JSON report: per repo `npm` (findings with `scope`, `fix` and `advisories`), `runtime` (each Node pin with a `status`), `dependabot` (open alerts), plus `local` for this machine's `node --version`. npm's endpoint times out under load; the helper retries with backoff and, when it stays down, reports `source: "lockfile"` with the installed versions instead. Say so in the table: npm's half is unchecked that run, and the Dependabot alerts are the only advisory source for it. `unavailable` (no `gh`, a 403) is likewise unchecked, never clean.
+   It prints one JSON report: per repo `npm` (findings with `scope`, `fix` and `advisories`), `runtime` (each Node pin with a `status`), `dependabot` (open alerts), plus `local` for this machine's `node --version`. npm's endpoint times out under load; the helper retries with backoff and, when it stays down, reports `source: "lockfile"` with the installed versions instead. Say so in the table: npm's half is unchecked that run, and the Dependabot alerts are the only advisory source for it. `unavailable` (no `gh`, a 403), a repo with an `error`, and an `unresolved` pin (a Dockerfile `ARG` with no default, a matrix it can't find) are likewise unchecked, never clean.
 
 2. **Triage** each finding, merging an npm finding and a Dependabot alert for the same advisory into one row:
    - **Production before dev.** `scope: production` first, npm's and Dependabot's alike; dev tooling second.

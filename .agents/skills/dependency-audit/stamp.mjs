@@ -1,5 +1,5 @@
-// The date of the last finished audit, which the session-start nudge reads
-// (.agents/hooks/audit-nudge/audit-nudge.mjs resolves the same path; a test keeps them equal).
+// The date of the last finished audit: the one definition of where it lives, written here by
+// `audit.mjs --stamp` and read by the session-start nudge (.agents/hooks/audit-nudge/).
 import { mkdirSync, writeFileSync } from "node:fs";
 import { homedir } from "node:os";
 import { dirname, join } from "node:path";
