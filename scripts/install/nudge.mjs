@@ -1,10 +1,10 @@
 // The weekly dependency-audit nudge: a session-start hook registered at user level only, because
 // the date it reads (~/.config/agent-config/last-dependency-audit) belongs to the machine, not to a
-// project. Each tool's entry is added once, re-pointed when it names an older clone, and the
-// rest of the user's file is left alone.
+// project. Each tool's entry is added once, re-pointed when it names an older clone, removed when
+// the user declines it, and the rest of the user's file is left alone.
 import { join } from "node:path";
 import { toPosix } from "./paths.mjs";
-import { commandSlots } from "./settings.mjs";
+import { arrayAt, isObject, repointCommands, runsScript } from "./settings.mjs";
 
 export const NUDGE_SCRIPT = ".agents/hooks/audit-nudge/audit-nudge.mjs";
 export const NUDGE_NEEDLE = "audit-nudge.mjs";
@@ -16,7 +16,7 @@ export function nudgeCommand(repoDir, tool) {
 
 // Where each tool registers a session-start hook, and the entry's shape (docs/compatibility.md).
 // `file` is under the home directory; `path` is the hook array inside it; `root` holds keys a new
-// file needs. Claude's settings.json is read and written by global.mjs with its other pieces.
+// file needs; `ownFile` marks a file that holds nothing else, deleted with the last entry.
 export const NUDGE_TARGETS = {
   claude: {
     file: [".claude", "settings.json"],
@@ -33,6 +33,7 @@ export const NUDGE_TARGETS = {
     file: [".copilot", "hooks", "audit-nudge.json"],
     path: ["hooks", "sessionStart"],
     root: { version: 1 },
+    ownFile: true,
     entry: (command) => ({ type: "command", bash: command, powershell: command, timeoutSec: TIMEOUT_SECONDS }),
   },
   antigravity: {
@@ -44,33 +45,45 @@ export const NUDGE_TARGETS = {
 
 export const nudgeFile = (tool, home) => join(home, ...NUDGE_TARGETS[tool].file);
 
-const isObject = (value) => value !== null && typeof value === "object" && !Array.isArray(value);
-
-function nudgeEntries(settings, path) {
-  const found = path.reduce((current, key) => (isObject(current) ? current[key] : undefined), settings);
-  return Array.isArray(found) ? found : [];
-}
-
 export function hasNudge(settings, tool) {
-  return nudgeEntries(settings, NUDGE_TARGETS[tool].path).some((entry) => [...commandSlots(entry)].some(([object, key]) => object[key].includes(NUDGE_NEEDLE)));
+  return arrayAt(settings, NUDGE_TARGETS[tool].path).some((entry) => runsScript(entry, NUDGE_NEEDLE));
 }
 
-// The user's file with the nudge pointing at this clone: an existing entry re-pointed, or a new
-// one appended. Returns the new value and whether it differs from `current`.
-export function registerNudge(current, tool, repoDir) {
+// Points the user's file at this clone's nudge: an existing entry re-pointed, or a new one
+// appended. Mutates `settings`; returns whether it changed.
+export function registerNudge(settings, tool, repoDir) {
   const target = NUDGE_TARGETS[tool];
+  const before = JSON.stringify(settings);
   const command = nudgeCommand(repoDir, tool);
-  const next = structuredClone(current);
-  if (hasNudge(next, tool)) {
-    for (const entry of nudgeEntries(next, target.path)) {
-      for (const [object, key] of commandSlots(entry)) if (object[key].includes(NUDGE_NEEDLE)) object[key] = command;
-    }
-  } else {
-    for (const [key, value] of Object.entries(target.root ?? {})) next[key] ??= value;
-    let parent = next;
-    for (const key of target.path.slice(0, -1)) parent = isObject(parent[key]) ? parent[key] : (parent[key] = {});
+  if (!repointCommands(settings, NUDGE_NEEDLE, command, [target.path])) {
+    for (const [key, value] of Object.entries(target.root ?? {})) settings[key] ??= value;
+    const parent = containerAt(settings, target.path.slice(0, -1));
     const last = target.path.at(-1);
     parent[last] = [...(Array.isArray(parent[last]) ? parent[last] : []), target.entry(command)];
   }
-  return { value: next, changed: JSON.stringify(next) !== JSON.stringify(current) };
+  return JSON.stringify(settings) !== before;
+}
+
+// Takes out every nudge entry; an array or group left empty goes too. Mutates `settings`;
+// returns whether it changed.
+export function removeNudge(settings, tool) {
+  if (!hasNudge(settings, tool)) return false;
+  const path = NUDGE_TARGETS[tool].path;
+  const parents = [settings];
+  for (const key of path.slice(0, -1)) parents.push(parents.at(-1)[key]);
+  const last = path.at(-1);
+  const kept = parents.at(-1)[last].filter((entry) => !runsScript(entry, NUDGE_NEEDLE));
+  if (kept.length) parents.at(-1)[last] = kept;
+  else delete parents.at(-1)[last];
+  for (let i = path.length - 2; i >= 0; i--) {
+    if (Object.keys(parents[i + 1]).length) break;
+    delete parents[i][path[i]];
+  }
+  return true;
+}
+
+function containerAt(settings, path) {
+  let parent = settings;
+  for (const key of path) parent = isObject(parent[key]) ? parent[key] : (parent[key] = {});
+  return parent;
 }
