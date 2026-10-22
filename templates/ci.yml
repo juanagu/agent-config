@@ -1,11 +1,12 @@
 name: CI
 
 # The two CI tiers the Workflow section of AGENTS.md (juanagu/agent-config) defines: `checks`
-# is the fast tier, `e2e-full` the full one. Copy this file into a new repo's
-# .github/workflows/. A service repo has no browser suite: delete, together,
-# the `schedule` trigger, the RUN_SMOKE env with the smoke steps in `checks`,
-# and the `e2e-full` and `report-full-tier` jobs, so `checks` runs alone and
-# whoever pushes a tag watches its run.
+# is the fast tier, `e2e-full` the full one; the weekly run also audits the
+# production dependencies. Copy this file into a new repo's .github/workflows/.
+# A service repo has no browser suite: delete, together, the RUN_SMOKE env with
+# the smoke steps in `checks` and the `e2e-full` job, and take `e2e-full` out
+# of report-full-tier's `needs`; keep the `schedule` trigger and the report
+# job, which the weekly npm audit reports through.
 #
 # Two things GitHub does that this file cannot change: a push the `paths`
 # filter excludes creates no run at all, so never make `checks` a required
@@ -71,6 +72,26 @@ jobs:
       - run: npm run typecheck
       - run: npm test
       - run: npm run build
+
+      # Weekly run only, never a PR or a push: a high or critical advisory in a production
+      # dependency turns the run red, and report-full-tier opens the issue. npm's audit endpoint
+      # times out under load, so it is retried, and an endpoint that stays down is a warning, not
+      # a vulnerability. It runs even when an earlier step failed, so a red build still gets audited.
+      - name: npm audit (production, high and above)
+        if: ${{ !cancelled() && github.event_name == 'schedule' }}
+        run: |
+          for attempt in 1 2 3; do
+            status=0
+            npm audit --omit=dev --audit-level=high --json > audit.json || status=$?
+            if [ "$status" -eq 0 ]; then echo "No high or critical advisory in production dependencies."; exit 0; fi
+            if node -e 'const r = JSON.parse(require("fs").readFileSync("audit.json", "utf8")); process.exit(r.vulnerabilities ? 0 : 1)' 2>/dev/null; then
+              node -e 'const r = JSON.parse(require("fs").readFileSync("audit.json", "utf8")); for (const v of Object.values(r.vulnerabilities)) console.log(`${v.severity}\t${v.name}\t${v.range}`)'
+              exit 1
+            fi
+            echo "npm audit endpoint error, attempt $attempt: $(head -c 300 audit.json)"
+            if [ "$attempt" -lt 3 ]; then sleep $((attempt * 30)); fi
+          done
+          echo "::warning::npm audit could not reach the registry's audit endpoint after 3 attempts; this is not a vulnerability finding."
 
       # Web apps only: the describes tagged @smoke (sign-in, home, the header
       # at 390, the route guards), `playwright test --grep @smoke`. Keep it
@@ -149,5 +170,5 @@ jobs:
             gh issue comment "$existing" --body "Still red on $(date -u +%Y-%m-%d), $WHERE: $RUN_URL"
           else
             gh issue create --title "$PREFIX $WHERE ($(date -u +%Y-%m-%d))" \
-              --body "The full tier failed: $RUN_URL. Add this issue to the project board."
+              --body "The full tier or the weekly npm audit failed: $RUN_URL. Add this issue to the project board."
           fi
