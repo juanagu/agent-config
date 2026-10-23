@@ -43,6 +43,16 @@ Then start a new session: hooks and agents are read at session start.
   { "protectedCheckouts": ["C:/Users/me/Projects/my-app"] }
   ```
 
+## Library docs (optional)
+
+The standards send an agent to current library docs before it codes against an API that may have moved. Context7 serves them as an MCP server; install it once, user-scoped, over its remote endpoint (no local `npx`):
+
+```sh
+claude mcp add --scope user --transport http context7 https://mcp.context7.com/mcp
+```
+
+It works without a key at a lower rate limit. With a key from context7.com, add `--header "CONTEXT7_API_KEY: <key>"`; it lands in `~/.claude.json`, never in a repo. Queries go to Upstash, so keep project details and secrets out of them. `claude mcp list` shows `context7` as connected.
+
 ## Check it worked
 
 - `/memory` shows `AGENTS.md` (through `CLAUDE.md`) under memory files.
