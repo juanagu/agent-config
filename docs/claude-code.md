@@ -53,6 +53,16 @@ claude mcp add --scope user --transport http context7 https://mcp.context7.com/m
 
 It works without a key at a lower rate limit. With a key from context7.com, add `--header "CONTEXT7_API_KEY: <key>"`; it lands in `~/.claude.json`, never in a repo. Queries go to Upstash, so keep project details and secrets out of them. `claude mcp list` shows `context7` as connected.
 
+## Session effort
+
+Agents carry their own `effort` (judgment tier `high`, implementation `medium`, `technical-writer` `low`); the main session's comes from your user settings, which agent-config doesn't manage because the key names a model ID that goes stale. The standards keep the session at high, so set it once in `~/.claude/settings.json`, under the model you run:
+
+```json
+"modelSettings": { "claude-opus-5-5": { "effortLevel": "high" } }
+```
+
+Lower it in a session of quick chores, and move the key to the new ID when the model changes.
+
 ## Check it worked
 
 - `/memory` shows `AGENTS.md` (through `CLAUDE.md`) under memory files.
