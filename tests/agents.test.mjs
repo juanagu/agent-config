@@ -15,12 +15,18 @@ const EFFORTS = new Set(["low", "medium", "high"]);
 // Claude Code's documented colours; the other tools drop the field.
 const COLORS = new Set(["red", "blue", "green", "yellow", "purple", "orange", "pink", "cyan"]);
 
+const standards = readFileSync(join(agentsDir, "..", "AGENTS.md"), "utf8");
 const files = readdirSync(agentsDir).filter((f) => f.endsWith(".md"));
 // AGENTS.md, "Context is the cost, not time": an agent sees only its own file, so each carries the rule.
-const HAND_BACK = "Hand back instead of looping: past about 150 tool calls without converging";
+const THRESHOLD = "about 150 tool calls in";
+const HAND_BACK = `Hand back instead of looping: when the same failure survives two attempts, or ${THRESHOLD}`;
 
 test("there are agents to check", () => {
   assert.ok(files.length > 0);
+});
+
+test("AGENTS.md states the hand-back threshold the agent files carry", () => {
+  assert.ok(standards.includes(THRESHOLD));
 });
 
 for (const file of files) {
