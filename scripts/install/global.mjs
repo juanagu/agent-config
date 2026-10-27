@@ -151,8 +151,9 @@ async function offerCodegraph(current, prompter, flags) {
 
 // Context7 serves the library docs the standards send an agent to. One answer covers the server
 // and the rule that lets its tools run without a prompt; with the server already there, the
-// question is about the rule alone. Adding the server sends queries to a third party, so it is
-// never the default: a run without a terminal adds only the rule, for a server already there.
+// question is about the rule alone. Adding the server sends queries to a third party, so it takes
+// a yes (typed, --context7 or --yes): a run without a terminal adds only the rule, for a server
+// already there.
 async function offerContext7(current, prompter, flags, home) {
   warnContext7Leftovers(home);
   const registered = context7.isRegistered(home);
