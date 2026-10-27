@@ -18,7 +18,7 @@ This writes `AGENTS.md`, `CLAUDE.md`, `.claude/settings.json`, `.claude/agents/`
 npx -y github:juanagu/agent-config -- --global --tool claude
 ```
 
-It clones the repo to `~/Projects/agent-config` (or fast-forwards it), then: adds a one-line `@` import at the top of `~/.claude/CLAUDE.md` (the rest of the file is yours), links each agent into `~/.claude/agents/` and each skill into `~/.claude/skills/` (one entry each, so your own agents and skills stay beside them), creates `~/.claude/settings.json` from a template when it is missing (otherwise offers the git guard hook, or re-points an entry from an older install), offers the weekly dependency-audit nudge as a `SessionStart` hook (yes by default; `--no-audit-nudge` declines), and installs the third-party skills in `skills.txt`. Re-running updates everything. Flags: `--yes`, `--no-optional`, `--help`.
+It clones the repo to `~/Projects/agent-config` (or fast-forwards it), then: adds a one-line `@` import at the top of `~/.claude/CLAUDE.md` (the rest of the file is yours), links each agent into `~/.claude/agents/` and each skill into `~/.claude/skills/` (one entry each, so your own agents and skills stay beside them), creates `~/.claude/settings.json` from a template when it is missing (otherwise offers the git guard hook, or re-points an entry from an older install), offers the weekly dependency-audit nudge as a `SessionStart` hook (yes by default; `--no-audit-nudge` declines), offers Context7 for library docs (see below), and installs the third-party skills in `skills.txt`. Re-running updates everything. Flags: `--yes`, `--no-optional`, `--help`.
 
 Then start a new session: hooks and agents are read at session start.
 
@@ -43,15 +43,17 @@ Then start a new session: hooks and agents are read at session start.
   { "protectedCheckouts": ["C:/Users/me/Projects/my-app"] }
   ```
 
-## Library docs (optional)
+## Library docs
 
-The standards send an agent to current library docs before it codes against an API that may have moved. Context7 serves them as an MCP server; install it once, user-scoped, over its remote endpoint (no local `npx`):
+The standards send an agent to current library docs before it codes against an API that may have moved. Context7 serves them as an MCP server. The global install offers it (no by default, since queries leave the machine; `--context7` or `--yes` accepts): it registers the server user-scoped over its remote endpoint (no local `npx`) and adds `mcp__context7__*` to the allow list in `~/.claude/settings.json`. With the server already there, it offers the allow rule alone, yes by default. Without the `claude` CLI on PATH, or with `--home` naming a directory other than your home, it prints the command instead:
 
 ```sh
 claude mcp add --scope user --transport http context7 https://mcp.context7.com/mcp
 ```
 
-It works without a key at a lower rate limit. With a key from context7.com, add `--header "CONTEXT7_API_KEY: <key>"`; it lands in `~/.claude.json`, never in a repo. Queries go to Upstash, so keep project details and secrets out of them. `claude mcp list` shows `context7` as connected.
+It works without a key at a lower rate limit. With a key from context7.com, remove the server and add it again with `--header "CONTEXT7_API_KEY: <key>"`; it lands in `~/.claude.json`, never in a repo. Queries go to Upstash, so keep project details and secrets out of them. `claude mcp list` shows `context7` as connected.
+
+Don't use Context7's own setup (`npx ctx7 setup`) on top: it writes `~/.claude/rules/context7.md` and a `context7-mcp` skill, which tell the agent to always query Context7, against the standards' order (the package's bundled docs first, skip APIs that haven't moved), and repeat the usage steps the server already sends. The installer names them when it finds them; delete both.
 
 ## Session effort
 

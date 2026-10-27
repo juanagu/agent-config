@@ -12,7 +12,7 @@ import { gitPull, hasCommand, offDefaultBranchWarning, runNode } from "./install
 import { installGlobal } from "./install/global.mjs";
 import { createPrompter } from "./install/prompts.mjs";
 import { installProject } from "./install/project.mjs";
-import { samePath } from "./install/paths.mjs";
+import { isRealHome } from "./install/paths.mjs";
 import { installSkill, linkInstalledSkills, readSkillList } from "./install/skills.mjs";
 import { globalTargets } from "./install/targets.mjs";
 
@@ -67,7 +67,7 @@ async function installSkills(prompter, home, installed) {
     console.log("npx not found: skipped the skills in skills.txt. Install npm and re-run.");
     return [];
   }
-  if (!samePath(home, homedir())) {
+  if (!isRealHome(home)) {
     console.log("--home is set: skipped the third-party skills, which npx installs under the real home directory.");
     return [];
   }
