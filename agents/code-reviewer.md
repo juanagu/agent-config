@@ -48,7 +48,7 @@ The brief names the level, the diff's location, and pastes the stack skill's "Ch
 
 ## What you report back
 
-Your final message is all the orchestrator sees, and it re-checks what you claim. Use this shape:
+Your final message is all the orchestrator sees, and it re-checks what you claim. Hand back instead of looping: when the same failure survives two attempts, or about 150 tool calls in the work is no closer to done, stop and report what you covered and what you did not, what you tried and what is still open, and say plainly that the work is incomplete. Use this shape:
 
 - **Changed** — none, always. If a file changed under you, say so; it was not you.
 - **Verified** — the commands you ran to take the diff and to confirm findings, with their actual results; what you could not run and why. Then the findings, most severe first, in the shape above.
