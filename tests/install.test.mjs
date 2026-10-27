@@ -306,12 +306,33 @@ test("--context7 adds the allow rule once and prints the command the server need
   const home = freshDir(t);
   const first = claudeHome(clone, home, "--no-rtk", "--no-codegraph", "--context7");
   assert.equal(first.status, 0, first.stderr);
-  assert.match(first.stdout, /--home is set: Context7 was not added .* claude mcp add --scope user --transport http context7 https:\/\/mcp\.context7\.com\/mcp/);
+  assert.match(first.stdout, /--home is not your home directory: Context7 was not added .* claude mcp add --scope user --transport http context7 https:\/\/mcp\.context7\.com\/mcp/);
   assert.deepEqual(readJson(join(home, ".claude", "settings.json")).permissions.allow, ["mcp__context7__*"]);
   assert.deepEqual(answers(home), { rtk: false, codegraph: false, context7: true });
 
   assert.equal(claudeHome(clone, home, "--no-rtk", "--no-codegraph", "--context7").status, 0);
   assert.deepEqual(readJson(join(home, ".claude", "settings.json")).permissions.allow, ["mcp__context7__*"]);
+});
+
+// The home is a temp dir posing as the real one, and a stub `claude` (a .cmd on Windows, the form
+// an npm install leaves) records what it was called with.
+test("--context7 at the real home runs claude mcp add, and names the leftovers of Context7's own setup", (t) => {
+  const clone = makeFixtureClone(t);
+  const home = freshDir(t);
+  const bin = freshDir(t);
+  const record = join(bin, "args.txt");
+  if (process.platform === "win32") writeFileSync(join(bin, "claude.cmd"), `@echo %*> "${record}"\r\n`);
+  else writeFileSync(join(bin, "claude"), `#!/bin/sh\necho "$@" > "${record}"\n`, { mode: 0o755 });
+  mkdirSync(join(home, ".claude", "rules"), { recursive: true });
+  writeFileSync(join(home, ".claude", "rules", "context7.md"), "always\n");
+  const pathKey = Object.keys(process.env).find((key) => key.toUpperCase() === "PATH") ?? "PATH";
+  const env = { ...process.env, HOME: home, USERPROFILE: home, [pathKey]: `${bin}${process.platform === "win32" ? ";" : ":"}${process.env[pathKey]}` };
+  const result = install(clone, ["--global", "--home", home, "--tool", "claude", "--skip-skills", "--no-rtk", "--no-codegraph", "--context7"], env);
+  assert.equal(result.status, 0, result.stderr);
+  assert.equal(readFileSync(record, "utf8").trim(), "mcp add --scope user --transport http context7 https://mcp.context7.com/mcp");
+  assert.doesNotMatch(result.stdout, /Context7 was not added/);
+  assert.match(result.stdout, /Context7's own setup left .*context7\.md/);
+  assert.ok(existsSync(join(home, ".claude", "rules", "context7.md")), "the user's file is named, not deleted");
 });
 
 test("a Context7 server already in ~/.claude.json gets only the allow rule, and nothing once both are there", (t) => {

@@ -19,3 +19,8 @@ export function samePath(a, b) {
   const [x, y] = [normalise(a), normalise(b)];
   return process.platform === "win32" ? x.toLowerCase() === y.toLowerCase() : x === y;
 }
+
+// Tools that ignore --home (npx skills, claude mcp add) may run only when it names the real home.
+export function isRealHome(home) {
+  return samePath(home, homedir());
+}

@@ -3,7 +3,6 @@
 // the fuller flow (settings.json from a template, the optional rtk, CodeGraph and Context7
 // pieces); the other three get links plus a merge into their hook files.
 import { existsSync, mkdirSync, rmSync } from "node:fs";
-import { homedir } from "node:os";
 import { dirname, join } from "node:path";
 import { linkRepoAgents } from "./agents.mjs";
 import * as context7 from "./context7.mjs";
@@ -11,7 +10,7 @@ import { hasCommand } from "./env.mjs";
 import { readJson, writeJson } from "./json.mjs";
 import { createLinker } from "./link.mjs";
 import * as nudge from "./nudge.mjs";
-import { samePath } from "./paths.mjs";
+import { isRealHome } from "./paths.mjs";
 import * as settings from "./settings.mjs";
 import { linkRepoSkills } from "./skills.mjs";
 import { globalTargets } from "./targets.mjs";
@@ -154,6 +153,7 @@ async function offerCodegraph(current, prompter, flags) {
 // and the rule that lets its tools run without a prompt; with the server already there, the
 // question is about the rule alone.
 async function offerContext7(current, prompter, flags, home) {
+  warnContext7Leftovers(home);
   const registered = context7.isRegistered(home);
   const allowed = settings.hasAllowRule(current, context7.CONTEXT7_RULE);
   if (registered && allowed) return false;
@@ -171,9 +171,15 @@ async function offerContext7(current, prompter, flags, home) {
 // `claude mcp add` writes the real ~/.claude.json, so a run with another --home only says how.
 function registerContext7(home) {
   const manual = `Add it with: ${context7.ADD_COMMAND}`;
-  if (!samePath(home, homedir())) console.log(`--home is set: Context7 was not added to the real ~/.claude.json. ${manual}`);
+  if (!isRealHome(home)) console.log(`--home is not your home directory: Context7 was not added to the real ~/.claude.json. ${manual}`);
   else if (!hasCommand("claude")) console.log(`The claude CLI is not on PATH: Context7 was not added. ${manual}`);
-  else if (context7.register() !== 0) console.log(`claude mcp add failed: Context7 was not added. ${manual}`);
+  else if (!context7.register()) console.log(`claude mcp add failed: Context7 was not added. ${manual}`);
+}
+
+// The files are the user's, so they are named, never deleted.
+function warnContext7Leftovers(home) {
+  const found = context7.setupLeftovers(home);
+  if (found.length) console.log(`Context7's own setup left ${found.join(" and ")}: they tell the agent to always query Context7, against the standards' order. Delete them (docs/claude-code.md, Library docs).`);
 }
 
 // The weekly dependency-audit nudge, for every tool: --no-audit-nudge takes it out and records the

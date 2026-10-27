@@ -46,7 +46,7 @@ const BOOLEAN_FLAGS = {
   "-h": "help",
 };
 
-const DECISIONS = { "--rtk": ["rtk", true], "--no-rtk": ["rtk", false], "--codegraph": ["codegraph", true], "--no-codegraph": ["codegraph", false], "--context7": ["context7", true], "--no-context7": ["context7", false],"--audit-nudge": ["auditNudge", true], "--no-audit-nudge": ["auditNudge", false] };
+const DECISIONS = { "--rtk": ["rtk", true], "--no-rtk": ["rtk", false], "--codegraph": ["codegraph", true], "--no-codegraph": ["codegraph", false], "--context7": ["context7", true], "--no-context7": ["context7", false], "--audit-nudge": ["auditNudge", true], "--no-audit-nudge": ["auditNudge", false] };
 
 // The value after an option, which must exist and not be another option.
 export function requireValue(args, i) {

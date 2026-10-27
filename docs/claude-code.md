@@ -45,7 +45,7 @@ Then start a new session: hooks and agents are read at session start.
 
 ## Library docs
 
-The standards send an agent to current library docs before it codes against an API that may have moved. Context7 serves them as an MCP server. The global install offers it (yes by default): it registers the server user-scoped over its remote endpoint (no local `npx`) and adds `mcp__context7__*` to the allow list in `~/.claude/settings.json`. With the server already there, it offers the allow rule alone. Without the `claude` CLI on PATH, or with `--home` set, it prints the command instead:
+The standards send an agent to current library docs before it codes against an API that may have moved. Context7 serves them as an MCP server. The global install offers it (yes by default): it registers the server user-scoped over its remote endpoint (no local `npx`) and adds `mcp__context7__*` to the allow list in `~/.claude/settings.json`. With the server already there, it offers the allow rule alone. Without the `claude` CLI on PATH, or with `--home` naming a directory other than your home, it prints the command instead:
 
 ```sh
 claude mcp add --scope user --transport http context7 https://mcp.context7.com/mcp
@@ -53,7 +53,7 @@ claude mcp add --scope user --transport http context7 https://mcp.context7.com/m
 
 It works without a key at a lower rate limit. With a key from context7.com, remove the server and add it again with `--header "CONTEXT7_API_KEY: <key>"`; it lands in `~/.claude.json`, never in a repo. Queries go to Upstash, so keep project details and secrets out of them. `claude mcp list` shows `context7` as connected.
 
-Don't use Context7's own setup (`npx ctx7 setup`) on top: it writes `~/.claude/rules/context7.md` and a `context7-mcp` skill, which tell the agent to always query Context7, against the standards' order (the package's bundled docs first, skip APIs that haven't moved), and repeat the usage steps the server already sends. Delete both if they're there.
+Don't use Context7's own setup (`npx ctx7 setup`) on top: it writes `~/.claude/rules/context7.md` and a `context7-mcp` skill, which tell the agent to always query Context7, against the standards' order (the package's bundled docs first, skip APIs that haven't moved), and repeat the usage steps the server already sends. The installer names them when it finds them; delete both.
 
 ## Session effort
 
