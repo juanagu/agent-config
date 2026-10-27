@@ -3,7 +3,7 @@
 // (docs/architecture.md, "Agents: one source, four dialects").
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { readdirSync } from "node:fs";
+import { readdirSync, readFileSync } from "node:fs";
 import { basename, dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { frontmatter } from "./support/frontmatter.mjs";
@@ -16,6 +16,8 @@ const EFFORTS = new Set(["low", "medium", "high"]);
 const COLORS = new Set(["red", "blue", "green", "yellow", "purple", "orange", "pink", "cyan"]);
 
 const files = readdirSync(agentsDir).filter((f) => f.endsWith(".md"));
+// AGENTS.md, "Context is the cost, not time": an agent sees only its own file, so each carries the rule.
+const HAND_BACK = "Hand back instead of looping: past about 150 tool calls without converging";
 
 test("there are agents to check", () => {
   assert.ok(files.length > 0);
@@ -32,5 +34,9 @@ for (const file of files) {
     if (fm.color !== undefined) assert.ok(COLORS.has(fm.color), `color is "${fm.color}", expected one of ${[...COLORS].join(", ")}`);
     assert.equal(fm.model, undefined, "model is derived from tier by the build; do not set it in the source");
     assert.equal(fm.tools, undefined, "tools are derived from access by the build; do not set them in the source");
+  });
+
+  test(`${file} tells the agent to hand back instead of looping`, () => {
+    assert.ok(readFileSync(join(agentsDir, file), "utf8").includes(HAND_BACK));
   });
 }

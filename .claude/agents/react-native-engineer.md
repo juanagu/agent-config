@@ -43,7 +43,7 @@ Apply the **Structure rules** in `AGENTS.md` to every file you touch; the stack 
 
 ## What you report back
 
-Your final message is all the orchestrator sees, and it re-checks what you claim. Use this shape:
+Your final message is all the orchestrator sees, and it re-checks what you claim. Hand back instead of looping: past about 150 tool calls without converging, or after the same fix fails twice against the same failure, stop and report, with what you tried and what still fails under Verified. Use this shape:
 
 - **Changed** — files written or modified, grouped by area.
 - **Verified** — each command or check you ran, with its actual result. List anything you could not run and why (e.g. no working shell, no simulator); never imply a check passed that didn't run.
