@@ -264,7 +264,7 @@ test("--no-optional adds only the git-guard hook to an existing settings.json, a
   assert.deepEqual(answers(home), {});
 });
 
-test("--yes merges the rtk hook and the CodeGraph rule once, and keeps no answers", (t) => {
+test("--yes merges the rtk hook and the CodeGraph and Context7 rules once, and keeps no answers", (t) => {
   const clone = makeFixtureClone(t);
   const home = freshDir(t);
   const claude = join(home, ".claude");
@@ -273,7 +273,7 @@ test("--yes merges the rtk hook and the CodeGraph rule once, and keeps no answer
   assert.equal(claudeHome(clone, home, "--yes").status, 0);
   assert.equal(claudeHome(clone, home, "--yes").status, 0);
   const settings = readJson(join(claude, "settings.json"));
-  assert.deepEqual(settings.permissions.allow, ["Read", "mcp__codegraph__*"]);
+  assert.deepEqual(settings.permissions.allow, ["Read", "mcp__codegraph__*", "mcp__context7__*"]);
   assert.deepEqual(hookCommands(settings).filter((command) => command.includes("rtk")), ["rtk hook claude"]);
   assert.equal(hookCommands(settings).filter((command) => command.includes("git-guard")).length, 1);
   assert.deepEqual(answers(home), {});
@@ -285,18 +285,47 @@ test("explicit --rtk and --no-codegraph beat the defaults and are remembered, on
   const claude = join(home, ".claude");
   mkdirSync(claude);
   writeJson(join(claude, "settings.json"), {});
-  assert.equal(claudeHome(clone, home, "--rtk", "--no-codegraph").status, 0);
+  assert.equal(claudeHome(clone, home, "--rtk", "--no-codegraph", "--no-context7").status, 0);
   const settings = readJson(join(claude, "settings.json"));
   assert.ok(hookCommands(settings).includes("rtk hook claude"));
   assert.equal(settings.permissions, undefined);
-  assert.deepEqual(answers(home), { rtk: true, codegraph: false });
+  assert.deepEqual(answers(home), { rtk: true, codegraph: false, context7: false });
 
   const fresh = freshDir(t);
-  assert.equal(claudeHome(clone, fresh, "--no-rtk", "--no-codegraph").status, 0);
+  assert.equal(claudeHome(clone, fresh, "--no-rtk", "--no-codegraph", "--no-context7").status, 0);
   const created = readJson(join(fresh, ".claude", "settings.json"));
-  assert.equal(created.permissions, undefined, "--no-codegraph is honoured when settings.json is created");
+  assert.equal(created.permissions, undefined, "--no-codegraph and --no-context7 are honoured when settings.json is created");
   assert.deepEqual(hookCommands(created), [guardCommand(clone, "claude")]);
-  assert.deepEqual(answers(fresh), { rtk: false, codegraph: false });
+  assert.deepEqual(answers(fresh), { rtk: false, codegraph: false, context7: false });
+});
+
+// Every run here sets --home, so the server is never added for real: the installer prints the
+// command instead, and still adds the allow rule.
+test("--context7 adds the allow rule once and prints the command the server needs under another --home", (t) => {
+  const clone = makeFixtureClone(t);
+  const home = freshDir(t);
+  const first = claudeHome(clone, home, "--no-rtk", "--no-codegraph", "--context7");
+  assert.equal(first.status, 0, first.stderr);
+  assert.match(first.stdout, /--home is set: Context7 was not added .* claude mcp add --scope user --transport http context7 https:\/\/mcp\.context7\.com\/mcp/);
+  assert.deepEqual(readJson(join(home, ".claude", "settings.json")).permissions.allow, ["mcp__context7__*"]);
+  assert.deepEqual(answers(home), { rtk: false, codegraph: false, context7: true });
+
+  assert.equal(claudeHome(clone, home, "--no-rtk", "--no-codegraph", "--context7").status, 0);
+  assert.deepEqual(readJson(join(home, ".claude", "settings.json")).permissions.allow, ["mcp__context7__*"]);
+});
+
+test("a Context7 server already in ~/.claude.json gets only the allow rule, and nothing once both are there", (t) => {
+  const clone = makeFixtureClone(t);
+  const home = freshDir(t);
+  writeJson(join(home, ".claude.json"), { mcpServers: { context7: { type: "http", url: "https://mcp.context7.com/mcp" } } });
+  const result = claudeHome(clone, home, "--no-rtk", "--no-codegraph", "--context7");
+  assert.equal(result.status, 0, result.stderr);
+  assert.doesNotMatch(result.stdout, /Context7 was not added/);
+  assert.deepEqual(readJson(join(home, ".claude", "settings.json")).permissions.allow, ["mcp__context7__*"]);
+
+  const again = claudeHome(clone, home, "--no-rtk", "--no-codegraph", "--no-context7");
+  assert.equal(again.status, 0, again.stderr);
+  assert.deepEqual(readJson(join(home, ".claude", "settings.json")).permissions.allow, ["mcp__context7__*"], "a later no removes nothing");
 });
 
 test("an earlier no to the git-guard hook is honoured under --no-optional", (t) => {

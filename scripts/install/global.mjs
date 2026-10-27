@@ -1,14 +1,17 @@
 // Global mode: one function per tool, each linking the clone into that tool's user folders and
 // registering the git-guard hook and the weekly dependency-audit nudge there. Claude Code keeps
-// the fuller flow (settings.json from a template, the optional rtk and CodeGraph pieces); the
-// other three get links plus a merge into their hook files.
+// the fuller flow (settings.json from a template, the optional rtk, CodeGraph and Context7
+// pieces); the other three get links plus a merge into their hook files.
 import { existsSync, mkdirSync, rmSync } from "node:fs";
+import { homedir } from "node:os";
 import { dirname, join } from "node:path";
 import { linkRepoAgents } from "./agents.mjs";
+import * as context7 from "./context7.mjs";
 import { hasCommand } from "./env.mjs";
 import { readJson, writeJson } from "./json.mjs";
 import { createLinker } from "./link.mjs";
 import * as nudge from "./nudge.mjs";
+import { samePath } from "./paths.mjs";
 import * as settings from "./settings.mjs";
 import { linkRepoSkills } from "./skills.mjs";
 import { globalTargets } from "./targets.mjs";
@@ -31,7 +34,7 @@ export async function installGlobal(tool, repoDir, home, prompter, flags) {
   mkdirSync(target.skillsDir, { recursive: true });
   linkRepoSkills(linker, repoDir, target.skillsDir);
   const swept = linker.sweepBrokenLinks(target.skillsDir);
-  if (tool === "claude") await installClaude(repoDir, target, linker, current, prompter, flags);
+  if (tool === "claude") await installClaude(repoDir, home, target, linker, current, prompter, flags);
   else await installRegistration(tool, repoDir, target, linker, current, prompter, flags);
   console.log(`Linked ${target.dir} to ${repoDir} (${tool}${agents.copied ? "; agents copied, since file links need a privilege here" : ""}).`);
   if (agents.removed.length) console.log(`Removed agents the clone no longer has: ${agents.removed.join(", ")}`);
@@ -46,9 +49,9 @@ function readRegistration(file) {
   return existsSync(file) ? readJson(file) : {};
 }
 
-async function installClaude(repoDir, target, linker, current, prompter, flags) {
+async function installClaude(repoDir, home, target, linker, current, prompter, flags) {
   if (linker.writeImport(join(target.dir, "CLAUDE.md"), repoDir)) console.log(`Updated the import in ${join(target.dir, "CLAUDE.md")}.`);
-  await configureSettings(repoDir, current, prompter, flags);
+  await configureSettings(repoDir, home, current, prompter, flags);
 }
 
 // The hook files a tool keeps, each read once: the guard's, and the nudge's where that is another
@@ -95,11 +98,12 @@ function reportCopy(path, outcome) {
 // A missing settings.json is written from the hook-less template plus whatever is accepted
 // below. An existing file is the user's: each addition is offered, and only the ones
 // accepted are merged in.
-async function configureSettings(repoDir, { path, settings: current, created }, prompter, flags) {
+async function configureSettings(repoDir, home, { path, settings: current, created }, prompter, flags) {
   const added = [
     await offerGitGuard(repoDir, current, prompter),
     await offerRtk(current, prompter, flags),
     await offerCodegraph(current, prompter, flags),
+    await offerContext7(current, prompter, flags, home),
     await applyNudge("claude", repoDir, current, prompter, flags),
   ];
   if (!created && !added.includes(true)) return;
@@ -144,6 +148,32 @@ async function offerCodegraph(current, prompter, flags) {
   if (!add) return false;
   settings.addAllowRule(current, settings.CODEGRAPH_RULE);
   return true;
+}
+
+// Context7 serves the library docs the standards send an agent to. One answer covers the server
+// and the rule that lets its tools run without a prompt; with the server already there, the
+// question is about the rule alone.
+async function offerContext7(current, prompter, flags, home) {
+  const registered = context7.isRegistered(home);
+  const allowed = settings.hasAllowRule(current, context7.CONTEXT7_RULE);
+  if (registered && allowed) return false;
+  const question = registered
+    ? "Allow the Context7 MCP tools without a prompt?"
+    : "Add Context7, an MCP server for current library docs (no key needed), and allow its tools without a prompt?";
+  const add = flags.context7 !== null ? prompter.decide("context7", flags.context7) : await prompter.confirm("context7", question, true);
+  if (!add) return false;
+  if (!registered) registerContext7(home);
+  if (allowed) return false;
+  settings.addAllowRule(current, context7.CONTEXT7_RULE);
+  return true;
+}
+
+// `claude mcp add` writes the real ~/.claude.json, so a run with another --home only says how.
+function registerContext7(home) {
+  const manual = `Add it with: ${context7.ADD_COMMAND}`;
+  if (!samePath(home, homedir())) console.log(`--home is set: Context7 was not added to the real ~/.claude.json. ${manual}`);
+  else if (!hasCommand("claude")) console.log(`The claude CLI is not on PATH: Context7 was not added. ${manual}`);
+  else if (context7.register() !== 0) console.log(`claude mcp add failed: Context7 was not added. ${manual}`);
 }
 
 // The weekly dependency-audit nudge, for every tool: --no-audit-nudge takes it out and records the
