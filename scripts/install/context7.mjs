@@ -26,10 +26,12 @@ export function isRegistered(home) {
   }
 }
 
-// Writes the real ~/.claude.json whatever --home says. A shell on Windows, where an
-// npm-installed claude is a .cmd that spawnSync cannot start on its own.
+// Writes the real ~/.claude.json whatever --home says. On Windows an npm-installed claude is a
+// .cmd that only a shell starts, and Node deprecates an args array with a shell (DEP0190), so
+// it gets the command as one string.
 export function register() {
-  const result = spawnSync("claude", ADD_ARGS, { stdio: ["ignore", "inherit", "inherit"], shell: process.platform === "win32" });
+  const stdio = ["ignore", "inherit", "inherit"];
+  const result = process.platform === "win32" ? spawnSync(ADD_COMMAND, { stdio, shell: true }) : spawnSync("claude", ADD_ARGS, { stdio });
   return result.status === 0;
 }
 

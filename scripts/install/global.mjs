@@ -151,7 +151,8 @@ async function offerCodegraph(current, prompter, flags) {
 
 // Context7 serves the library docs the standards send an agent to. One answer covers the server
 // and the rule that lets its tools run without a prompt; with the server already there, the
-// question is about the rule alone.
+// question is about the rule alone. Adding the server sends queries to a third party, so it is
+// never the default: a run without a terminal adds only the rule, for a server already there.
 async function offerContext7(current, prompter, flags, home) {
   warnContext7Leftovers(home);
   const registered = context7.isRegistered(home);
@@ -160,7 +161,7 @@ async function offerContext7(current, prompter, flags, home) {
   const question = registered
     ? "Allow the Context7 MCP tools without a prompt?"
     : "Add Context7, an MCP server for current library docs (no key needed), and allow its tools without a prompt?";
-  const add = flags.context7 !== null ? prompter.decide("context7", flags.context7) : await prompter.confirm("context7", question, true);
+  const add = flags.context7 !== null ? prompter.decide("context7", flags.context7) : await prompter.confirm("context7", question, registered);
   if (!add) return false;
   if (!registered) registerContext7(home);
   if (allowed) return false;
