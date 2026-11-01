@@ -8,3 +8,4 @@ One file per decision, with the alternatives it rejected. A new decision gets th
 | [0002](0002-root-is-the-drop-in.md) | The repository root is the drop-in; the installer copies it into a project or links it into a tool's user folders. |
 | [0003](0003-antigravity-not-gemini.md) | Antigravity CLI is the Google target, not Gemini CLI. |
 | [0004](0004-tiers-not-models.md) | Agents name a tier (judgment, implementation), not a model. |
+| [0005](0005-free-static-scanners.md) | Free static scanners: Semgrep CE with the project's own rules, a subset of eslint-plugin-security, Trivy for images on the weekly and tag runs; agents read a digest. |
