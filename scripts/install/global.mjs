@@ -37,7 +37,9 @@ export async function installGlobal(tool, repoDir, home, prompter, flags) {
   else await installRegistration(tool, repoDir, target, linker, current, prompter, flags);
   console.log(`Linked ${target.dir} to ${repoDir} (${tool}${agents.copied ? "; agents copied, since file links need a privilege here" : ""}).`);
   if (agents.removed.length) console.log(`Removed agents the clone no longer has: ${agents.removed.join(", ")}`);
-  if (swept.length) console.log(`Removed broken skill links: ${swept.join(", ")}`);
+  if (swept.removed.length) console.log(`Removed broken skill links: ${swept.removed.join(", ")}`);
+  const left = [...swept.left, ...agents.left];
+  if (left.length) console.log(`Left broken links that aren't the installer's, in ${target.dir}: ${left.join(", ")}`);
   if (NOTES[tool]) console.log(NOTES[tool]);
   const backup = linker.backupDir();
   if (backup) console.log(`Replaced files were moved to ${backup}`);

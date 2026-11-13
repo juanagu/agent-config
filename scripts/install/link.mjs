@@ -30,7 +30,7 @@ const NAMED_IMPORT = /^@.*(?:agent-config|claude-code-config).*\/CLAUDE\.md$/;
 // is removed. `copies` remembers the hash of each file written as a copy, so a later run can
 // tell our copy (refresh it) from the user's edit (leave it); `imports` remembers the import
 // line written into each CLAUDE.md, so a re-run replaces it wherever the clone lives; `links`
-// remembers the target of each link made or found in place, so a later run sweeps only its own.
+// remembers the target of each link made or found in place, so a sweep removes only its own.
 export function createLinker(toolDir, copies = {}, imports = {}, links = {}) {
   const backupDir = join(toolDir, `backup-${timestamp()}`);
   let backedUp = false;
@@ -41,22 +41,33 @@ export function createLinker(toolDir, copies = {}, imports = {}, links = {}) {
     backedUp = true;
   }
 
+  // A relative target is read from the link's own folder, as the file system reads it.
   function linksTo(path, target) {
     const stat = lstat(path);
-    return Boolean(stat?.isSymbolicLink() && samePath(readlinkSync(path), target));
+    return Boolean(stat?.isSymbolicLink() && samePath(resolve(dirname(path), readlinkSync(path)), target));
+  }
+
+  // Our own unchanged copy, written where a file link could not be made at the time.
+  function isOurCopy(path, stat) {
+    const key = toPosix(path);
+    return Boolean(stat?.isFile() && key in copies && sha256(readFileSync(path)) === copies[key]);
   }
 
   function link(path, target, type = "junction") {
-    links[toPosix(path)] = toPosix(target);
-    delete copies[toPosix(path)];
-    if (linksTo(path, target)) return false;
+    const key = toPosix(path);
+    if (linksTo(path, target)) {
+      links[key] = toPosix(target);
+      return false;
+    }
     const stat = lstat(path);
-    if (stat?.isSymbolicLink()) removeLink(path);
+    if (stat?.isSymbolicLink() || isOurCopy(path, stat)) removeLink(path);
     else if (stat) backup(path);
     mkdirSync(dirname(path), { recursive: true });
     // "junction" makes a directory junction on Windows, which needs no admin rights,
     // and is ignored on every other platform.
     symlinkSync(target, path, type);
+    links[key] = toPosix(target);
+    delete copies[key];
     return true;
   }
 
@@ -133,50 +144,40 @@ export function createLinker(toolDir, copies = {}, imports = {}, links = {}) {
   function forgetCopy(path) {
     const key = toPosix(path);
     if (!(key in copies)) return false;
-    const stat = lstat(path);
-    const ours = Boolean(stat?.isFile() && sha256(readFileSync(path)) === copies[key]);
+    const ours = isOurCopy(path, lstat(path));
     if (ours) unlinkSync(path);
     delete copies[key];
     return ours;
   }
 
-  // A link an install made: recorded with the target it still has (wherever the clone lived, a
-  // worktree included), or, made before links were recorded, one of the shape every install makes:
-  // `<name>` pointing at `.../.<tool>/skills/<name>` or `.../.<tool>/agents/<name>`. Any other
-  // dangling link is the user's (a drive not mounted right now) and stays.
-  function isOurLink(path) {
-    const target = readlinkSync(path);
-    const recorded = links[toPosix(path)];
-    if (recorded !== undefined) return samePath(target, recorded);
-    const parts = resolve(dirname(path), target).split(sep);
-    const [dotDir, kind, name] = parts.slice(-3);
-    return name === basename(path) && (kind === "skills" || kind === "agents") && /^\.[\w-]+$/.test(dotDir ?? "");
-  }
-
-  // Records under `dir` whose path is no longer a link with the recorded target: the user removed
-  // it, put something of their own there, or pointed it elsewhere.
-  function pruneRecords(dir) {
-    const prefix = `${toPosix(dir)}/`;
-    for (const [key, target] of Object.entries(links)) {
-      if (!key.startsWith(prefix)) continue;
-      const stat = lstat(key);
-      if (!stat?.isSymbolicLink() || !samePath(readlinkSync(key), target)) delete links[key];
-    }
-  }
-
+  // A dangling link is ours only when the record holds it with the target it still has, wherever
+  // the clone that made it lived. Any other is the user's (a drive not mounted right now): it stays,
+  // and is listed so the user can remove it.
   function sweepBrokenLinks(dir) {
     const removed = [];
-    if (!existsSync(dir)) return removed;
+    const left = [];
+    if (!existsSync(dir)) return { removed, left };
     for (const name of readdirSync(dir)) {
       const full = join(dir, name);
-      if (lstat(full)?.isSymbolicLink() && !existsSync(full) && isOurLink(full)) {
+      if (!lstat(full)?.isSymbolicLink() || existsSync(full)) continue;
+      const key = toPosix(full);
+      if (key in links && linksTo(full, links[key])) {
         removeLink(full);
-        delete links[toPosix(full)];
+        delete links[key];
         removed.push(name);
-      }
+      } else left.push(name);
     }
     pruneRecords(dir);
-    return removed;
+    return { removed, left };
+  }
+
+  // A record whose path no longer holds a link is dropped. One the user pointed elsewhere is kept,
+  // since its old target is what tells that link apart from ours.
+  function pruneRecords(dir) {
+    const prefix = `${toPosix(dir)}/`;
+    for (const key of Object.keys(links)) {
+      if (key.startsWith(prefix) && !lstat(key)?.isSymbolicLink()) delete links[key];
+    }
   }
 
   return { link, linkFile, writeImport, copy, forgetCopy, sweepBrokenLinks, backupDir: () => (backedUp ? backupDir : null) };

@@ -18,18 +18,20 @@ function ensureDirectory(dir) {
   mkdirSync(dir, { recursive: true });
 }
 
-// Returns { linked, copied, removed }: counts of what changed this run.
+// Returns { linked, copied, removed, left }: what changed this run, and the broken links left as the user's.
 export function linkRepoAgents(linker, repoDir, { dir, source }) {
   const sourceDir = join(repoDir, source);
   ensureDirectory(dir);
   const names = existsSync(sourceDir) ? readdirSync(sourceDir).filter(isAgentFile) : [];
-  const result = { linked: 0, copied: 0, removed: [] };
+  const result = { linked: 0, copied: 0, removed: [], left: [] };
   for (const name of names) {
     const outcome = linker.linkFile(join(dir, name), join(sourceDir, name));
     if (outcome === "linked") result.linked++;
     if (outcome === "copied") result.copied++;
   }
-  for (const name of linker.sweepBrokenLinks(dir)) result.removed.push(name);
+  const swept = linker.sweepBrokenLinks(dir);
+  result.removed.push(...swept.removed);
+  result.left.push(...swept.left);
   for (const name of readdirSync(dir)) {
     if (!names.includes(name) && linker.forgetCopy(join(dir, name))) result.removed.push(name);
   }
