@@ -72,7 +72,7 @@ export const HOOK_TARGETS = {
     path: ".cursor/hooks.json",
     content: (command) => ({
       version: 1,
-      hooks: { beforeShellExecution: [{ command: `${command} --tool cursor`, matcher: "\\b(git|gh)\\b", timeout: 15 }] },
+      hooks: { beforeShellExecution: [{ command: `${command} --tool cursor`, timeout: 15 }] },
     }),
   },
   copilot: {

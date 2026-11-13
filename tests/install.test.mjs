@@ -596,6 +596,21 @@ test("a hook registration from a previous clone location is re-pointed for Curso
   assert.equal(readJson(join(home, ".gemini", "config", "hooks.json"))["git-guard"].PreToolUse[0].hooks[0].command, guardCommand(clone, "antigravity"));
 });
 
+test("a Cursor guard entry loses the git-and-gh-only matcher it was installed with, and keeps any other", (t) => {
+  const clone = makeFixtureClone(t);
+  const home = freshDir(t);
+  const file = join(home, ".cursor", "hooks.json");
+  mkdirSync(join(home, ".cursor"));
+  const entry = (matcher) => ({ command: 'node "C:/old/.agents/hooks/git-guard/git-guard.mjs" --tool cursor', matcher, timeout: 15 });
+  writeJson(file, { version: 1, hooks: { beforeShellExecution: [entry(String.raw`\b(git|gh)\b`)] } });
+  assert.equal(global(clone, home, "--tool", "cursor").status, 0);
+  assert.deepEqual(readJson(file).hooks.beforeShellExecution, [{ command: guardCommand(clone, "cursor"), timeout: 15 }]);
+
+  writeJson(file, { version: 1, hooks: { beforeShellExecution: [entry("git")] } });
+  assert.equal(global(clone, home, "--tool", "cursor").status, 0);
+  assert.equal(readJson(file).hooks.beforeShellExecution[0].matcher, "git", "a matcher the user chose is theirs");
+});
+
 test("Copilot gets a copy of AGENTS.md that follows the clone until the user edits it, the agents and skills, and its hook file", (t) => {
   const clone = makeFixtureClone(t);
   const home = freshDir(t);

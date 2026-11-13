@@ -43,6 +43,8 @@ Then start a new session: hooks and agents are read at session start.
   { "protectedCheckouts": ["C:/Users/me/Projects/my-app"] }
   ```
 
+- **Protected environments**: declare each hosting CLI under `protectedEnvironments` in the same file (`docs/git-guard.md`). For a connector to the same provider, deny the whole server in `~/.claude/settings.json`, reads included, since its reads can return secrets: `"permissions": { "deny": ["mcp__<server>"] }`. `/mcp` shows the server's name.
+
 ## Library docs
 
 The standards send an agent to current library docs before it codes against an API that may have moved. Context7 serves them as an MCP server. The global install offers it (no by default, since queries leave the machine; `--context7` or `--yes` accepts): it registers the server user-scoped over its remote endpoint (no local `npx`) and adds `mcp__context7__*` to the allow list in `~/.claude/settings.json`. With the server already there, it offers the allow rule alone, yes by default. Without the `claude` CLI on PATH, or with `--home` naming a directory other than your home, it prints the command instead:

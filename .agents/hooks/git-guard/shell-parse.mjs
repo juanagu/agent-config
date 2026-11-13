@@ -15,10 +15,23 @@ export function toNativePath(p) {
   return posixDrive ? `${posixDrive[1].toUpperCase()}:${posixDrive[2] ?? "/"}` : expanded;
 }
 
+// A heredoc opener outside quotes (`<<EOF`, `<<-'EOF'`), not a here-string (`<<<`).
+const HEREDOC_START = /(?<!<)<<(-?)\s*['"]?(\w+)['"]?/;
+
+// Where a heredoc body ends: the line holding only its delimiter, tab-indented under `<<-`.
+function heredocEnd(command, from, delimiter, indented) {
+  const closing = new RegExp(`\n${indented ? "\\t*" : ""}${delimiter}\r?(?=\n|$)`, "g");
+  closing.lastIndex = from;
+  const found = closing.exec(command);
+  return found ? found.index + found[0].length : command.length;
+}
+
 // Splits on shell separators outside quotes, and skips heredoc bodies (a commit message is not a command).
 export function splitSegments(command) {
   const segments = [];
   let current = "";
+  // The segment with every `<` inside quotes blanked, so only a heredoc opener the shell sees is found.
+  let unquoted = "";
   let quote = null;
   let i = 0;
   while (i < command.length) {
@@ -26,23 +39,27 @@ export function splitSegments(command) {
     if (quote) {
       if (ch === quote) quote = null;
       current += ch;
+      unquoted += ch === "<" ? " " : ch;
       i++;
     } else if (ch === '"' || ch === "'") {
       quote = ch;
       current += ch;
+      unquoted += ch;
       i++;
-    } else if (ch === "\n" && /<<-?\s*['"]?(\w+)['"]?/.test(current)) {
-      const delimiter = current.match(/<<-?\s*['"]?(\w+)['"]?/)[1];
-      const end = command.indexOf(`\n${delimiter}`, i);
+    } else if (ch === "\n" && HEREDOC_START.test(unquoted)) {
+      const [, indented, delimiter] = unquoted.match(HEREDOC_START);
       segments.push(current);
       current = "";
-      i = end === -1 ? command.length : end + delimiter.length + 1;
+      unquoted = "";
+      i = heredocEnd(command, i, delimiter, indented === "-");
     } else if (ch === "\n" || ch === ";" || ch === "|" || command.startsWith("&&", i)) {
       segments.push(current);
       current = "";
+      unquoted = "";
       i += command.startsWith("&&", i) || command.startsWith("||", i) ? 2 : 1;
     } else {
       current += ch;
+      unquoted += ch;
       i++;
     }
   }

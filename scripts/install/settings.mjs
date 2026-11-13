@@ -120,6 +120,18 @@ export function guardCommandIn(registration) {
   return null;
 }
 
+// A matcher for git and gh alone would hide the declared deploy CLIs from the guard, so a guard entry
+// carrying exactly this one loses it; any other matcher is the user's.
+const RETIRED_GUARD_MATCHER = "\\b(git|gh)\\b";
+
+function dropRetiredMatchers(value, paths) {
+  for (const path of paths) {
+    for (const entry of arrayAt(value, path)) {
+      if (runsScript(entry, GIT_GUARD_NEEDLE) && entry.matcher === RETIRED_GUARD_MATCHER) delete entry.matcher;
+    }
+  }
+}
+
 // A registration file brought up to date with the clone's: a guard entry under the same hook
 // event (the old ~/.claude/hooks path, a previous clone, a project-relative form) is re-pointed
 // at the clone's command, a missing one is merged in. Returns the new value and whether it
@@ -127,7 +139,9 @@ export function guardCommandIn(registration) {
 export function registerGuard(current, registration) {
   const command = guardCommandIn(registration);
   const next = structuredClone(current);
-  const found = repointCommands(next, GIT_GUARD_NEEDLE, command, hookArrayPaths(registration, GIT_GUARD_NEEDLE));
+  const paths = hookArrayPaths(registration, GIT_GUARD_NEEDLE);
+  const found = repointCommands(next, GIT_GUARD_NEEDLE, command, paths);
+  if (found) dropRetiredMatchers(next, paths);
   const value = found ? next : mergeRegistration(current, registration);
   return { value, changed: JSON.stringify(value) !== JSON.stringify(current) };
 }
