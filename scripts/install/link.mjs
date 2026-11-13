@@ -1,7 +1,7 @@
 import { copyFileSync, existsSync, lstatSync, mkdirSync, readdirSync, readFileSync, readlinkSync, renameSync, rmdirSync, symlinkSync, unlinkSync, writeFileSync } from "node:fs";
-import { basename, dirname, join } from "node:path";
+import { basename, dirname, join, resolve } from "node:path";
 import { sha256 } from "./json.mjs";
-import { samePath, toPosix } from "./paths.mjs";
+import { isInside, samePath, toPosix } from "./paths.mjs";
 
 export { samePath };
 
@@ -20,6 +20,10 @@ function removeLink(path) {
     rmdirSync(path);
   }
 }
+
+// A folder named after this repo or its predecessor somewhere in a link's target: where a clone
+// that has since moved left its links.
+const NAMED_CLONE = /[\\/](?:agent-config|claude-code-config)[\\/]/;
 
 // An `@` import of a CLAUDE.md in a clone named after this repo or its predecessor; a clone
 // elsewhere is recognised by the line the installer wrote last time (`imports`).
@@ -133,12 +137,19 @@ export function createLinker(toolDir, copies = {}, imports = {}) {
     return true;
   }
 
-  function sweepBrokenLinks(dir) {
+  // Only links an install could have made: into this clone, or into a clone named after the repo
+  // that has moved. Any other dangling link is the user's (a drive not mounted right now) and stays.
+  function isOurLink(path, repoDir) {
+    const target = resolve(dirname(path), readlinkSync(path));
+    return isInside(target, repoDir) || NAMED_CLONE.test(target);
+  }
+
+  function sweepBrokenLinks(dir, repoDir) {
     const removed = [];
     if (!existsSync(dir)) return removed;
     for (const name of readdirSync(dir)) {
       const full = join(dir, name);
-      if (lstat(full)?.isSymbolicLink() && !existsSync(full)) {
+      if (lstat(full)?.isSymbolicLink() && !existsSync(full) && isOurLink(full, repoDir)) {
         removeLink(full);
         removed.push(name);
       }

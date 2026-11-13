@@ -32,7 +32,7 @@ export async function installGlobal(tool, repoDir, home, prompter, flags) {
   const agents = linkRepoAgents(linker, repoDir, target.agents);
   mkdirSync(target.skillsDir, { recursive: true });
   linkRepoSkills(linker, repoDir, target.skillsDir);
-  const swept = linker.sweepBrokenLinks(target.skillsDir);
+  const swept = linker.sweepBrokenLinks(target.skillsDir, repoDir);
   if (tool === "claude") await installClaude(repoDir, home, target, linker, current, prompter, flags);
   else await installRegistration(tool, repoDir, target, linker, current, prompter, flags);
   console.log(`Linked ${target.dir} to ${repoDir} (${tool}${agents.copied ? "; agents copied, since file links need a privilege here" : ""}).`);

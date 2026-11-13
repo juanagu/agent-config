@@ -15,9 +15,19 @@ export function expandHome(path, home = homedir()) {
 // Two spellings of one directory: a trailing slash, a `\\?\` prefix, or a case difference on
 // Windows do not make a different path.
 export function samePath(a, b) {
-  const normalise = (path) => resolve(path.replace(/^\\\\\?\\/, "")).replace(/[\\/]+$/, "");
-  const [x, y] = [normalise(a), normalise(b)];
-  return process.platform === "win32" ? x.toLowerCase() === y.toLowerCase() : x === y;
+  return comparable(a) === comparable(b);
+}
+
+// One spelling per directory: no `\\?\` prefix or trailing slash, and lowercase on Windows.
+function comparable(path) {
+  const plain = resolve(path.replace(/^\\\\\?\\/, "")).replace(/[\\/]+$/, "");
+  return process.platform === "win32" ? plain.toLowerCase() : plain;
+}
+
+// Whether `path` is `dir` or somewhere under it, with samePath's idea of one spelling.
+export function isInside(path, dir) {
+  const [child, parent] = [comparable(path), comparable(dir)];
+  return child === parent || child.startsWith(parent + sep);
 }
 
 // Tools that ignore --home (npx skills, claude mcp add) may run only when it names the real home.

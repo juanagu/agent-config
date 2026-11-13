@@ -8,6 +8,13 @@ import { samePath } from "../scripts/install/paths.mjs";
 import { FIXTURE_FILES, FIXTURE_SKILLS, freshDir, makeFixtureClone } from "./support/fixture-clone.mjs";
 
 const posix = (path) => path.split(sep).join("/");
+const lstatOrNull = (path) => {
+  try {
+    return lstatSync(path);
+  } catch {
+    return null;
+  }
+};
 const isLinkTo = (path, target) => lstatSync(path).isSymbolicLink() && realpathSync(path) === realpathSync(target);
 // An agent is installed as a file symlink where the platform allows one, else as a copy.
 const isAgentFrom = (path, target) => existsSync(path) && (isLinkTo(path, target) || (!lstatSync(path).isSymbolicLink() && readFileSync(path).equals(readFileSync(target))));
@@ -220,19 +227,41 @@ test("an agent the clone no longer has is removed from the user folder; a user's
   assert.match(result.stdout, /Removed agents the clone no longer has: demo\.md/);
 });
 
-test("a skill link whose target is gone is removed", (t) => {
+// A link to a folder that is then removed: a dangling link to `target`.
+function danglingLink(path, target) {
+  mkdirSync(target, { recursive: true });
+  symlinkSync(target, path, "junction");
+  rmSync(target, { recursive: true });
+}
+
+test("a dangling skill link into the clone, or into a moved clone named after the repo, is removed", (t) => {
   const clone = makeFixtureClone(t);
   const home = freshDir(t);
   const skills = join(home, ".claude", "skills");
-  const gone = join(home, "gone-skill");
   mkdirSync(skills, { recursive: true });
-  mkdirSync(gone);
-  symlinkSync(gone, join(skills, "gone-skill"), "junction");
-  rmSync(gone, { recursive: true });
+  danglingLink(join(skills, "gone-skill"), join(clone, ".agents", "skills", "gone-skill"));
+  danglingLink(join(skills, "moved-skill"), join(home, "old", "agent-config", ".agents", "skills", "moved-skill"));
   const result = claudeHome(clone, home, "--no-optional");
   assert.equal(result.status, 0, result.stderr);
-  assert.ok(!existsSync(join(skills, "gone-skill")));
-  assert.match(result.stdout, /Removed broken skill links: gone-skill/);
+  assert.ok(!lstatOrNull(join(skills, "gone-skill")));
+  assert.ok(!lstatOrNull(join(skills, "moved-skill")));
+  assert.match(result.stdout, /Removed broken skill links: (gone-skill, moved-skill|moved-skill, gone-skill)/);
+});
+
+test("a dangling link of the user's own, in the skills or agents folder, is left alone", (t) => {
+  const clone = makeFixtureClone(t);
+  const home = freshDir(t);
+  const skills = join(home, ".claude", "skills");
+  const agents = join(home, ".claude", "agents");
+  mkdirSync(skills, { recursive: true });
+  mkdirSync(agents, { recursive: true });
+  danglingLink(join(skills, "my-skill"), join(home, "unmounted-drive", "my-skill"));
+  danglingLink(join(agents, "my-agent.md"), join(home, "unmounted-drive", "my-agent"));
+  const result = claudeHome(clone, home, "--no-optional");
+  assert.equal(result.status, 0, result.stderr);
+  assert.ok(lstatOrNull(join(skills, "my-skill"))?.isSymbolicLink());
+  assert.ok(lstatOrNull(join(agents, "my-agent.md"))?.isSymbolicLink());
+  assert.doesNotMatch(result.stdout, /my-skill|my-agent/);
 });
 
 test("an existing settings.json that already has the hook is left byte for byte", (t) => {
