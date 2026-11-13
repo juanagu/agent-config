@@ -45,6 +45,35 @@ new file mode 100644
 +    return reply.send(result.body);
 +  }
 +}
+diff --git a/src/features/invites/domain/use-cases/invite-service.ts b/src/features/invites/domain/use-cases/invite-service.ts
+new file mode 100644
+--- /dev/null
++++ b/src/features/invites/domain/use-cases/invite-service.ts
+@@ -0,0 +1,24 @@
++import { randomUUID } from "node:crypto";
++import type { Invite } from "../entities/invite.entity";
++
++export interface InviteStore {
++  insert(invite: Omit<Invite, "_id">): Promise<Invite>;
++  findByToken(token: string): Promise<Invite | null>;
++  markAccepted(token: string): Promise<void>;
++}
++
++export class InviteService {
++  constructor(private readonly store: InviteStore) {}
++
++  async create(workspaceId: string, email: string, role: string) {
++    const now = new Date();
++    return this.store.insert({ workspaceId, email, role, token: randomUUID(), createdAt: now, updatedAt: now });
++  }
++
++  async accept(token: string) {
++    const invite = await this.store.findByToken(token);
++    if (!invite) return { ok: false, status: 404 };
++    await this.store.markAccepted(token);
++    return { ok: true, status: 200, body: invite };
++  }
++}
 diff --git a/src/features/invites/api/proxies/http-billing.client.ts b/src/features/invites/api/proxies/http-billing.client.ts
 new file mode 100644
 --- /dev/null

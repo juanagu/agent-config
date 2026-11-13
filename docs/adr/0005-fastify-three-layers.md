@@ -10,7 +10,7 @@ Date: 2026-11-12. Status: accepted.
 
 Each feature has three layer folders: `domain/` (entities, value objects, use-cases, repository interfaces, reference data), `data/` (repository implementations, models, mappers, clients for other services, queue definitions and producers, seeds, migrations) and `api/` (routes, schemas, controllers, middlewares, job processors and workers). Placement follows one rule: inbound goes in `api/`, outbound goes in `data/`. A BFF's calls to other services are outbound, so they go in `data/clients`. `core/` holds app infrastructure with no business meaning. `shared/` holds cross-feature business code by topic, under the existing two-importers rule, and never `utils/` or `helpers/`.
 
-A layer folder appears with its first file. Inside a layer, a sub-folder appears with the second file of its kind. File names carry a dotted role suffix (`*.use-case.ts`, `*.repository.ts`, `*.controller.ts`…), so the boundaries lint knows each file's element type whether it sits flat or in a sub-folder.
+A layer folder appears with its first file: the skill names `domain/`, `data/` and `api/` as present from the start, the exception the standards' feature-shape rule allows to its second-file threshold. Inside a layer, a sub-folder appears with the second file of its kind. File names carry a dotted role suffix (`*.use-case.ts`, `*.repository.ts`, `*.controller.ts`…), so the boundaries lint knows each file's element type whether it sits flat or in a sub-folder.
 
 ## Alternatives
 
