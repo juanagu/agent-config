@@ -172,6 +172,37 @@ describe("the shell forms around the CLI", () => {
   });
   it("does not take an option as an environment flag's value", () => blocked("fakecloud up -e --detach"));
   it("keeps reading arguments past a literal {", () => blocked("fakecloud variables set { -e production"));
+  it("reads a value the shell expands as a protected environment", () => {
+    const reason = blocked("E=production; fakecloud up -e $E");
+    assert.match(reason, /expands at run time/);
+    blocked('fakecloud up -e "$(cat env)"');
+    blocked('fakecloud up -e produc"tion"');
+    blocked("fakecloud up --environment=prod*");
+    allowed("fakecloud logs -e $E");
+  });
+  it("matches a quoted path to the CLI", () => {
+    blocked('"/opt/my tools/fakecloud" up -e production');
+    blocked("& 'C:\\Program Files\\fakecloud\\fakecloud.exe' up");
+  });
+  it("finds it in a process substitution", () => {
+    blocked("cat <(fakecloud up -e production)");
+    blocked("tee >(fakecloud up)");
+  });
+  it("reads an environment flag on a continued line", () => blocked("fakecloud up -e staging \\\n -e production"));
+  it("reads a cluster ending in the environment flag", () => blocked("fakecloud up -e staging -de production"));
+  it("finds it after a heredoc closed with a tab or never opened", () => {
+    blocked("cat <<-EOF\n\thi\n\tEOF\nfakecloud up -e production");
+    blocked('echo "see <<EOF"\nfakecloud up -e production');
+    blocked("cat <<< x\nfakecloud up -e production");
+  });
+  it("does not read a quote inside a heredoc commit body as ending the message", () =>
+    allowed("git commit -m \"$(cat <<'EOF'\nfix \"fakecloud\" thing\nEOF\n)\""));
+  it("leaves redirections out of the help and read-only checks", () => {
+    allowed("fakecloud --help > out.txt");
+    allowed("fakecloud logs -e production 2>&1 >> out.txt");
+    allowed("fakecloud logs -e production &> out.txt");
+    blocked("fakecloud up > out.txt");
+  });
   it("does not read the CLI's name inside a quoted argument", () => allowed('echo "fakecloud up -e production"'));
   it("leaves other programs alone", () => allowed("othercloud up -e production"));
 });

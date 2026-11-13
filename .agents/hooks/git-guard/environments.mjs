@@ -12,11 +12,19 @@ import { splitSegments } from "./shell-parse.mjs";
 const HELP_FLAGS = new Set(["--help", "-h", "--version"]);
 const SHELLS = "bash|sh|zsh|dash|ksh|fish|pwsh|powershell";
 const isShellStringFlag = (t) => /^-[a-zA-Z]*c$/.test(t) || ["-command", "/c"].includes(t.toLowerCase());
-// Shell punctuation glued to a word: `(cli`, `$(cli`, `` `cli ``, `{cli`, `x="$(cli`, `cli)`.
-const LEADING = /^.*(\$\(|`)|^[({&]+/;
+// Shell punctuation glued to a word: `(cli`, `$(cli`, `<(cli`, `` `cli ``, `{cli`, `x="$(cli`, `cli)`.
+const LEADING = /^.*(\$\(|`|[<>]\()|^[({&]+/;
 const TRAILING = /[)`};"']+$/;
 const HEREDOC = /<<-?\s*(['"]?)(\w+)\1[^\n]*\n[\s\S]*?\n\s*\2(?=\s|\)|"|$)/g;
 const SHELL_HEREDOC = new RegExp(`\\b(?:${SHELLS})\\b[^\\n]*<<-?\\s*(['"]?)(\\w+)\\1[^\\n]*\\n([\\s\\S]*?)\\n\\s*\\2(?=\\s|$)`, "g");
+
+// A value the shell works out at run time (`$E`, `$(cat env)`, a glob, `produc"tion"`) could be any
+// environment, so it is read as a protected one.
+const EXPANDED = /[$`*?[\]{}"'\\]/;
+const UNKNOWN = "an environment the shell expands at run time";
+// A redirection (`>`, `2>>`, `<`, `&>`), which takes the next word as its file unless one is attached.
+const REDIRECT = /^(\d*|&)(>>?|<)(&\d*)?$/;
+const ATTACHED_REDIRECT = /^(\d*|&)(>>?|<)\S+$/;
 
 const lower = (value) => String(value).toLowerCase();
 const toList = (value) => (Array.isArray(value) ? value : [value]);
@@ -60,13 +68,14 @@ function ruleFor(rules, raw) {
 // Whether a command line could hold a declared CLI at all: a cheap test before any parsing.
 const mentionsDeclared = (command, rules) => rules.some((r) => [...r.names].some((n) => lower(command).includes(commandName(n))));
 
-// The value a token gives one of the flags: `--env x`, `--env=x`, or a short flag's attached `-ex`. A next
-// token that is itself an option is no value.
+// The value a token gives one of the flags: `--env x`, `--env=x`, a short flag's attached `-ex`, or the next
+// word after a cluster ending in it (`-de x`). A next token that is itself an option is no value.
 function flagValue(args, i, flag) {
   const arg = args[i];
-  if (arg === flag) return args[i + 1] && !args[i + 1].startsWith("-") ? { value: args[i + 1], width: 2 } : { value: "", width: 1 };
-  if (arg.startsWith(`${flag}=`)) return { value: arg.slice(flag.length + 1), width: 1 };
   const short = /^-[^-]$/.test(flag);
+  const endsCluster = short && /^-[a-zA-Z]{2,}$/.test(arg) && arg.endsWith(flag[1]) && !arg.startsWith(flag);
+  if (arg === flag || endsCluster) return args[i + 1] && !args[i + 1].startsWith("-") ? { value: args[i + 1], width: 2 } : { value: "", width: 1 };
+  if (arg.startsWith(`${flag}=`)) return { value: arg.slice(flag.length + 1), width: 1 };
   return short && arg.startsWith(flag) ? { value: arg.slice(flag.length), width: 1 } : null;
 }
 
@@ -85,7 +94,7 @@ function readArgs(args, flags) {
     if (!found) rest.push(args[i++]);
     else {
       const value = lower(unquote(found.value));
-      if (value) environments.push(value);
+      if (value) environments.push(EXPANDED.test(value) ? UNKNOWN : value);
       i += found.width;
     }
   }
@@ -107,9 +116,12 @@ function isReadOnly(rest, readOnly) {
   return readOnly.some((entry) => entry.every((word, i) => lower(rest[i] ?? "") === word));
 }
 
+const isProtected = (rule, environment) => environment === UNKNOWN || rule.protected.has(environment);
+
 function refusal(rule, rest, environments) {
   const what = `${rule.command} ${rest.filter((a) => !a.startsWith("-")).slice(0, 2).join(" ")}`.trim();
-  const named = environments.find((e) => rule.protected.has(e));
+  const named = environments.find((e) => isProtected(rule, e));
+  if (named === UNKNOWN) return `${what} targets ${UNKNOWN}, which may be protected. Name the environment literally. If it is meant, ask the user to run it themselves.`;
   const allowed = rule.readOnly.length ? ` Only ${rule.readOnly.map((w) => w.join(" ")).join(", ")} run there.` : "";
   const handOff = "If it is meant, ask the user to run it themselves.";
   if (named) return `${what} targets ${named}, a protected environment (listed in ${CONFIG_HINT}).${allowed} ${handOff}`;
@@ -120,10 +132,16 @@ function refusal(rule, rest, environments) {
 }
 
 // The arguments of the call at `start`: up to a background `&`, or through a word that closes a substitution.
+// Redirections and their files are the shell's, not the CLI's.
 function argsFrom(raws, start) {
   const args = [];
+  let skipNext = false;
   for (const raw of raws.slice(start + 1)) {
     if (raw === "&") break;
+    if (skipNext || REDIRECT.test(raw) || ATTACHED_REDIRECT.test(raw)) {
+      skipNext = !skipNext && REDIRECT.test(raw) && !/&\d*$/.test(raw);
+      continue;
+    }
     args.push(isQuoted(raw) ? unquote(raw) : raw.replace(TRAILING, ""));
     if (!isQuoted(raw) && /[)`]["']*$/.test(raw)) break;
   }
@@ -132,7 +150,7 @@ function argsFrom(raws, start) {
 
 function callReason(raws, start, rule) {
   const { environments, rest } = readArgs(argsFrom(raws, start), rule.flags);
-  const touchesProtected = environments.length === 0 || environments.some((e) => rule.protected.has(e));
+  const touchesProtected = environments.length === 0 || environments.some((e) => isProtected(rule, e));
   return touchesProtected && !isReadOnly(rest, rule.readOnly) ? refusal(rule, rest, environments) : null;
 }
 
@@ -149,15 +167,19 @@ function executedText(raws, j) {
 // A single `&` runs what is before it in the background: `a&b` is two calls, while `&&`, `2>&1` and `&>` are not.
 const splitBackground = (raws) => raws.flatMap((t) => (isQuoted(t) ? [t] : t.split(/(?<![&>])(&)(?![&>])/).filter(Boolean)));
 
+// A quoted word may still be the command (`"/opt/my tools/cli"`, `& 'C:\\Program Files\\cli.exe'`).
+const quotedRule = (rules, raw) => (isQuoted(raw) ? ruleFor(rules, unquote(raw)) : null);
+
 function segmentReason(segment, rules) {
-  const raws = splitBackground(segment.match(/"[^"]*"|'[^']*'|\S+/g) ?? []);
+  const text = segment.replace(HEREDOC, " ");
+  const raws = splitBackground(text.match(/"[^"]*"|'[^']*'|\S+/g) ?? []);
   for (let j = 0; j < raws.length; j++) {
     const inner = isQuoted(raws[j]) ? executedText(raws, j) : [];
     for (const text of inner) {
       const reason = commandLineReason(text, rules);
       if (reason) return reason;
     }
-    const rule = isQuoted(raws[j]) ? null : ruleFor(rules, raws[j]);
+    const rule = isQuoted(raws[j]) ? quotedRule(rules, raws[j]) : ruleFor(rules, raws[j]);
     const reason = rule && callReason(raws, j, rule);
     if (reason) return reason;
   }
@@ -179,5 +201,5 @@ function commandLineReason(commandLine, rules) {
 // The reason to refuse a whole command line, or null.
 export function environmentReason(command, rules) {
   if (!rules.length || !mentionsDeclared(command, rules)) return null;
-  return commandLineReason(command, rules);
+  return commandLineReason(command.replace(/\\\r?\n/g, " "), rules);
 }

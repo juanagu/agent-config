@@ -142,6 +142,11 @@ describe("trunk protection (any repo)", () => {
     onBranch(plainRepo, () => {
       allowed("git commit -q -F - <<'EOF'\nfeat: x\n\ngit push origin main\n--no-verify\nEOF\ngit status", plainRepo);
     }));
+  it("reads the commands after a heredoc closed with a tab, and after a quoted or here-string <<", () => {
+    blocked("cat <<-EOF\n\tx\n\tEOF\ngit push origin main", plainRepo);
+    blocked('echo "see <<EOF"\ngit push origin main', plainRepo);
+    blocked("cat <<< x\ngit push origin main", plainRepo);
+  });
   it("falls back to master when origin/HEAD is unknown", () => {
     const repo = makeRepo(home, "master-repo", "master");
     sh(repo, ["switch", "-q", "feat/x"]);
