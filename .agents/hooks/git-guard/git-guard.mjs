@@ -13,14 +13,17 @@
 //   - no stash entry without a message (bare `git stash`, `push`, `save`, `store`), no `pop`, `apply`,
 //     `drop` or `branch` without a stash reference, and no `clear`: the stash stack is shared across
 //     worktrees and sessions, so only a tagged entry applied by hash is safe
+//   - no deploy or infrastructure CLI declared under protectedEnvironments in the same file acting on a
+//     protected environment, or naming none, outside its read-only subcommands (environments.mjs)
 // The decision (`check`) is tool-agnostic; adapters.mjs holds each tool's payload and deny shape.
 // Any error in the hook itself fails open.
 import { execFileSync } from "node:child_process";
 import { existsSync, readFileSync, realpathSync } from "node:fs";
-import { homedir } from "node:os";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { ADAPTERS } from "./adapters.mjs";
+import { CONFIG_HINT, readConfig } from "./config.mjs";
+import { environmentReason, loadEnvironmentRules } from "./environments.mjs";
 import {
   hasShortFlag,
   moveDirectory,
@@ -44,16 +47,6 @@ const GH_VALUE_FLAGS = new Set(["-R", "--repo", "-b", "--branch"]);
 const CREATE_FLAGS = new Set(["-b", "-B", "-c", "-C", "--orphan"]);
 const DISABLING_CONFIG = /^(core\.hookspath|commit\.gpgsign|gpg\.)/i;
 const DEFAULT_TRUNKS = ["main", "master"];
-const CONFIG_HINT = "~/.config/agent-config/git-guard.json";
-
-// GIT_GUARD_CONFIG wins; otherwise the current file, falling back to the one claude-code-config wrote.
-export function configPath() {
-  if (process.env.GIT_GUARD_CONFIG) return process.env.GIT_GUARD_CONFIG;
-  const home = process.env.GIT_GUARD_HOME ?? homedir();
-  const current = path.join(home, ".config", "agent-config", "git-guard.json");
-  const legacy = path.join(home, ".claude", "git-guard.json");
-  return !existsSync(current) && existsSync(legacy) ? legacy : current;
-}
 
 function git(dir, args) {
   return execFileSync("git", ["-C", dir, ...args], {
@@ -75,13 +68,6 @@ function realOrResolved(resolved) {
 // Real path, so a checkout listed through a symlink (macOS's /var is /private/var) matches git's toplevel.
 function normalize(p) {
   return realOrResolved(path.resolve(toNativePath(p))).replace(/\\/g, "/").replace(/\/$/, "").toLowerCase();
-}
-
-function loadProtectedCheckouts() {
-  const file = configPath();
-  if (!existsSync(file)) return [];
-  const config = JSON.parse(readFileSync(file, "utf8"));
-  return (config.protectedCheckouts ?? []).map(normalize);
 }
 
 function isRef(dir, name) {
@@ -316,11 +302,15 @@ function checkGit(parsedGit, dir, state) {
 }
 
 export function check(command, cwd) {
-  const state = { protectedCheckouts: loadProtectedCheckouts(), branches: new Map() };
+  const config = readConfig();
+  const environments = loadEnvironmentRules(config);
+  const state = { protectedCheckouts: (config.protectedCheckouts ?? []).map(normalize), branches: new Map() };
   const dirs = newDirectoryState(cwd);
   for (const segment of splitSegments(command)) {
     const toks = tokens(segment);
     if (moveDirectory(dirs, toks)) continue;
+    const environment = environmentReason(toks, environments);
+    if (environment) return environment;
     const parsed = parseGit(toks) ?? parseGh(toks);
     if (!parsed) continue;
     const repoDir = parsed.dirOverride ? path.resolve(dirs.current, toNativePath(parsed.dirOverride)) : dirs.current;
@@ -343,7 +333,7 @@ function main() {
   try {
     if (!adapter) return 0;
     const call = adapter.read(JSON.parse(readFileSync(0, "utf8")));
-    if (!call || !/\b(git|gh)\b/.test(call.command)) return 0;
+    if (!call) return 0;
     reason = check(call.command, call.cwd ?? process.cwd());
   } catch {
     return 0;

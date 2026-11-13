@@ -29,7 +29,7 @@ Restart Cursor or reload the window afterwards: hooks are read on start.
 | Standards | `AGENTS.md` | Read from the project root, no frontmatter needed. For path-scoped rules, add `.cursor/rules/*.mdc` in your project; this repo ships none. |
 | Agents | `.cursor/agents/*.md` | `model: inherit`; `readonly: true` on `code-reviewer`. Cursor also reads `.claude/agents/` when both are present; `.cursor/` wins on a name conflict. |
 | Skills | `.agents/skills/*/SKILL.md` | Read natively. Type `/` in Agent chat to pick one for a message, or Alt+Enter to apply it as a mode. |
-| Git guard | `.cursor/hooks.json` → `beforeShellExecution` | Project hooks run from the project root. The matcher is `\b(git|gh)\b`, so the hook only spawns for git and gh commands. |
+| Git guard | `.cursor/hooks.json` → `beforeShellExecution` | Project hooks run from the project root. No matcher: the CLIs under `protectedEnvironments` are named in local config, so the hook runs for every shell command, as it does in the other tools. |
 | Dependency-audit nudge | `~/.cursor/hooks.json` → `sessionStart` (global install only) | Answers `{"additional_context": …}` when the last audit is a week old, nothing otherwise. Cursor does not run `sessionStart` in cloud agents. |
 
 ## Using it

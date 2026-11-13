@@ -96,7 +96,7 @@ Why tiers and not model names: a model name goes stale in months and means nothi
 
 The working directory comes from `cwd` (Claude, Cursor, Copilot) or `toolCall.args.Cwd`, then `workspacePaths[0]` (Antigravity). The decision itself, `check(command, cwd)`, is tool-agnostic and lives with `shell-parse.mjs`; the adapters are the only place a tool's payload shape appears. Every path fails open: an unreadable payload or an error inside the hook lets the command run.
 
-Protected checkouts (the ones serving a dev server) are listed in `~/.config/agent-config/git-guard.json`; `GIT_GUARD_CONFIG` overrides the path, and the legacy `~/.claude/git-guard.json` is read when the new file is absent.
+Protected checkouts (the ones serving a dev server) and protected environments (`environments.mjs`: a declared CLI may not act on them) are listed in `~/.config/agent-config/git-guard.json`; `GIT_GUARD_CONFIG` overrides the path, and the legacy `~/.claude/git-guard.json` is read when the new file is absent.
 
 ## Installing
 
