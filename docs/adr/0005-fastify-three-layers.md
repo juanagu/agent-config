@@ -23,4 +23,4 @@ A layer folder appears with its first file. Inside a layer, a sub-folder appears
 
 - Repos on the earlier layout keep it until their own migration PR, which moves every feature at once and updates the boundaries config. The mapping is in the skill (§7).
 - `AGENTS.md` names `core/` as the backend's home for infrastructure, and `agents/backend-engineer.md` states the new non-negotiables.
-- The backend-engineer agent evals still use the earlier layout in their fixtures. That is deliberate: they stand for existing repos, which the agent matches.
+- The agent evals for backend-engineer, code-reviewer (`agents/evals/code-reviewer/files/notifications/`) and technical-writer (`agents/evals/technical-writer/files/export/`) still use the earlier layout in their fixtures. That is deliberate: they stand for existing repos, which the agents match, and the rules they test (no repository in `shared/`, narrow ports) hold under both layouts.

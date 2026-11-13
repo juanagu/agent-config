@@ -37,7 +37,10 @@
         "Flags domain/entities/invite.entity.ts as the Mongo document (`_id: ObjectId`, 'document shape'): the entity holds what use-cases read, the document type lives in data/models/, and a data/mappers/ function maps the document to the entity instead of returning the collection type",
         "Flags shared/metering/mongo-seat-usage.repository.ts: shared/ holds no repository; seat usage read by two features is a feature of its own with a public surface",
         "Flags api/proxies/http-billing.client.ts: a client calling another service is outbound and belongs in data/ behind a domain/ interface, not in api/",
-        "Flags domain/entities/ holding a single file (invite.entity.ts): in a new feature a sub-folder appears with the second file of its kind"
+        "Flags domain/entities/ holding a single file (invite.entity.ts): in a new feature a sub-folder appears with the second file of its kind",
+        "Flags InviteService (domain/use-cases/invite-service) as a service class holding several use-cases without the *.use-case.ts suffix: one use-case per module, each exporting one function",
+        "Flags the processor in api/ writing through invitesCollection from core/database: api/ never touches the database, the write goes through a use-case and a data/ repository, and core/database holds no collection accessor",
+        "Flags sendInviteEmailQueueOptions defined beside the processor in api/: the queue definition with its attempts and backoff belongs in data/queues/*.queue.ts"
       ]
     }
   ],
