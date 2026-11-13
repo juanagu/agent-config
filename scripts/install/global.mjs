@@ -28,7 +28,7 @@ export async function installGlobal(tool, repoDir, home, prompter, flags) {
   // Everything that must parse is read first, so a broken file leaves the folder as it was.
   const current = tool === "claude" ? settings.readSettings(target.dir) : readHookFiles(tool, target, home);
   mkdirSync(target.dir, { recursive: true });
-  const linker = createLinker(target.dir, prompter.copies, prompter.imports);
+  const linker = createLinker(target.dir, prompter.copies, prompter.imports, prompter.links);
   const agents = linkRepoAgents(linker, repoDir, target.agents);
   mkdirSync(target.skillsDir, { recursive: true });
   linkRepoSkills(linker, repoDir, target.skillsDir);
@@ -37,7 +37,10 @@ export async function installGlobal(tool, repoDir, home, prompter, flags) {
   else await installRegistration(tool, repoDir, target, linker, current, prompter, flags);
   console.log(`Linked ${target.dir} to ${repoDir} (${tool}${agents.copied ? "; agents copied, since file links need a privilege here" : ""}).`);
   if (agents.removed.length) console.log(`Removed agents the clone no longer has: ${agents.removed.join(", ")}`);
-  if (swept.length) console.log(`Removed broken skill links: ${swept.join(", ")}`);
+  if (swept.removed.length) console.log(`Removed broken skill links: ${swept.removed.join(", ")}`);
+  for (const [dir, names] of [[target.skillsDir, swept.left], [target.agents.dir, agents.left]]) {
+    if (names.length) console.log(`Left broken links the installer has no record of, in ${dir}: ${names.join(", ")}. Remove them if you no longer need them.`);
+  }
   if (NOTES[tool]) console.log(NOTES[tool]);
   const backup = linker.backupDir();
   if (backup) console.log(`Replaced files were moved to ${backup}`);
