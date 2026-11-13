@@ -74,12 +74,12 @@ new file mode 100644
 +    return { ok: true, status: 200, body: invite };
 +  }
 +}
-diff --git a/src/features/invites/api/proxies/http-billing.client.ts b/src/features/invites/api/proxies/http-billing.client.ts
+diff --git a/src/features/invites/api/http-billing.client.ts b/src/features/invites/api/http-billing.client.ts
 new file mode 100644
 --- /dev/null
-+++ b/src/features/invites/api/proxies/http-billing.client.ts
++++ b/src/features/invites/api/http-billing.client.ts
 @@ -0,0 +1,9 @@
-+import { transport } from "../../../../core/http/transport";
++import { transport } from "../../../core/http/transport";
 +
 +export class HttpBillingClient {
 +  async seatsAvailable(workspaceId: string): Promise<{ ok: boolean; status: number; body?: { seats: number } }> {

@@ -15,7 +15,8 @@ The rule that sorts the outer two: **inbound goes in `api/`, outbound goes in `d
 
 ```
 src/
-  app.ts                      the composition root: core plugins, then every create-<feature>.ts
+  app.ts                      the HTTP composition root: core plugins, then every create-<feature>.ts
+  worker.ts                   the worker process's composition root: every create-<feature>-worker.ts
   core/                       app infrastructure with no business meaning; imports nothing outside core/
     config/                   env parsing; fails fast at startup when required config is missing
     errors/                   typed error base classes (NotFoundError, ConflictError, UpstreamHttpError); pure, no Fastify
@@ -29,6 +30,7 @@ src/
     <topic>/                  entities, value objects, pure rules and reference data; never a repository, a use-case or infrastructure
   features/<feature>/
     create-<feature>.ts       the feature's composition root: builds data/, the use-cases and api/ for app.ts
+    create-<feature>-worker.ts  the same for its job processors, for worker.ts; only when the feature has jobs
     domain/
       entities/               entity types and the rules over them
       value-objects/          immutable, self-validating values (Email, Money, InviteToken)
@@ -54,7 +56,7 @@ src/
 
 ### File names and folder depth
 
-File names are kebab-case with a dotted role suffix that names the element: `invite.entity.ts`, `email.value-object.ts`, `accept-invite.use-case.ts`, `invite.repository.ts` (the interface), `mongo-invite.repository.ts`, `http-billing.client.ts`, `send-invite-email.queue.ts` (the definition), `send-invite-email.producer.ts`, `invite.model.ts` (the document type and its Mongoose or JSON schema), `invite.mapper.ts`, `invites.controller.ts`, `invites.schema.ts`, `require-workspace-admin.middleware.ts`, `send-invite-email.processor.ts`, `fake-invite.repository.ts`, `seed-plans.seed.ts`, `0003-invite-token-index.migration.ts`, `plans.reference.ts`. The export keeps its own name (`MongoInviteRepository`, `acceptInvite`). Tests keep the dotted test suffix after the role (`accept-invite.use-case.test.ts`, `send-invite-email.processor.redis.test.ts`). ESLint enforces kebab-case with `unicorn/filename-case`. The boundaries config matches an element type on its layer folder plus its role suffix (`domain/**/*.repository.ts` is the interface, `data/**/*.repository.ts` the implementation, `testing/**/*.repository.ts` a fake), so a file is the same element flat or in its sub-folder; `routes.ts` and `create-<feature>.ts` are matched by name. `*.schema.ts` is only ever a wire shape in `api/`; storage schemas live in their `*.model.ts`.
+File names are kebab-case with a dotted role suffix that names the element: `invite.entity.ts`, `email.value-object.ts`, `accept-invite.use-case.ts`, `invite.repository.ts` (the interface), `mongo-invite.repository.ts`, `http-billing.client.ts`, `send-invite-email.queue.ts` (the definition), `send-invite-email.producer.ts`, `invite.model.ts` (the document type and its Mongoose or JSON schema), `invite.mapper.ts`, `invites.controller.ts`, `invites.schema.ts`, `require-workspace-admin.middleware.ts`, `send-invite-email.processor.ts`, `send-invite-email.worker.ts`, `fake-invite.repository.ts`, `seed-plans.seed.ts`, `0003-invite-token-index.migration.ts`, `plans.reference.ts`. The export keeps its own name (`MongoInviteRepository`, `acceptInvite`). Tests keep the dotted test suffix after the role (`accept-invite.use-case.test.ts`, `send-invite-email.processor.redis.test.ts`). ESLint enforces kebab-case with `unicorn/filename-case`. The boundaries config matches an element type on its layer folder plus its role suffix (`domain/**/*.repository.ts` is the interface, `data/**/*.repository.ts` the implementation, `testing/**/*.repository.ts` a fake), so a file is the same element flat or in its sub-folder; `routes.ts`, `create-<feature>.ts`, `create-<feature>-worker.ts`, `app.ts` and `worker.ts` are matched by name. `*.schema.ts` is only ever a wire shape in `api/`; storage schemas live in their `*.model.ts`.
 
 `domain/`, `data/` and `api/` are the folders this skill names as present from the start, the exception the standards' feature-shape rule allows: each appears with the feature's first file of that layer rather than its second, and never as an empty scaffold. Inside a layer, a sub-folder (`entities/`, `mappers/`, `controllers/`…) appears with the second file of its kind; until then the file sits flat in the layer (`domain/invite.entity.ts`, `api/invites.controller.ts`). `routes.ts` and `create-<feature>.ts` are single files and never get a folder. When a layer passes about 15 non-test source files, the feature splits by sub-feature (`billing/checkout/`, `billing/subscriptions/`, `billing/webhooks/`), each with the layers it needs and its own readme; the count leaves out `testing/`, seeds, migrations and the readme. The parent holds only the `domain/` every sub-feature uses, the `data/` implementing that `domain/`'s interfaces, its readme, and the `create-<feature>.ts` that composes the sub-features' plugins for `app.ts`. For the table below a sub-feature is a feature: "own" is the sub-feature plus the parent's `domain/` (and, for a sub-feature's `create-<feature>.ts`, the parent's `data/`), and a sibling is "another feature". Which features form a bounded context is recorded in the feature map and each readme, never in a module folder over `features/`.
 
@@ -73,20 +75,22 @@ Why: a domain folder of bare shapes that mirror the collection is a data layer u
 
 A row imports only the ticked columns. "Own" means the same feature; another feature only through its public surface (the exports its `feature_readme.md` lists: use-cases, entity types, repository interfaces it offers).
 
-| imports → | own entities, value objects, reference | own `domain/repositories` | own `domain/use-cases` | own `data/` | own `api/` | `core/errors` | rest of `core/` | `shared/` | another feature |
-| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
-| entities, value objects, reference | ✓ | | | | | ✓ | | ✓ | public surface types |
-| `domain/repositories` | ✓ | ✓ | | | | | | ✓ | |
-| `domain/use-cases` | ✓ | ✓ | | | | ✓ | | ✓ | public surface types |
-| `data/` | ✓ | ✓ | | ✓ | | ✓ | ✓ | ✓ | public surface |
-| `api/` | ✓ | ✓ | ✓ | `*.queue.ts` only | ✓ | ✓ | ✓ | ✓ | |
-| `testing/` | ✓ | ✓ | | | | ✓ | | ✓ | |
-| `create-<feature>.ts` | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | public surface |
-| `shared/` | | | | | | ✓ | | ✓ | |
-| `core/` | | | | | | ✓ | ✓ | | |
-| `app.ts` | every `create-<feature>.ts` and `core/` | | | | | | | | |
+| imports → | own entities, value objects | own `domain/reference` | own `domain/repositories` | own `domain/use-cases` | own `data/` | own `api/` | `core/errors` | rest of `core/` | `shared/` | another feature |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| entities, value objects | ✓ | | | | | | ✓ | | ✓ | public surface types |
+| `domain/reference` | ✓ | ✓ | | | | | | | ✓ | |
+| `domain/repositories` | ✓ | | ✓ | | | | ✓ | | ✓ | public surface types |
+| `domain/use-cases` | ✓ | ✓ | ✓ | | | | ✓ | | ✓ | public surface types |
+| `data/` | ✓ | ✓ | ✓ | | ✓ | | ✓ | ✓ | ✓ | public surface |
+| `api/` | ✓ | | ✓ | ✓ | `*.queue.ts` only | ✓ | ✓ | `server`, `auth`, `config`, `logger` | ✓ | |
+| `testing/` | ✓ | ✓ | ✓ | | | | ✓ | | ✓ | |
+| `create-<feature>.ts`, `create-<feature>-worker.ts` | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | public surface |
+| `shared/` | | | | | | | ✓ | | ✓ | |
+| `core/` | | | | | | | ✓ | ✓ | | |
+| `app.ts`, `worker.ts` | every `create-<feature>.ts` (`app.ts`) or `create-<feature>-worker.ts` (`worker.ts`), and `core/` | | | | | | | | | |
 
-- `domain/` imports no driver, no Fastify, no BullMQ, nothing from `data/` or `api/`; `core/errors` is the one piece of `core/` it may use, because those classes are plain.
+- `domain/` imports no driver, no Fastify, no BullMQ, nothing from `data/` or `api/`; `core/errors` is the one piece of `core/` it may use, because those classes are plain. Entities never import `domain/reference`: a rule gets the values handed to it.
+- `api/` never imports `core/database` or `core/queue`: data access and enqueueing go through a use-case and `data/`.
 - A use-case never imports another use-case, its own feature's or another's: two that need the same step share an entity rule or a repository call, and a use-case that only forwards to another is a pass-through and is deleted. From another feature a use-case imports only types (entities, value objects); to call that feature, it declares the call in its own `domain/repositories` and `data/` implements it over the other feature's public surface.
 - `api/` reaches `data/` only for a queue's definition (`*.queue.ts`, never its producer), so a processor validates with the same payload schema the producer enqueues with, without opening a Redis connection by importing it. A controller never imports a repository implementation; it receives a use-case (or, in a BFF pass-through, a repository interface) from `create-<feature>.ts`.
 - A route plugin's options name the feature's use-cases or its repository interface, never a client with every operation in the system.
@@ -124,7 +128,7 @@ A row imports only the ticked columns. "Own" means the same feature; another fea
 
 ## 5. BullMQ and Redis
 
-- Queue names `<domain>.<action>` (`orders.send-confirmation-email`). In `data/queues/`, the definition (`*.queue.ts`: name, payload schema, `attempts` and backoff, no connection) and the producer (`*.producer.ts`, implementing a `domain/repositories` interface the use-case enqueues through) are separate files; the processor and worker live in `api/jobs/`, import only the definition, and call a use-case.
+- Queue names `<domain>.<action>` (`orders.send-confirmation-email`). In `data/` (its `queues/` sub-folder once it holds two files), the definition (`*.queue.ts`: name, payload schema, `attempts` and backoff, no connection) and the producer (`*.producer.ts`, implementing a `domain/repositories` interface the use-case enqueues through) are separate files. The processor (`*.processor.ts`) and worker (`*.worker.ts`) live in `api/` (its `jobs/` sub-folder once it holds two), import only the definition, and call a use-case that `create-<feature>-worker.ts` builds.
 - Processors are idempotent: retries and redelivery must not double-charge or double-send; use a dedupe key where the operation is not naturally idempotent.
 - Explicit `attempts` and backoff per job type, chosen for what the job does. Validate job payloads like HTTP input.
 - Workers run as their own process in production (`npm run dev:worker` locally; emails don't send without it). Failed jobs need visibility (dead-letter queue, alerting or Bull Board).
@@ -144,7 +148,7 @@ Before reporting work done: lint (boundaries included, where the repo has them),
 
 ## 7. Migrating from the earlier layout
 
-Repos built on this skill's earlier layout (`service/`, `ports/`, `adapters/`, `controller.ts`, `shared/adapters`) keep it consistently until their own migration PR, and are written and reviewed against that layout's own table and checklist, in this skill as it stood before ADR 0005 (`git show 3baffdc:.agents/skills/fastify-architecture/SKILL.md` in the agent-config repo), not against the checklist below. The migration PR moves every feature at once and updates the boundaries config, never feature by feature, never as a side effect of other work. Each row names the target sub-folder; a file whose kind has only one file in the feature lands flat in the layer instead (§1).
+Repos built on this skill's earlier layout (`service/`, `ports/`, `adapters/`, `controller.ts`, `shared/adapters`) keep it consistently until their own migration PR, and are written and reviewed against that layout's own table and checklist, summarised in §9, not against the checklist below. The migration PR moves every feature at once and updates the boundaries config, never feature by feature, never as a side effect of other work. Each row names the target sub-folder; a file whose kind has only one file in the feature lands flat in the layer instead (§1).
 
 | Earlier | Now |
 | --- | --- |
@@ -156,7 +160,10 @@ Repos built on this skill's earlier layout (`service/`, `ports/`, `adapters/`, `
 | `adapters/` seeds and migrations | `data/seeds/`, `data/migrations/` |
 | `data/` (reference data) | `domain/reference/` |
 | `routes.ts`, `schemas.ts`, `controller.ts` | `api/routes.ts`, `api/schemas/`, `api/controllers/` |
-| `jobs/` | queue definition and producer to `data/queues/` as separate files, processor and worker to `api/jobs/` |
+| `jobs/` | queue definition and producer to `data/queues/` as separate files, processor and worker to `api/jobs/`, their wiring to `create-<feature>-worker.ts` |
+| `testing/fake-*.ts` | `testing/fake-*.repository.ts` |
+| flat `domain.ts`, `port.ts`, `service.ts`, `controller.ts`, `data.ts` | the matching layer, flat, with its role suffix (`domain/<name>.entity.ts`, `domain/<name>.repository.ts`, `domain/<name>.use-case.ts`, `api/<name>.controller.ts`, `domain/<name>.reference.ts`) |
+| `create-<feature>.ts` | stays at the feature root |
 | `shared/domain` | `shared/<topic>/`, error base classes to `core/errors` |
 | `shared/data` | `shared/<topic>/` |
 | `shared/adapters`, `config/` | `core/` |
@@ -192,8 +199,31 @@ Repos built on this skill's earlier layout (`service/`, `ports/`, `adapters/`, `
 5. Errors thrown as typed errors and mapped centrally; envelope shapes unchanged unless the issue says so.
 6. Each feature's `domain/repositories` declares only what its use-cases call; plugins receive use-cases or that narrow interface.
 7. Only `data/` and `core/database` touch the driver; `core/database` holds no repository; queries never built from raw input.
-8. Jobs: definition (`*.queue.ts`) and producer (`*.producer.ts`) apart in `data/queues`, processor in `api/jobs` importing only the definition; idempotent, explicit retry policy, payload validated.
+8. Jobs: definition (`*.queue.ts`) and producer (`*.producer.ts`) apart in `data/`, processor and worker in `api/` importing only the definition, wired by `create-<feature>-worker.ts`; idempotent, explicit retry policy, payload validated.
 9. Tests: unit with faked repositories from `testing/`, repositories against a real MongoDB, routes via `inject`, jobs against real Redis.
 10. Files ~300 lines, functions ~40; one use-case per module, an existing service class ~8 public methods; a routes plugin that only registers is exempt.
 11. File names kebab-case with the role suffix (`*.use-case.ts`, `*.repository.ts`, `*.controller.ts`…), test suffixes after it; `unicorn/filename-case` green.
 12. New or rewritten features: layer folders only once they hold a file, a sub-folder only from the second file of its kind, a split by sub-feature when a layer passes ~15 files; no module folders over `features/`.
+
+## 9. The earlier layout, for repos not yet migrated
+
+A repo still on the earlier layout is written and reviewed against these rules until its migration PR (§7). Each feature holds `create-<feature>.ts`, `routes.ts`, `controller.ts`, `service/` (use-cases), `domain/` (entities and rules), `ports/` (the interfaces of its outbound calls), `adapters/` (Mongo repositories as `mongo-*.ts`, upstream clients as `http-*.ts`, seeds, migrations, document types), `data/` (static reference data, not a data layer), `jobs/`, `testing/`. Small features use the same names flat: `service.ts`, `port.ts`, `domain.ts`, `data.ts`. `shared/` is layered as `shared/domain` (types and pure rules), `shared/data` (reference data) and `shared/adapters` (infrastructure only, never a repository); `config/` sits beside it.
+
+| imports → | own `domain/` | own `data/` | own `ports/` | own `service/` | own `controller.ts` | own `adapters/` | `shared/domain` | `shared/data` | `shared/adapters` | another feature |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| `domain/` | ✓ | | | | | | ✓ | | | |
+| `data/` | ✓ | | | | | | ✓ | ✓ | | |
+| `ports/` | ✓ | | | | | | ✓ | | | |
+| `service/` | ✓ | ✓ | ✓ | | | | ✓ | ✓ | | public surface |
+| `controller.ts` | ✓ | | ✓ | ✓ | | | ✓ | | | |
+| `routes.ts` | ✓ | | ✓ | | ✓ | | ✓ | | ✓ | |
+| `adapters/` | ✓ | ✓ | ✓ | | | ✓ | ✓ | ✓ | ✓ | public surface |
+| `jobs/` | ✓ | ✓ | ✓ | ✓ | | ✓ | ✓ | ✓ | ✓ | public surface |
+| `testing/` | ✓ | | ✓ | | | | ✓ | | | |
+| `shared/domain` | | | | | | | ✓ | | | |
+| `shared/data` | | | | | | | ✓ | ✓ | | |
+| `shared/adapters` | | | | | | | ✓ | ✓ | ✓ | |
+| `create-<feature>.ts` | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | public surface |
+| `app.ts` | every `create-<feature>.ts` and `shared/adapters` | | | | | | | | | |
+
+Its review checklist is the one above with these readings: item 1 is "no Fastify types in `service/`, no data access in `controller.ts`, `domain/` imports only itself and `shared/domain`"; items 2, 6 and 7 name `adapters/` for `data/` and `ports/` for `domain/repositories`; item 3 names `shared/adapters` for `core/`; item 11's suffixes are not required, kebab-case is; item 12 applies the second-file threshold to every layer folder.

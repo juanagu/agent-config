@@ -22,7 +22,7 @@
       "id": 2,
       "name": "review-planted-violations",
       "prompt": "Review this PR diff for our core-api service before I merge it. Be specific about what to change. The diff is in files/review.diff.",
-      "expected_output": "A review that flags: inline error-to-status mapping in the controller, request.body used without a schema, the adapter returning { ok, status }, the non-idempotent email processor, console.log of the body with the password, the PascalCase file name, the cross-service database read, the domain entity typed as the Mongo document, a Mongo repository placed under shared/, the billing client placed under api/ although it is outbound, a one-file entities/ sub-folder, InviteService as one class holding two use-cases (create, accept) without the *.use-case.ts suffix, the processor in api/ writing through a core/database collection accessor, and the queue options defined beside the processor instead of in data/queues.",
+      "expected_output": "A review that flags: inline error-to-status mapping in the controller, request.body used without a schema, the adapter returning { ok, status }, the non-idempotent email processor, console.log of the body with the password, the PascalCase file name, the cross-service database read, the domain entity typed as the Mongo document, a Mongo repository placed under shared/, the billing client placed under api/ although it is outbound, a one-file entities/ sub-folder, InviteService as one class holding two use-cases (create, accept) without the *.use-case.ts suffix in a one-file use-cases/ sub-folder, the InviteStore interface declared inside it instead of as a domain repository, the processor in api/ writing through a core/database collection accessor, and the queue options defined beside the processor instead of in data/queues.",
       "files": [
         "evals/files/review.diff"
       ],
@@ -36,11 +36,12 @@
         "Flags the repository reading the billing service's database directly",
         "Flags domain/entities/invite.entity.ts as the Mongo document (`_id: ObjectId`, 'document shape'): the entity holds what use-cases read, the document type lives in data/models/, and a data/mappers/ function maps the document to the entity instead of returning the collection type",
         "Flags shared/metering/mongo-seat-usage.repository.ts: shared/ holds no repository; seat usage read by two features is a feature of its own with a public surface",
-        "Flags api/proxies/http-billing.client.ts: a client calling another service is outbound and belongs in data/ behind a domain/ interface, not in api/",
+        "Flags api/http-billing.client.ts: a client calling another service is outbound and belongs in data/ behind a domain/ interface, not in api/",
         "Flags domain/entities/ holding a single file (invite.entity.ts): in a new feature a sub-folder appears with the second file of its kind",
-        "Flags domain/use-cases/invite-service.ts as one InviteService class holding two use-cases (create, accept) without the *.use-case.ts suffix: one use-case per module, each exporting one function",
+        "Flags domain/use-cases/invite-service.ts as one InviteService class holding two use-cases (create, accept) without the *.use-case.ts suffix, in a use-cases/ sub-folder that holds one file: one use-case per module, each exporting one function",
+        "Flags the InviteStore interface declared inside the use-case file: an outbound interface lives in domain/ as a *.repository.ts",
         "Flags the processor in api/ writing through invitesCollection from core/database: api/ never touches the database, the write goes through a use-case and a data/ repository, and core/database holds no collection accessor",
-        "Flags sendInviteEmailQueueOptions defined beside the processor in api/: the queue definition with its attempts and backoff belongs in data/queues/*.queue.ts"
+        "Flags sendInviteEmailQueueOptions defined beside the processor in api/: the queue definition with its attempts and backoff belongs in data/ as a *.queue.ts"
       ]
     }
   ],
