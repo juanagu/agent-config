@@ -154,6 +154,24 @@ describe("the shell forms around the CLI", () => {
     blocked("pwsh -Command 'cd x; fakecloud up -e production'");
     allowed('bash -c "fakecloud logs -e production"');
   });
+  it("reads any word naming the CLI as a call (fail closed), behind any runner", () => {
+    blocked("timeout 60 fakecloud up -e production");
+    blocked("nice -n 5 fakecloud up");
+    blocked("pnpm dlx @fake/cloud-cli up -e production");
+    blocked("npm exec -- @fake/cloud-cli up");
+    blocked("npx @fake/cloud-cli@latest up -e production");
+    blocked("npx fakecloud@3 up");
+    blocked("cd /app & fakecloud up -e production");
+    blocked("grep fakecloud notes.txt");
+  });
+  it("reads a heredoc a shell receives as commands", () => blocked("bash <<EOF\nfakecloud up -e production\nEOF"));
+  it("does not read a commit message as commands", () => {
+    allowed("git commit -m \"$(cat <<'EOF'\nfix: document `fakecloud up` usage\nEOF\n)\"");
+    allowed("git commit -F - <<'EOF'\nrun fakecloud up -e production\nEOF");
+    allowed("git commit -m 'mention `fakecloud up`'");
+  });
+  it("does not take an option as an environment flag's value", () => blocked("fakecloud up -e --detach"));
+  it("keeps reading arguments past a literal {", () => blocked("fakecloud variables set { -e production"));
   it("does not read the CLI's name inside a quoted argument", () => allowed('echo "fakecloud up -e production"'));
   it("leaves other programs alone", () => allowed("othercloud up -e production"));
 });
@@ -180,6 +198,15 @@ describe("the config", () => {
     try {
       allowed("broken up");
       blocked("fakecloud up -e production");
+    } finally {
+      writeConfig({ protectedEnvironments: [CLI] });
+    }
+  });
+  it("ignores blank and padded readOnly entries", () => {
+    writeConfig({ protectedEnvironments: [{ ...CLI, readOnly: ["", " logs "] }] });
+    try {
+      blocked("fakecloud");
+      allowed("fakecloud logs");
     } finally {
       writeConfig({ protectedEnvironments: [CLI] });
     }

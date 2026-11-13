@@ -23,7 +23,7 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { ADAPTERS } from "./adapters.mjs";
 import { CONFIG_HINT, readConfig } from "./config.mjs";
-import { environmentReason, loadEnvironmentRules, mentionsDeclared } from "./environments.mjs";
+import { environmentReason, loadEnvironmentRules } from "./environments.mjs";
 import {
   hasShortFlag,
   moveDirectory,
@@ -311,15 +311,14 @@ function isServed(state, key) {
 
 export function check(command, cwd) {
   const config = readConfig();
-  const environments = loadEnvironmentRules(config);
-  if (!/\b(git|gh)\b/.test(command) && !mentionsDeclared(command, environments)) return null;
+  const environment = environmentReason(command, loadEnvironmentRules(config));
+  if (environment) return environment;
+  if (!/\b(git|gh)\b/.test(command)) return null;
   const state = { config, served: null, branches: new Map() };
   const dirs = newDirectoryState(cwd);
   for (const segment of splitSegments(command)) {
     const toks = tokens(segment);
     if (moveDirectory(dirs, toks)) continue;
-    const environment = environmentReason(toks, environments);
-    if (environment) return environment;
     const parsed = parseGit(toks) ?? parseGh(toks);
     if (!parsed) continue;
     const repoDir = parsed.dirOverride ? path.resolve(dirs.current, toNativePath(parsed.dirOverride)) : dirs.current;

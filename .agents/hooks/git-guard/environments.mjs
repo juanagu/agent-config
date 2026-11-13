@@ -2,60 +2,69 @@
 // environment marked protected. It knows no provider; every CLI, flag and environment name comes from the
 // config's `protectedEnvironments` entries. Deny by default: only the entry's `readOnly` subcommands and a
 // plain help or version request run against a protected environment, or against an unnamed one (the CLI
-// would use whichever the folder is linked to). Where the shell form is ambiguous, it reads as a command.
+// would use whichever the folder is linked to). Fail closed: any word naming a declared CLI is read as a
+// call to it, wherever it sits, because the ways a shell can run a word (runners, wrappers, substitutions)
+// have no end; a word that only mentions the CLI (`grep cli notes`) is the rare false refusal.
 import path from "node:path";
 import { CONFIG_HINT } from "./config.mjs";
-import { skipPrefix, splitSegments, tokens } from "./shell-parse.mjs";
+import { splitSegments } from "./shell-parse.mjs";
 
 const HELP_FLAGS = new Set(["--help", "-h", "--version"]);
-// Programs that run a later word as a command. Which of their flags take a value isn't known, so every
-// word after one is a possible start.
-const WRAPPERS = new Set(["sudo", "env", "time", "nohup", "command", "exec", "xargs", "npx", "bunx", "doas"]);
-// Shells whose -c (or -Command) string is a command line of its own, read the same way.
-const SHELLS = new Set(["bash", "sh", "zsh", "dash", "pwsh", "powershell", "cmd"]);
-const isShellStringFlag = (t) => /^-[a-zA-Z]*c$/.test(t) || lower(t) === "-command" || lower(t) === "/c";
-// A command can also start after a background `&`, inside `( … )`, `$( … )` or backticks, or after PowerShell's `&`.
-const OPENERS = /^(\$\(|\(|`|&|\{)+/;
-const CLOSERS = /[)`}]+$/;
-// The word a substitution opens, wherever it sits in the token (`x="$(cli`).
-const SUBSTITUTION = /^.*(\$\(|`)/;
-const NEXT_COMMAND = new Set(["&", "(", "$(", "{"]);
+const SHELLS = "bash|sh|zsh|dash|ksh|fish|pwsh|powershell";
+const isShellStringFlag = (t) => /^-[a-zA-Z]*c$/.test(t) || ["-command", "/c"].includes(t.toLowerCase());
+// Shell punctuation glued to a word: `(cli`, `$(cli`, `` `cli ``, `{cli`, `x="$(cli`, `cli)`.
+const LEADING = /^.*(\$\(|`)|^[({&]+/;
+const TRAILING = /[)`};"']+$/;
+const HEREDOC = /<<-?\s*(['"]?)(\w+)\1[^\n]*\n[\s\S]*?\n\s*\2(?=\s|\)|"|$)/g;
+const SHELL_HEREDOC = new RegExp(`\\b(?:${SHELLS})\\b[^\\n]*<<-?\\s*(['"]?)(\\w+)\\1[^\\n]*\\n([\\s\\S]*?)\\n\\s*\\2(?=\\s|$)`, "g");
 
 const lower = (value) => String(value).toLowerCase();
-const unquote = (value) => value.replace(/^["']|["']$/g, "");
 const toList = (value) => (Array.isArray(value) ? value : [value]);
+const isQuoted = (raw) => /^["']/.test(raw);
+const unquote = (raw) => raw.replace(/^["']|["']$/g, "");
+
+// `command` is a name or a list of them (the binary and the npm package `npx` runs, say).
+function isWellFormed(e) {
+  const names = toList(e?.command);
+  const hasNames = names.length > 0 && names.every((n) => typeof n === "string" && n.trim());
+  return hasNames && Array.isArray(e.environmentFlags) && e.environmentFlags.length > 0 && Array.isArray(e.protected);
+}
+
+const readOnlyEntries = (list) =>
+  (Array.isArray(list) ? list : []).map((r) => lower(r).trim().split(/\s+/).filter(Boolean)).filter((words) => words.length);
 
 // Keeps only well-formed entries, lowercased once, so a typo in the config guards nothing rather than throwing.
 export function loadEnvironmentRules(config) {
   const entries = Array.isArray(config.protectedEnvironments) ? config.protectedEnvironments : [];
-  return entries
-    .filter((e) => isWellFormed(e))
-    .map((e) => ({
-      names: new Set(toList(e.command).map(lower)),
-      command: lower(toList(e.command)[0]),
-      flags: e.environmentFlags.map(String),
-      protected: new Set(e.protected.map(lower)),
-      readOnly: (Array.isArray(e.readOnly) ? e.readOnly : []).map((r) => lower(r).split(/\s+/)),
-    }));
-}
-
-// `command` is a name or a list of them (the binary and the npm package that `npx` runs, say).
-function isWellFormed(e) {
-  const names = toList(e?.command);
-  const hasNames = names.length > 0 && names.every((n) => typeof n === "string" && n);
-  return hasNames && Array.isArray(e.environmentFlags) && e.environmentFlags.length > 0 && Array.isArray(e.protected);
+  return entries.filter(isWellFormed).map((e) => ({
+    names: new Set(toList(e.command).map((n) => lower(n).trim())),
+    command: lower(toList(e.command)[0]).trim(),
+    flags: e.environmentFlags.map(String),
+    protected: new Set(e.protected.map(lower)),
+    readOnly: readOnlyEntries(e.readOnly),
+  }));
 }
 
 // The command's own name, without a directory or Windows' .exe.
-const commandName = (tok) => lower(path.basename(String(tok ?? "").replace(/\\/g, "/"))).replace(/\.exe$/, "");
+const commandName = (word) => lower(path.basename(word.replace(/\\/g, "/"))).replace(/\.exe$/, "");
 
-// A declared name matches the word as written (`@scope/cli`) or its basename (`/usr/bin/cli`, `cli.exe`).
-const ruleFor = (rules, word) => rules.find((r) => r.names.has(lower(word)) || r.names.has(commandName(word)));
+// A declared name matches the word as written (`@scope/cli`), its basename (`/usr/bin/cli`, `cli.exe`), or
+// either without a package version (`@scope/cli@latest`, `cli@3`).
+function ruleFor(rules, raw) {
+  const word = raw.replace(LEADING, "").replace(TRAILING, "");
+  const unversioned = word.replace(/(?<=.)@[^/@]*$/, "");
+  const candidates = [word, unversioned].flatMap((w) => [lower(w), commandName(w)]);
+  return rules.find((r) => candidates.some((c) => r.names.has(c)));
+}
 
-// The value a token gives one of the flags: `--env x` (the next token), `--env=x`, or a short flag's attached `-ex`.
+// Whether a command line could hold a declared CLI at all: a cheap test before any parsing.
+const mentionsDeclared = (command, rules) => rules.some((r) => [...r.names].some((n) => lower(command).includes(commandName(n))));
+
+// The value a token gives one of the flags: `--env x`, `--env=x`, or a short flag's attached `-ex`. A next
+// token that is itself an option is no value.
 function flagValue(args, i, flag) {
   const arg = args[i];
-  if (arg === flag) return { value: args[i + 1] ?? "", width: 2 };
+  if (arg === flag) return args[i + 1] && !args[i + 1].startsWith("-") ? { value: args[i + 1], width: 2 } : { value: "", width: 1 };
   if (arg.startsWith(`${flag}=`)) return { value: arg.slice(flag.length + 1), width: 1 };
   const short = /^-[^-]$/.test(flag);
   return short && arg.startsWith(flag) ? { value: arg.slice(flag.length), width: 1 } : null;
@@ -110,76 +119,65 @@ function refusal(rule, rest, environments) {
   );
 }
 
-// The arguments of a command starting at `start`, up to the next backgrounded command.
-function argsFrom(toks, start) {
-  const end = toks.findIndex((t, j) => j > start && NEXT_COMMAND.has(t));
-  return toks.slice(start + 1, end === -1 ? toks.length : end).map((t) => t.replace(CLOSERS, ""));
+// The arguments of the call at `start`: up to a background `&`, or through a word that closes a substitution.
+function argsFrom(raws, start) {
+  const args = [];
+  for (const raw of raws.slice(start + 1)) {
+    if (raw === "&") break;
+    args.push(isQuoted(raw) ? unquote(raw) : raw.replace(TRAILING, ""));
+    if (!isQuoted(raw) && /[)`]["']*$/.test(raw)) break;
+  }
+  return args;
 }
 
-// The start at `i`, and every later word when it is a wrapper (`sudo -u me cli`: `me` and `cli` both).
-function startsFrom(toks, i) {
-  const isWrapper = WRAPPERS.has(commandName(toks[i]?.replace(SUBSTITUTION, "").replace(OPENERS, "")));
-  return isWrapper ? toks.map((_, j) => j).filter((j) => j >= i) : [i];
-}
-
-// A shell's command string: the word after its -c or -Command, past the shell's other options.
-function shellString(toks, i) {
-  for (let j = i + 1; j < toks.length && toks[j].startsWith("-"); j++) if (isShellStringFlag(toks[j])) return toks[j + 1] ?? "";
-  return toks[i + 1] === "/c" || toks[i + 1] === "/C" ? toks[i + 2] ?? "" : null;
-}
-
-function reasonAt(toks, i, rules) {
-  const word = toks[i]?.replace(SUBSTITUTION, "").replace(OPENERS, "").replace(CLOSERS, "") ?? "";
-  const inner = SHELLS.has(commandName(word)) ? shellString(toks, i) : null;
-  if (inner !== null) return environmentReasonIn(inner, rules);
-  const rule = ruleFor(rules, word);
-  if (!rule) return null;
-  const { environments, rest } = readArgs(argsFrom(toks, i), rule.flags);
+function callReason(raws, start, rule) {
+  const { environments, rest } = readArgs(argsFrom(raws, start), rule.flags);
   const touchesProtected = environments.length === 0 || environments.some((e) => rule.protected.has(e));
-  if (!touchesProtected || isReadOnly(rest, rule.readOnly)) return null;
-  return refusal(rule, rest, environments);
+  return touchesProtected && !isReadOnly(rest, rule.readOnly) ? refusal(rule, rest, environments) : null;
 }
 
-// Where commands start in one segment: its first word, and the word after each `&`, `(`, `$(` or backtick.
-function commandStarts(toks) {
-  const starts = startsFrom(toks, skipPrefix(toks));
-  toks.forEach((t, j) => {
-    if (NEXT_COMMAND.has(t)) starts.push(...startsFrom(toks, j + 1));
-    else if ((OPENERS.test(t) && t !== "&") || SUBSTITUTION.test(t)) starts.push(...startsFrom(toks, j));
-  });
-  return starts;
+// Text the shell runs from inside a quoted word: a shell's -c string whole, and the `$( … )` and backticks of
+// a double-quoted one with its heredoc bodies taken out (a commit message is not a command).
+function executedText(raws, j) {
+  const raw = raws[j];
+  if (j > 0 && isShellStringFlag(raws[j - 1])) return [unquote(raw)];
+  if (!raw.startsWith('"')) return [];
+  const text = unquote(raw).replace(HEREDOC, "");
+  return [...text.matchAll(/\$\(|`/g)].map((m) => text.slice(m.index + m[0].length));
 }
 
-// A single `&` runs what is before it in the background: `a&b` is two commands, while `&&`, `2>&1` and `&>` are not.
-const splitBackground = (toks) => toks.flatMap((t) => t.split(/(?<![&>])(&)(?![&>])/).filter(Boolean));
+// A single `&` runs what is before it in the background: `a&b` is two calls, while `&&`, `2>&1` and `&>` are not.
+const splitBackground = (raws) => raws.flatMap((t) => (isQuoted(t) ? [t] : t.split(/(?<![&>])(&)(?![&>])/).filter(Boolean)));
 
-// Command substitutions inside a quoted word (`"$(cli up)"`), which the shell still runs.
-function quotedSubstitutions(toks) {
-  return toks.filter((t) => /\s/.test(t)).flatMap((t) => [...t.matchAll(/\$\(|`/g)].map((m) => t.slice(m.index + m[0].length)));
-}
-
-// The reason to refuse one shell segment, or null.
-export function environmentReason(segmentTokens, rules) {
-  if (!rules.length) return null;
-  const toks = splitBackground(segmentTokens);
-  for (const start of commandStarts(toks)) {
-    const reason = reasonAt(toks, start, rules);
-    if (reason) return reason;
-  }
-  for (const inner of quotedSubstitutions(toks)) {
-    const reason = environmentReasonIn(inner, rules);
+function segmentReason(segment, rules) {
+  const raws = splitBackground(segment.match(/"[^"]*"|'[^']*'|\S+/g) ?? []);
+  for (let j = 0; j < raws.length; j++) {
+    const inner = isQuoted(raws[j]) ? executedText(raws, j) : [];
+    for (const text of inner) {
+      const reason = commandLineReason(text, rules);
+      if (reason) return reason;
+    }
+    const rule = isQuoted(raws[j]) ? null : ruleFor(rules, raws[j]);
+    const reason = rule && callReason(raws, j, rule);
     if (reason) return reason;
   }
   return null;
 }
 
-// Whether a command line could hold a declared CLI at all: a cheap test before any parsing.
-export const mentionsDeclared = (command, rules) => rules.some((r) => [...r.names].some((n) => lower(command).includes(commandName(n))));
-
-function environmentReasonIn(commandLine, rules) {
+function commandLineReason(commandLine, rules) {
+  for (const [, , , body] of commandLine.matchAll(SHELL_HEREDOC)) {
+    const reason = commandLineReason(body, rules);
+    if (reason) return reason;
+  }
   for (const segment of splitSegments(commandLine)) {
-    const reason = environmentReason(tokens(segment), rules);
+    const reason = segmentReason(segment, rules);
     if (reason) return reason;
   }
   return null;
+}
+
+// The reason to refuse a whole command line, or null.
+export function environmentReason(command, rules) {
+  if (!rules.length || !mentionsDeclared(command, rules)) return null;
+  return commandLineReason(command, rules);
 }
