@@ -38,8 +38,9 @@ export async function installGlobal(tool, repoDir, home, prompter, flags) {
   console.log(`Linked ${target.dir} to ${repoDir} (${tool}${agents.copied ? "; agents copied, since file links need a privilege here" : ""}).`);
   if (agents.removed.length) console.log(`Removed agents the clone no longer has: ${agents.removed.join(", ")}`);
   if (swept.removed.length) console.log(`Removed broken skill links: ${swept.removed.join(", ")}`);
-  const left = [...swept.left, ...agents.left];
-  if (left.length) console.log(`Left broken links that aren't the installer's, in ${target.dir}: ${left.join(", ")}`);
+  for (const [dir, names] of [[target.skillsDir, swept.left], [target.agents.dir, agents.left]]) {
+    if (names.length) console.log(`Left broken links the installer has no record of, in ${dir}: ${names.join(", ")}. Remove them if you no longer need them.`);
+  }
   if (NOTES[tool]) console.log(NOTES[tool]);
   const backup = linker.backupDir();
   if (backup) console.log(`Replaced files were moved to ${backup}`);

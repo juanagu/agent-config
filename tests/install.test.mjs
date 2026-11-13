@@ -271,7 +271,7 @@ test("a dangling link the record does not hold is left and listed, even one shap
   const result = claudeHome(clone, home, "--no-optional");
   assert.equal(result.status, 0, result.stderr);
   assert.ok(lstatOrNull(join(skills, "branch-skill"))?.isSymbolicLink());
-  assert.match(result.stdout, /Left broken links that aren't the installer's, in .*: branch-skill/);
+  assert.match(result.stdout, /Left broken links the installer has no record of, in .*skills: branch-skill\./);
 });
 
 test("a link the user pointed elsewhere keeps its record's old target, so it stays theirs across runs", (t) => {
@@ -350,7 +350,8 @@ test("a dangling link of the user's own, in the skills or agents folder, is left
   assert.ok(lstatOrNull(join(skills, "my-skill"))?.isSymbolicLink());
   assert.ok(lstatOrNull(join(agents, "my-agent.md"))?.isSymbolicLink());
   assert.doesNotMatch(result.stdout, /Removed.*(my-skill|my-agent)/);
-  assert.match(result.stdout, /Left broken links that aren't the installer's, in .*: (my-skill, my-agent\.md|my-agent\.md, my-skill)/);
+  assert.match(result.stdout, /Left broken links the installer has no record of, in .*skills: my-skill\./);
+  assert.match(result.stdout, /Left broken links the installer has no record of, in .*agents: my-agent\.md\./);
 });
 
 test("an existing settings.json that already has the hook is left byte for byte", (t) => {

@@ -1,5 +1,5 @@
 import { copyFileSync, existsSync, lstatSync, mkdirSync, readdirSync, readFileSync, readlinkSync, renameSync, rmdirSync, symlinkSync, unlinkSync, writeFileSync } from "node:fs";
-import { basename, dirname, join, resolve, sep } from "node:path";
+import { basename, dirname, join, resolve } from "node:path";
 import { sha256 } from "./json.mjs";
 import { samePath, toPosix } from "./paths.mjs";
 
@@ -150,9 +150,9 @@ export function createLinker(toolDir, copies = {}, imports = {}, links = {}) {
     return ours;
   }
 
-  // A dangling link is ours only when the record holds it with the target it still has, wherever
-  // the clone that made it lived. Any other is the user's (a drive not mounted right now): it stays,
-  // and is listed so the user can remove it.
+  // A dangling link is removed only when the record holds it with the target it still has, wherever
+  // the clone that made it lived. Any other may be the user's (a drive not mounted right now): it
+  // stays, and is listed so the user can remove it.
   function sweepBrokenLinks(dir) {
     const removed = [];
     const left = [];
@@ -160,8 +160,8 @@ export function createLinker(toolDir, copies = {}, imports = {}, links = {}) {
     for (const name of readdirSync(dir)) {
       const full = join(dir, name);
       if (!lstat(full)?.isSymbolicLink() || existsSync(full)) continue;
-      const key = toPosix(full);
-      if (key in links && linksTo(full, links[key])) {
+      const key = recordKey(full);
+      if (key !== undefined && linksTo(full, links[key])) {
         removeLink(full);
         delete links[key];
         removed.push(name);
@@ -171,12 +171,16 @@ export function createLinker(toolDir, copies = {}, imports = {}, links = {}) {
     return { removed, left };
   }
 
+  // The record's key for `path`, under samePath's idea of one spelling (case on Windows).
+  function recordKey(path) {
+    return Object.keys(links).find((key) => samePath(key, path));
+  }
+
   // A record whose path no longer holds a link is dropped. One the user pointed elsewhere is kept,
   // since its old target is what tells that link apart from ours.
   function pruneRecords(dir) {
-    const prefix = `${toPosix(dir)}/`;
     for (const key of Object.keys(links)) {
-      if (key.startsWith(prefix) && !lstat(key)?.isSymbolicLink()) delete links[key];
+      if (samePath(dirname(key), dir) && !lstat(key)?.isSymbolicLink()) delete links[key];
     }
   }
 
