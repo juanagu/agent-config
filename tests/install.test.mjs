@@ -258,6 +258,33 @@ test("a dangling link of the user's where an agent copy was recorded neither sto
   const result = claudeHome(clone, home, "--no-optional");
   assert.equal(result.status, 0, result.stderr);
   assert.ok(lstatOrNull(path)?.isSymbolicLink());
+  assert.doesNotMatch(result.stdout, /Removed agents.*dropped\.md/);
+});
+
+test("a dangling link from an install before links were recorded, into a clone since removed, is swept", (t) => {
+  const clone = makeFixtureClone(t);
+  const home = freshDir(t);
+  const skills = join(home, ".claude", "skills");
+  mkdirSync(skills, { recursive: true });
+  danglingLink(join(skills, "branch-skill"), join(home, "worktrees", "my-config-wt-x", ".agents", "skills", "branch-skill"));
+  const result = claudeHome(clone, home, "--no-optional");
+  assert.equal(result.status, 0, result.stderr);
+  assert.ok(!lstatOrNull(join(skills, "branch-skill")));
+});
+
+test("a link the user re-pointed at a path the installer once linked is theirs, even once it dangles", (t) => {
+  const clone = makeFixtureClone(t);
+  const home = freshDir(t);
+  const skills = join(home, ".claude", "skills");
+  assert.equal(claudeHome(clone, home, "--no-optional").status, 0);
+  const path = join(skills, "demo-skill");
+  rmSync(path);
+  // Shaped like an install's link, so only the recorded target tells it apart.
+  danglingLink(path, join(home, "unmounted-drive", ".my-tools", "skills", "demo-skill"));
+  const current = makeFixtureClone(t, { skip: [".claude/skills/demo-skill", ".agents/skills/demo-skill"] });
+  const result = claudeHome(current, home, "--no-optional");
+  assert.equal(result.status, 0, result.stderr);
+  assert.ok(lstatOrNull(path)?.isSymbolicLink());
 });
 
 test("links an earlier install made from a clone since removed (a worktree, a moved clone) are swept, whatever it was named", (t) => {

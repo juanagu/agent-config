@@ -9,7 +9,7 @@ import { readJson, writeJson } from "./json.mjs";
 // asks only what it has not asked before. --yes and --no-optional apply to one run and are
 // not kept; without a terminal the default is used and not kept either. The same file holds
 // `copies`, the hash of every file the installer wrote as a copy, `imports`, the import
-// line it wrote into each CLAUDE.md, and `links`, the target of each link it made (see link.mjs).
+// line it wrote into each CLAUDE.md, and `links`, the target of each link it made or found in place (see link.mjs).
 export function createPrompter({ file, yes, noOptional, ask }) {
   const saved = existsSync(file) ? readJson(file) : {};
   const interactive = Boolean(stdin.isTTY && stdout.isTTY);

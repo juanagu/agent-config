@@ -1,7 +1,7 @@
 import { copyFileSync, existsSync, lstatSync, mkdirSync, readdirSync, readFileSync, readlinkSync, renameSync, rmdirSync, symlinkSync, unlinkSync, writeFileSync } from "node:fs";
-import { basename, dirname, join, resolve } from "node:path";
+import { basename, dirname, join, resolve, sep } from "node:path";
 import { sha256 } from "./json.mjs";
-import { isInside, samePath, toPosix } from "./paths.mjs";
+import { samePath, toPosix } from "./paths.mjs";
 
 export { samePath };
 
@@ -48,6 +48,7 @@ export function createLinker(toolDir, copies = {}, imports = {}, links = {}) {
 
   function link(path, target, type = "junction") {
     links[toPosix(path)] = toPosix(target);
+    delete copies[toPosix(path)];
     if (linksTo(path, target)) return false;
     const stat = lstat(path);
     if (stat?.isSymbolicLink()) removeLink(path);
@@ -127,38 +128,54 @@ export function createLinker(toolDir, copies = {}, imports = {}, links = {}) {
     return outcome;
   }
 
-  // A copy we made of a file the clone no longer has.
+  // A copy we made of a file the clone no longer has. Only a file still holding what we wrote is
+  // removed: an edit, a folder or a link the user put there is theirs. True when it was removed.
   function forgetCopy(path) {
     const key = toPosix(path);
     if (!(key in copies)) return false;
     const stat = lstat(path);
-    // A link the user put where our copy was is theirs, whether or not its target is there.
-    if (stat && !stat.isSymbolicLink() && sha256(readFileSync(path)) === copies[key]) unlinkSync(path);
+    const ours = Boolean(stat?.isFile() && sha256(readFileSync(path)) === copies[key]);
+    if (ours) unlinkSync(path);
     delete copies[key];
-    return true;
+    return ours;
   }
 
   // A link an install made: recorded with the target it still has (wherever the clone lived, a
-  // worktree included), or, made before links were recorded, one into this clone. Any other
+  // worktree included), or, made before links were recorded, one of the shape every install makes:
+  // `<name>` pointing at `.../.<tool>/skills/<name>` or `.../.<tool>/agents/<name>`. Any other
   // dangling link is the user's (a drive not mounted right now) and stays.
-  function isOurLink(path, repoDir) {
+  function isOurLink(path) {
     const target = readlinkSync(path);
     const recorded = links[toPosix(path)];
     if (recorded !== undefined) return samePath(target, recorded);
-    return isInside(resolve(dirname(path), target), repoDir);
+    const parts = resolve(dirname(path), target).split(sep);
+    const [dotDir, kind, name] = parts.slice(-3);
+    return name === basename(path) && (kind === "skills" || kind === "agents") && /^\.[\w-]+$/.test(dotDir ?? "");
   }
 
-  function sweepBrokenLinks(dir, repoDir) {
+  // Records under `dir` whose path is no longer a link with the recorded target: the user removed
+  // it, put something of their own there, or pointed it elsewhere.
+  function pruneRecords(dir) {
+    const prefix = `${toPosix(dir)}/`;
+    for (const [key, target] of Object.entries(links)) {
+      if (!key.startsWith(prefix)) continue;
+      const stat = lstat(key);
+      if (!stat?.isSymbolicLink() || !samePath(readlinkSync(key), target)) delete links[key];
+    }
+  }
+
+  function sweepBrokenLinks(dir) {
     const removed = [];
     if (!existsSync(dir)) return removed;
     for (const name of readdirSync(dir)) {
       const full = join(dir, name);
-      if (lstat(full)?.isSymbolicLink() && !existsSync(full) && isOurLink(full, repoDir)) {
+      if (lstat(full)?.isSymbolicLink() && !existsSync(full) && isOurLink(full)) {
         removeLink(full);
         delete links[toPosix(full)];
         removed.push(name);
       }
     }
+    pruneRecords(dir);
     return removed;
   }
 

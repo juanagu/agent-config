@@ -24,12 +24,6 @@ function comparable(path) {
   return process.platform === "win32" ? plain.toLowerCase() : plain;
 }
 
-// Whether `path` is `dir` or somewhere under it, with samePath's idea of one spelling.
-export function isInside(path, dir) {
-  const [child, parent] = [comparable(path), comparable(dir)];
-  return child === parent || child.startsWith(parent + sep);
-}
-
 // Tools that ignore --home (npx skills, claude mcp add) may run only when it names the real home.
 export function isRealHome(home) {
   return samePath(home, homedir());

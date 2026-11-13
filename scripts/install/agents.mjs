@@ -29,7 +29,7 @@ export function linkRepoAgents(linker, repoDir, { dir, source }) {
     if (outcome === "linked") result.linked++;
     if (outcome === "copied") result.copied++;
   }
-  for (const name of linker.sweepBrokenLinks(dir, repoDir)) result.removed.push(name);
+  for (const name of linker.sweepBrokenLinks(dir)) result.removed.push(name);
   for (const name of readdirSync(dir)) {
     if (!names.includes(name) && linker.forgetCopy(join(dir, name))) result.removed.push(name);
   }
