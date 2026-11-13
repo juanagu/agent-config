@@ -31,7 +31,7 @@ A hosting or infrastructure CLI can open a shell in a running production service
 {
   "protectedEnvironments": [
     {
-      "command": "<cli name>",
+      "command": ["<cli name>", "<its npm package, for npx>"],
       "environmentFlags": ["--environment", "-e"],
       "protected": ["production"],
       "readOnly": ["status", "logs", "variables list"]
@@ -43,10 +43,11 @@ A hosting or infrastructure CLI can open a shell in a running production service
 - **A protected environment named** (`-e production`, `--environment=production`, `-eproduction`, quoted or not, any case): refused, except the `readOnly` subcommands. A read-only entry matches only as the command's first words, before any option, so `--service logs up` is not read as `logs`; an entry of several words (`variables list`) needs all of them.
 - **No environment named**, or a flag left without a value: refused outside `readOnly`, because the CLI would act on whichever environment the folder is linked to. The block message says to name a non-protected one with the first flag.
 - **A non-protected environment named** (`-e staging`): allowed. When several are named and one is protected, refused.
-- **Deny by default**: a subcommand the config doesn't list is treated as a write. `--help`, `-h`, `--version` and `help` always run, unless they come after `--`, where they belong to the program the CLI runs.
+- **Deny by default**: a subcommand the config doesn't list is treated as a write. Help runs only in its plain forms (`<cli> --help`, `<cli> up --help`, `<cli> help up`): many CLIs pass what follows a subcommand to the program they run, where `-h` may be a host (`run psql -h db`). An environment flag after `--` belongs to that program too, so it names nothing for the CLI.
+- **`command`** is one name or a list: the binary, and the package `npx` or `bunx` runs it as (`@scope/cli`).
 - No `protectedEnvironments` key, or no entry for a CLI, changes nothing. A malformed entry (no `command`, an empty `environmentFlags`, no `protected` list) is skipped.
 
-The command is matched by its name, with or without a directory or `.exe`, after an `rtk` prefix or `VAR=value` assignments, in any segment of a compound command. It is also found after a background `&`, inside `( … )`, `$( … )` or backticks, after PowerShell's `&`, behind `sudo`, `env`, `time`, `nohup`, `command`, `exec`, `xargs`, `npx` or `bunx`, and inside a `bash -c` (or `sh`, `zsh`, `pwsh -Command`) string. It is not recognised inside a script, an alias, a function, `eval`, or a variable holding the name. Like the rest of the guard, it stops a session that forgot to check, not one set on getting round it. When the agent needs one of these commands run, the message tells it to ask you to run it yourself.
+The command is matched by its name, with or without a directory or `.exe`, after an `rtk` prefix or `VAR=value` assignments, in any segment of a compound command. It is also found after a background `&` (spaced or not), inside `( … )`, `$( … )` or backticks (quoted or not, in an assignment too), after PowerShell's `&`, anywhere after `sudo`, `env`, `time`, `nohup`, `command`, `exec`, `xargs`, `npx` or `bunx` (whose flags may take values, so every later word counts), and inside a shell's command string (`bash -e -c`, `pwsh -NoProfile -Command`, `cmd /c`). Where a form is ambiguous it is read as a command, so the rare false refusal is the trade for not missing one. It is not recognised inside a script, an alias, a function, `eval`, or a variable holding the name. Like the rest of the guard, it stops a session that forgot to check, not one set on getting round it. When the agent needs one of these commands run, the message tells it to ask you to run it yourself.
 
 ### A provider's MCP connector
 

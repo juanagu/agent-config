@@ -10,7 +10,7 @@ import assert from "node:assert/strict";
 
 const HOOK = path.join(import.meta.dirname, "git-guard.mjs");
 const CLI = {
-  command: "fakecloud",
+  command: ["fakecloud", "@fake/cloud-cli"],
   environmentFlags: ["--environment", "-e"],
   protected: ["production"],
   readOnly: ["status", "logs", "variables list"],
@@ -75,6 +75,11 @@ describe("a declared CLI aimed at a protected environment", () => {
     blocked("fakecloud run -e production -- du -h");
     allowed("fakecloud run -e staging -- du -h");
   });
+  it("does not read a help flag passed to the program the CLI runs", () => {
+    blocked("fakecloud run -e production psql -h db");
+    blocked("fakecloud run psql -h");
+  });
+  it("does not read an environment flag after -- as the CLI's own", () => blocked("fakecloud run -- foo -e staging"));
   it("does not read an option's value as a read-only subcommand", () => blocked("fakecloud --service logs up -e production"));
   it("blocks a subcommand the config never named (deny by default)", () => blocked("fakecloud brand-new-thing -e production"));
   it("allows the read-only subcommands there", () => {
@@ -126,6 +131,11 @@ describe("the shell forms around the CLI", () => {
     blocked("echo $(fakecloud up -e production)");
     blocked("echo `fakecloud up -e production`");
     blocked("& fakecloud up -e production");
+    blocked("fakecloud up -e production&fakecloud logs");
+    blocked("othercloud x&fakecloud up");
+    allowed("fakecloud up -e staging 2>&1 && fakecloud logs &> out.txt");
+    blocked('echo "$(fakecloud up)"');
+    blocked('x="$(fakecloud up -e production)"');
     allowed("fakecloud up -e staging & othercloud down");
   });
   it("finds it behind a wrapper and inside a shell's -c string", () => {
@@ -133,6 +143,13 @@ describe("the shell forms around the CLI", () => {
     blocked("sudo -E env TOKEN=x fakecloud up -e production");
     blocked("time fakecloud up -e production");
     blocked("npx -y fakecloud up -e production");
+    blocked("npx @fake/cloud-cli up");
+    blocked("sudo -u me fakecloud up");
+    blocked("env -u VAR fakecloud up");
+    blocked("bash -e -c 'fakecloud up'");
+    blocked("bash --norc -lc 'fakecloud up'");
+    blocked("pwsh -NoProfile -Command 'fakecloud up'");
+    blocked('cmd /c "fakecloud up"');
     blocked('bash -c "fakecloud up -e production"');
     blocked("pwsh -Command 'cd x; fakecloud up -e production'");
     allowed('bash -c "fakecloud logs -e production"');

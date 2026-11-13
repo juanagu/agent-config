@@ -23,7 +23,7 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { ADAPTERS } from "./adapters.mjs";
 import { CONFIG_HINT, readConfig } from "./config.mjs";
-import { environmentReason, loadEnvironmentRules } from "./environments.mjs";
+import { environmentReason, loadEnvironmentRules, mentionsDeclared } from "./environments.mjs";
 import {
   hasShortFlag,
   moveDirectory,
@@ -301,8 +301,8 @@ function checkGit(parsedGit, dir, state) {
   return null;
 }
 
-// Read once, and only when a git segment asks: most commands are neither git nor a declared CLI, and a
-// malformed list must not turn the environment rule off with it.
+// Normalized on the first git segment that asks, and a list that isn't one guards no checkout, so it
+// cannot fail the environment rule open with it.
 function isServed(state, key) {
   const listed = state.config.protectedCheckouts;
   state.served ??= Array.isArray(listed) ? listed.map(normalize) : [];
@@ -312,6 +312,7 @@ function isServed(state, key) {
 export function check(command, cwd) {
   const config = readConfig();
   const environments = loadEnvironmentRules(config);
+  if (!/\b(git|gh)\b/.test(command) && !mentionsDeclared(command, environments)) return null;
   const state = { config, served: null, branches: new Map() };
   const dirs = newDirectoryState(cwd);
   for (const segment of splitSegments(command)) {
