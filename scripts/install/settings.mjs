@@ -120,8 +120,8 @@ export function guardCommandIn(registration) {
   return null;
 }
 
-// The Cursor guard entry once carried this matcher, which spawned the hook for git and gh alone; the
-// protected-environment rule needs every shell command, so an install that still has it loses it.
+// A matcher for git and gh alone would hide the declared deploy CLIs from the guard, so a guard entry
+// carrying exactly this one loses it; any other matcher is the user's.
 const RETIRED_GUARD_MATCHER = "\\b(git|gh)\\b";
 
 function dropRetiredMatchers(value, paths) {

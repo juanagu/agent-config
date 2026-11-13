@@ -269,7 +269,7 @@ function stashReasons(rest, dir, state) {
   if (flags.includes("--help") || flags.includes("-h")) return null;
   if (STASH_REWRITES_TREE.has(stashAction(args))) {
     const where = locate(dir, state);
-    if (where && state.protectedCheckouts.includes(where.key)) return stashInServedReason(where.toplevel, trunkOf(dir, where.branch));
+    if (where && isServed(state, where.key)) return stashInServedReason(where.toplevel, trunkOf(dir, where.branch));
   }
   return stashReason(rest, args);
 }
@@ -286,7 +286,7 @@ function checkGit(parsedGit, dir, state) {
   const { toplevel, key, branch } = where;
   const trunk = trunkOf(dir, branch);
   const onTrunk = branch === trunk;
-  const served = state.protectedCheckouts.includes(key);
+  const served = isServed(state, key);
 
   if (WRITES_COMMITS.has(sub) && onTrunk) {
     return `You are on ${branch}. Writing commits to trunk locally (${sub}) bypasses the PR gate: git switch -c <type>/<name> first, then open a PR.`;
@@ -301,10 +301,18 @@ function checkGit(parsedGit, dir, state) {
   return null;
 }
 
+// Read once, and only when a git segment asks: most commands are neither git nor a declared CLI, and a
+// malformed list must not turn the environment rule off with it.
+function isServed(state, key) {
+  const listed = state.config.protectedCheckouts;
+  state.served ??= Array.isArray(listed) ? listed.map(normalize) : [];
+  return state.served.includes(key);
+}
+
 export function check(command, cwd) {
   const config = readConfig();
   const environments = loadEnvironmentRules(config);
-  const state = { protectedCheckouts: (config.protectedCheckouts ?? []).map(normalize), branches: new Map() };
+  const state = { config, served: null, branches: new Map() };
   const dirs = newDirectoryState(cwd);
   for (const segment of splitSegments(command)) {
     const toks = tokens(segment);

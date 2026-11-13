@@ -65,6 +65,17 @@ describe("a declared CLI aimed at a protected environment", () => {
     blocked("fakecloud deploy --environment=production");
   });
   it("matches the environment name in any case", () => blocked("fakecloud up -e Production"));
+  it("reads a quoted value and a short flag's attached value", () => {
+    blocked('fakecloud up --environment="production"');
+    blocked("fakecloud up --environment='production'");
+    blocked('fakecloud up -e "production"');
+    blocked("fakecloud up -eproduction -e staging");
+  });
+  it("does not let help after -- stand for the CLI's own help", () => {
+    blocked("fakecloud run -e production -- du -h");
+    allowed("fakecloud run -e staging -- du -h");
+  });
+  it("does not read an option's value as a read-only subcommand", () => blocked("fakecloud --service logs up -e production"));
   it("blocks a subcommand the config never named (deny by default)", () => blocked("fakecloud brand-new-thing -e production"));
   it("allows the read-only subcommands there", () => {
     allowed("fakecloud status -e production");
@@ -86,6 +97,7 @@ describe("a declared CLI that names no environment", () => {
     assert.match(reason, /--environment <environment>/);
   });
   it("allows the read-only subcommands", () => allowed("fakecloud logs"));
+  it("counts a flag left without a value as naming none", () => blocked("fakecloud up -e"));
 });
 
 describe("a declared CLI aimed at a non-protected environment", () => {
@@ -107,6 +119,23 @@ describe("the shell forms around the CLI", () => {
     blocked("TOKEN=x fakecloud up -e production");
     blocked("/usr/local/bin/fakecloud up -e production");
     blocked("fakecloud.exe up -e production");
+  });
+  it("finds it after a background &, in a subshell, a substitution and backticks", () => {
+    blocked("npm run build & fakecloud up -e production");
+    blocked("(fakecloud up -e production)");
+    blocked("echo $(fakecloud up -e production)");
+    blocked("echo `fakecloud up -e production`");
+    blocked("& fakecloud up -e production");
+    allowed("fakecloud up -e staging & othercloud down");
+  });
+  it("finds it behind a wrapper and inside a shell's -c string", () => {
+    blocked("sudo fakecloud up -e production");
+    blocked("sudo -E env TOKEN=x fakecloud up -e production");
+    blocked("time fakecloud up -e production");
+    blocked("npx -y fakecloud up -e production");
+    blocked('bash -c "fakecloud up -e production"');
+    blocked("pwsh -Command 'cd x; fakecloud up -e production'");
+    allowed('bash -c "fakecloud logs -e production"');
   });
   it("does not read the CLI's name inside a quoted argument", () => allowed('echo "fakecloud up -e production"'));
   it("leaves other programs alone", () => allowed("othercloud up -e production"));
@@ -133,6 +162,22 @@ describe("the config", () => {
     writeConfig({ protectedEnvironments: [{ command: "broken" }, "nonsense", CLI] });
     try {
       allowed("broken up");
+      blocked("fakecloud up -e production");
+    } finally {
+      writeConfig({ protectedEnvironments: [CLI] });
+    }
+  });
+  it("skips an entry with no environment flags", () => {
+    writeConfig({ protectedEnvironments: [{ ...CLI, environmentFlags: [] }] });
+    try {
+      allowed("fakecloud up -e staging");
+    } finally {
+      writeConfig({ protectedEnvironments: [CLI] });
+    }
+  });
+  it("still applies when protectedCheckouts is malformed", () => {
+    writeConfig({ protectedCheckouts: "not-a-list", protectedEnvironments: [CLI] });
+    try {
       blocked("fakecloud up -e production");
     } finally {
       writeConfig({ protectedEnvironments: [CLI] });
