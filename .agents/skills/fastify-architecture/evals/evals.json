@@ -5,38 +5,44 @@
       "id": 1,
       "name": "bff-aggregating-endpoint",
       "prompt": "In our BFF (Fastify + TypeScript, sits between the Next.js web app and core-api) add `GET /me/notifications`. It should call core-api's `GET /users/:id/notifications` and `GET /users/:id/notification-preferences`, drop notifications whose type the user muted in preferences, and return `{ unreadCount, items }`. The user id comes from the session (`request.session.userId`). There's no repo checked out here, so scaffold just the files this feature needs (plus whatever shared bits you assume exist, stubbed) and a unit test.",
-      "expected_output": "A notifications feature folder: routes with input/output schemas, a thin controller, a service that does the muting/aggregation, a port declaring only the two upstream calls, an adapter over the shared transport that throws a typed upstream error, kebab-case files, a feature_readme.md, a unit test of the service with the port faked.",
+      "expected_output": "A notifications feature folder split into domain/, data/ and api/: api/ with routes and input/output schemas and a thin controller, a domain use-case that does the muting/aggregation, a domain repository interface declaring only the two upstream calls, a data/ client over core's transport that throws a typed upstream error, kebab-case files with role suffixes, a feature_readme.md, a unit test of the use-case with the interface faked.",
       "files": [],
       "expectations": [
         "The route declares a response schema, not only input",
-        "The muted-type filtering and unread count live in a service/use-case, not in the controller or route",
-        "A feature-owned port declares exactly the two upstream calls this feature makes",
-        "The adapter signals upstream failure by throwing a typed error, never by returning { ok, status }",
+        "The muted-type filtering and unread count live in a use-case under domain/, not in the controller or route",
+        "The use-case is a *UseCase class in a *.use-case.ts file, taking its repository interface in the constructor, whose only public method is execute, typed with a <Case>Input and a <Case>Output declared in the same file",
+        "A feature-owned interface under domain/ declares exactly the two upstream calls this feature makes, and its implementation lives under data/, not api/",
+        "The data/ client signals upstream failure by throwing a typed error, never by returning { ok, status }",
         "The controller does not catch errors to map them to HTTP statuses",
         "Every new file name is kebab-case",
         "A feature_readme.md is included for the feature",
-        "A unit test exercises the service with a fake port, no server and no network"
+        "A unit test exercises the use-case with a fake of the interface, no server and no network"
       ]
     },
     {
       "id": 2,
       "name": "review-planted-violations",
       "prompt": "Review this PR diff for our core-api service before I merge it. Be specific about what to change. The diff is in files/review.diff.",
-      "expected_output": "A review that flags: inline error-to-status mapping in the controller, request.body used without a schema, the adapter returning { ok, status }, the non-idempotent email processor, console.log of the body with the password, the PascalCase file name, the cross-service database read, the domain entity typed as the Mongo document, and a Mongo repository placed under shared/.",
+      "expected_output": "A review that flags: inline error-to-status mapping in the controller, request.body used without a schema, the adapter returning { ok, status }, the non-idempotent email processor, console.log of the body with the password, the PascalCase file name, the cross-service database read, the domain entity typed as the Mongo document, a Mongo repository placed under shared/, the billing client placed under api/ although it is outbound, a one-file entities/ sub-folder, InviteService as one class holding two use-cases (create, accept) without the *.use-case.ts suffix in a one-file use-cases/ sub-folder, the InviteStore interface declared inside it instead of as a domain repository, the processor in api/ writing through a core/database collection accessor, and the queue options defined beside the processor instead of in data/queues.",
       "files": [
         "evals/files/review.diff"
       ],
       "expectations": [
         "Flags the controller mapping errors to statuses inline (should throw typed errors to a central handler)",
         "Flags POST /workspaces/:workspaceId/invites reading request.body with no schema",
-        "Flags the billing adapter returning { ok, status } instead of throwing",
+        "Flags the billing client returning { ok, status } instead of throwing",
         "Flags the email processor as not idempotent across its 5 retry attempts",
         "Flags console.log of the request body, which can carry a password",
         "Flags InvitesController.ts as violating kebab-case file naming",
         "Flags the repository reading the billing service's database directly",
-        "Flags domain/invite.ts as the Mongo document (`_id: ObjectId`, 'document shape'): the entity holds what use-cases read, the document type lives beside the repository, and the repository maps the document to the entity instead of returning the collection type",
-        "Flags shared/adapters/metering/mongo-seat-usage-repository.ts: shared/ holds no repository; seat usage read by two features is a feature of its own with a public surface",
-        "Flags the new invites feature's one-file layer folders (domain/invite.ts, service/invite-service.ts): in a new feature a layer folder appears with the second file of its kind"
+        "Flags domain/entities/invite.entity.ts as the Mongo document (`_id: ObjectId`, 'document shape'): the entity holds what use-cases read, the document type lives in data/models/, and a data/mappers/ function maps the document to the entity instead of returning the collection type",
+        "Flags shared/metering/mongo-seat-usage.repository.ts: shared/ holds no repository; seat usage read by two features is a feature of its own with a public surface",
+        "Flags api/http-billing.client.ts: a client calling another service is outbound and belongs in data/ behind a domain/ interface, not in api/",
+        "Flags domain/entities/ holding a single file (invite.entity.ts): in a new feature a sub-folder appears with the second file of its kind",
+        "Flags domain/use-cases/invite-service.ts as one InviteService class holding two use-cases (create, accept) without the *.use-case.ts suffix, in a use-cases/ sub-folder that holds one file: one *UseCase class per module whose only public method is execute",
+        "Flags the InviteStore interface declared inside the use-case file: an outbound interface lives in domain/ as a *.repository.ts",
+        "Flags the processor in api/ writing through invitesCollection from core/database: api/ never touches the database, the write goes through a use-case and a data/ repository, and core/database holds no collection accessor",
+        "Flags sendInviteEmailQueueOptions defined beside the processor in api/: the queue definition with its attempts and backoff belongs in data/ as a *.queue.ts"
       ]
     }
   ],

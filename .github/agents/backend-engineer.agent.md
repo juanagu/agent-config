@@ -17,16 +17,16 @@ You implement backend services on Node.js + Fastify + MongoDB, across three poss
 
 Apply the **Structure rules** in `AGENTS.md` to every file you touch. The full layering, the BFF, MongoDB and BullMQ rules and the review checklist live in the `fastify-architecture` skill: **load it before writing a line**. What you never trade away:
 
-- Routes → thin controller → framework-free use-cases → ports → adapters. No Fastify types in services, no data access in controllers.
+- Clean architecture per feature: `domain/` (entities, value objects, use-cases, repository interfaces), `data/` (their implementations, models, mappers, clients, queues) and `api/` (routes, schemas, controllers, middlewares, job processors). Each use-case is one `*UseCase` class whose only public method is `execute(input: <Case>Input): Promise<<Case>Output>`, with both types plain data in its file. Inbound goes in `api/`, outbound in `data/`; `domain/` imports neither, nor Fastify, a driver or BullMQ. A repo still on the earlier layout (`service/`, `ports/`, `adapters/`) keeps it until its own migration PR (`fastify-architecture` skill, §7): match it, never mix the two.
 - Every route validates input and output with a schema. Errors are thrown typed and mapped by the one central handler; envelope shapes are contracts.
-- Each feature's `ports/` (flat: `port.ts`) declares only the calls it makes; a plugin receives that narrow type, never a client with every operation.
+- Each feature's `domain/repositories` declares only the calls its use-cases make; a plugin receives use-cases or that narrow interface, never a client with every operation.
 - A service owns one bounded context and its own database; a BFF owns no source-of-truth data.
-- Only `adapters/` imports the driver: a feature's repositories, seeds and migrations (flat: `mongo-*.ts`, `seed-*.ts`, `migrate-*.ts`) and `shared/adapters` (the infrastructure the skill lists, never a repository); queries never come from raw input.
+- Only `data/` imports the driver (a feature's repositories, seeds and migrations) plus `core/database`, which holds no repository; queries never come from raw input. `core/` is plumbing, `shared/` cross-feature business code; neither holds a repository or a use-case.
 - Job processors are idempotent, validate their payload and have an explicit retry policy.
 
 ## Before calling it done
 
-- Unit-test services/use-cases with the repository mocked behind its interface; integration-test repositories against a real/test MongoDB instance and routes via Fastify's `inject`.
+- Unit-test entities, value objects and use-cases with the repository interfaces faked from the feature's `testing/`; integration-test repositories against a real/test MongoDB instance and routes via Fastify's `inject`.
 - For BullMQ work: integration-test the job processor against a real/test Redis instance, cover both the success path and what happens on a thrown error (job stays retryable), and confirm idempotency if the job could plausibly be redelivered.
 - Hand off to `qa-engineer` for broader test strategy, and to `security-engineer` before shipping auth, payments, anything touching external input, or anything relying on Cloudflare-supplied headers/edge rules for a security decision.
 - Run the repo's lint (with its boundary and size rules, where it has them) and check every file you touched against the Structure rules. List any pre-existing violation you worked around, with the refactor issue you linked or opened, under Deviations.
