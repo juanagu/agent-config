@@ -10,6 +10,7 @@
       "expectations": [
         "The route declares a response schema, not only input",
         "The muted-type filtering and unread count live in a use-case under domain/, not in the controller or route",
+        "The use-case is a *UseCase class in a *.use-case.ts file, taking its repository interface in the constructor, whose only public method is execute",
         "A feature-owned interface under domain/ declares exactly the two upstream calls this feature makes, and its implementation lives under data/, not api/",
         "The data/ client signals upstream failure by throwing a typed error, never by returning { ok, status }",
         "The controller does not catch errors to map them to HTTP statuses",
@@ -38,7 +39,7 @@
         "Flags shared/metering/mongo-seat-usage.repository.ts: shared/ holds no repository; seat usage read by two features is a feature of its own with a public surface",
         "Flags api/http-billing.client.ts: a client calling another service is outbound and belongs in data/ behind a domain/ interface, not in api/",
         "Flags domain/entities/ holding a single file (invite.entity.ts): in a new feature a sub-folder appears with the second file of its kind",
-        "Flags domain/use-cases/invite-service.ts as one InviteService class holding two use-cases (create, accept) without the *.use-case.ts suffix, in a use-cases/ sub-folder that holds one file: one use-case per module, each exporting one function",
+        "Flags domain/use-cases/invite-service.ts as one InviteService class holding two use-cases (create, accept) without the *.use-case.ts suffix, in a use-cases/ sub-folder that holds one file: one *UseCase class per module whose only public method is execute",
         "Flags the InviteStore interface declared inside the use-case file: an outbound interface lives in domain/ as a *.repository.ts",
         "Flags the processor in api/ writing through invitesCollection from core/database: api/ never touches the database, the write goes through a use-case and a data/ repository, and core/database holds no collection accessor",
         "Flags sendInviteEmailQueueOptions defined beside the processor in api/: the queue definition with its attempts and backoff belongs in data/ as a *.queue.ts"
