@@ -8,3 +8,4 @@ One file per decision, with the alternatives it rejected. A new decision gets th
 | [0002](0002-root-is-the-drop-in.md) | The repository root is the drop-in; the installer copies it into a project or links it into a tool's user folders. |
 | [0003](0003-antigravity-not-gemini.md) | Antigravity CLI is the Google target, not Gemini CLI. |
 | [0004](0004-tiers-not-models.md) | Agents name a tier (judgment, implementation), not a model. |
+| [0005](0005-fastify-three-layers.md) | Fastify features are split into domain, data and api, with core/ for infrastructure and shared/ for cross-feature business code. |

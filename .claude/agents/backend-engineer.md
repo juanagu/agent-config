@@ -20,11 +20,11 @@ You implement backend services on Node.js + Fastify + MongoDB, across three poss
 
 Apply the **Structure rules** in `AGENTS.md` to every file you touch. The full layering, the BFF, MongoDB and BullMQ rules and the review checklist live in the `fastify-architecture` skill: **load it before writing a line**. What you never trade away:
 
-- Routes → thin controller → framework-free use-cases → ports → adapters. No Fastify types in services, no data access in controllers.
+- Clean architecture per feature: `domain/` (entities, value objects, use-cases, repository interfaces), `data/` (their implementations, models, mappers, clients, queues) and `api/` (routes, schemas, controllers, middlewares, job processors). Inbound goes in `api/`, outbound in `data/`; `domain/` imports neither, nor Fastify, a driver or BullMQ.
 - Every route validates input and output with a schema. Errors are thrown typed and mapped by the one central handler; envelope shapes are contracts.
-- Each feature's `ports/` (flat: `port.ts`) declares only the calls it makes; a plugin receives that narrow type, never a client with every operation.
+- Each feature's `domain/repositories` declares only the calls its use-cases make; a plugin receives use-cases or that narrow interface, never a client with every operation.
 - A service owns one bounded context and its own database; a BFF owns no source-of-truth data.
-- Only `adapters/` imports the driver: a feature's repositories, seeds and migrations (flat: `mongo-*.ts`, `seed-*.ts`, `migrate-*.ts`) and `shared/adapters` (the infrastructure the skill lists, never a repository); queries never come from raw input.
+- Only `data/` imports the driver (a feature's repositories, seeds and migrations) plus `core/database`, which holds no repository; queries never come from raw input. `core/` is plumbing, `shared/` cross-feature business code; neither holds a repository or a use-case.
 - Job processors are idempotent, validate their payload and have an explicit retry policy.
 
 ## Before calling it done
