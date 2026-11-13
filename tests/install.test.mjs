@@ -32,13 +32,18 @@ const global = (clone, home, ...extra) => install(clone, ["--global", "--home", 
 const project = (clone, dir, ...extra) => install(clone, ["--project", dir, ...extra]);
 const claudeHome = (clone, home, ...extra) => global(clone, home, "--tool", "claude", ...extra);
 
-// An env whose PATH starts with a directory holding an executable stub of `name`.
+// process.env with `bin` first on PATH, under whatever casing the platform's PATH key has.
+function prependToPath(bin, env = process.env) {
+  const pathKey = Object.keys(env).find((key) => key.toUpperCase() === "PATH") ?? "PATH";
+  return { ...env, [pathKey]: `${bin}${process.platform === "win32" ? ";" : ":"}${env[pathKey]}` };
+}
+
+// An env whose PATH starts with a directory holding an executable stub of `name` that does nothing.
 function withStubOnPath(t, name) {
   const bin = freshDir(t);
   if (process.platform === "win32") writeFileSync(join(bin, `${name}.cmd`), "@exit /b 0\r\n");
   else writeFileSync(join(bin, name), "#!/bin/sh\nexit 0\n", { mode: 0o755 });
-  const pathKey = Object.keys(process.env).find((key) => key.toUpperCase() === "PATH") ?? "PATH";
-  return { ...process.env, [pathKey]: `${bin}${process.platform === "win32" ? ";" : ":"}${process.env[pathKey]}` };
+  return prependToPath(bin);
 }
 
 const guardCommand = (clone, tool) => `node "${posix(clone)}/.agents/hooks/git-guard/git-guard.mjs" --tool ${tool}`;
@@ -334,8 +339,7 @@ function stubClaudeAtRealHome(t) {
   const record = join(bin, "args.txt");
   if (process.platform === "win32") writeFileSync(join(bin, "claude.cmd"), `@echo %*> "${record}"\r\n`);
   else writeFileSync(join(bin, "claude"), `#!/bin/sh\necho "$@" > "${record}"\n`, { mode: 0o755 });
-  const pathKey = Object.keys(process.env).find((key) => key.toUpperCase() === "PATH") ?? "PATH";
-  const env = { ...process.env, HOME: home, USERPROFILE: home, [pathKey]: `${bin}${process.platform === "win32" ? ";" : ":"}${process.env[pathKey]}` };
+  const env = prependToPath(bin, { ...process.env, HOME: home, USERPROFILE: home });
   const clone = makeFixtureClone(t);
   const run = (...extra) => install(clone, ["--global", "--home", home, "--tool", "claude", "--skip-skills", "--no-rtk", "--no-codegraph", ...extra], env);
   return { home, record, run };

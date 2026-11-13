@@ -165,16 +165,34 @@ describe("trunk protection (any repo)", () => {
 
 describe("branch switching in a protected checkout", () => {
   it("blocks git switch", () => blocked("git switch feat/x", protectedRepo));
+  it("keeps guarding when the config lists a folder that does not exist", () => {
+    const config = path.join(home, "missing-entry-config.json");
+    writeFileSync(config, JSON.stringify({ protectedCheckouts: [path.join(home, "gone"), protectedRepo] }));
+    const env = { GIT_GUARD_CONFIG: config };
+    try {
+      assert.equal(runRaw({ tool_name: "Bash", cwd: protectedRepo, tool_input: { command: "git switch feat/x" } }, undefined, env).code, 2);
+      assert.equal(runRaw({ tool_name: "Bash", cwd: plainRepo, tool_input: { command: "git commit -m x" } }, undefined, env).code, 2);
+    } finally {
+      rmSync(config, { force: true });
+    }
+  });
   it("blocks it when the config lists the checkout through a symlink", () => {
     const link = path.join(home, "served-link");
     symlinkSync(protectedRepo, link, process.platform === "win32" ? "junction" : "dir");
     const config = path.join(home, "symlinked-config.json");
     writeFileSync(config, JSON.stringify({ protectedCheckouts: [link] }));
+    const env = { GIT_GUARD_CONFIG: config };
     try {
-      const r = runRaw({ tool_name: "Bash", cwd: plainRepo, tool_input: { command: `git -C "${link}" switch feat/x` } }, undefined, { GIT_GUARD_CONFIG: config });
-      assert.equal(r.code, 2, r.stderr);
+      const viaFlag = runRaw({ tool_name: "Bash", cwd: plainRepo, tool_input: { command: `git -C "${link}" switch feat/x` } }, undefined, env);
+      assert.equal(viaFlag.code, 2, viaFlag.stderr);
+      const viaCwd = runRaw({ tool_name: "Bash", cwd: link, tool_input: { command: "git switch feat/x" } }, undefined, env);
+      assert.equal(viaCwd.code, 2, viaCwd.stderr);
+      // The real path still matches when the config names the link.
+      const viaRealPath = runRaw({ tool_name: "Bash", cwd: protectedRepo, tool_input: { command: "git switch feat/x" } }, undefined, env);
+      assert.equal(viaRealPath.code, 2, viaRealPath.stderr);
     } finally {
       rmSync(link, { force: true });
+      rmSync(config, { force: true });
     }
   });
   it("blocks git checkout <branch>", () => blocked("git checkout feat/x", protectedRepo));

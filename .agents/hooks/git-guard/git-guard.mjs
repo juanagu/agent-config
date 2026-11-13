@@ -62,11 +62,19 @@ function git(dir, args) {
   }).trim();
 }
 
+// Never throws: a path realpath can't resolve (missing, or a drive it refuses) keeps its resolved spelling,
+// because a throw here would fail the whole hook open.
+function realOrResolved(resolved) {
+  try {
+    return realpathSync.native(resolved);
+  } catch {
+    return resolved;
+  }
+}
+
 // Real path, so a checkout listed through a symlink (macOS's /var is /private/var) matches git's toplevel.
 function normalize(p) {
-  const resolved = path.resolve(toNativePath(p));
-  const real = existsSync(resolved) ? realpathSync.native(resolved) : resolved;
-  return real.replace(/\\/g, "/").replace(/\/$/, "").toLowerCase();
+  return realOrResolved(path.resolve(toNativePath(p))).replace(/\\/g, "/").replace(/\/$/, "").toLowerCase();
 }
 
 function loadProtectedCheckouts() {
