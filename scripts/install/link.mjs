@@ -21,10 +21,6 @@ function removeLink(path) {
   }
 }
 
-// A folder named after this repo or its predecessor somewhere in a link's target: where a clone
-// that has since moved left its links.
-const NAMED_CLONE = /[\\/](?:agent-config|claude-code-config)[\\/]/;
-
 // An `@` import of a CLAUDE.md in a clone named after this repo or its predecessor; a clone
 // elsewhere is recognised by the line the installer wrote last time (`imports`).
 const NAMED_IMPORT = /^@.*(?:agent-config|claude-code-config).*\/CLAUDE\.md$/;
@@ -33,8 +29,9 @@ const NAMED_IMPORT = /^@.*(?:agent-config|claude-code-config).*\/CLAUDE\.md$/;
 // way is moved to <toolDir>/backup-<timestamp>/ first; a link in the way holds no data and
 // is removed. `copies` remembers the hash of each file written as a copy, so a later run can
 // tell our copy (refresh it) from the user's edit (leave it); `imports` remembers the import
-// line written into each CLAUDE.md, so a re-run replaces it wherever the clone lives.
-export function createLinker(toolDir, copies = {}, imports = {}) {
+// line written into each CLAUDE.md, so a re-run replaces it wherever the clone lives; `links`
+// remembers the target of each link made or found in place, so a later run sweeps only its own.
+export function createLinker(toolDir, copies = {}, imports = {}, links = {}) {
   const backupDir = join(toolDir, `backup-${timestamp()}`);
   let backedUp = false;
 
@@ -50,6 +47,7 @@ export function createLinker(toolDir, copies = {}, imports = {}) {
   }
 
   function link(path, target, type = "junction") {
+    links[toPosix(path)] = toPosix(target);
     if (linksTo(path, target)) return false;
     const stat = lstat(path);
     if (stat?.isSymbolicLink()) removeLink(path);
@@ -109,6 +107,7 @@ export function createLinker(toolDir, copies = {}, imports = {}) {
     const hash = sha256(content);
     const key = toPosix(path);
     const stat = lstat(path);
+    delete links[key];
     if (stat?.isSymbolicLink()) removeLink(path);
     else if (stat) {
       const currentHash = sha256(readFileSync(path));
@@ -132,16 +131,21 @@ export function createLinker(toolDir, copies = {}, imports = {}) {
   function forgetCopy(path) {
     const key = toPosix(path);
     if (!(key in copies)) return false;
-    if (lstat(path) && sha256(readFileSync(path)) === copies[key]) unlinkSync(path);
+    const stat = lstat(path);
+    // A link the user put where our copy was is theirs, whether or not its target is there.
+    if (stat && !stat.isSymbolicLink() && sha256(readFileSync(path)) === copies[key]) unlinkSync(path);
     delete copies[key];
     return true;
   }
 
-  // Only links an install could have made: into this clone, or into a clone named after the repo
-  // that has moved. Any other dangling link is the user's (a drive not mounted right now) and stays.
+  // A link an install made: recorded with the target it still has (wherever the clone lived, a
+  // worktree included), or, made before links were recorded, one into this clone. Any other
+  // dangling link is the user's (a drive not mounted right now) and stays.
   function isOurLink(path, repoDir) {
-    const target = resolve(dirname(path), readlinkSync(path));
-    return isInside(target, repoDir) || NAMED_CLONE.test(target);
+    const target = readlinkSync(path);
+    const recorded = links[toPosix(path)];
+    if (recorded !== undefined) return samePath(target, recorded);
+    return isInside(resolve(dirname(path), target), repoDir);
   }
 
   function sweepBrokenLinks(dir, repoDir) {
@@ -151,6 +155,7 @@ export function createLinker(toolDir, copies = {}, imports = {}) {
       const full = join(dir, name);
       if (lstat(full)?.isSymbolicLink() && !existsSync(full) && isOurLink(full, repoDir)) {
         removeLink(full);
+        delete links[toPosix(full)];
         removed.push(name);
       }
     }

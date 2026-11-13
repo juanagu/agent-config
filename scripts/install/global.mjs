@@ -28,7 +28,7 @@ export async function installGlobal(tool, repoDir, home, prompter, flags) {
   // Everything that must parse is read first, so a broken file leaves the folder as it was.
   const current = tool === "claude" ? settings.readSettings(target.dir) : readHookFiles(tool, target, home);
   mkdirSync(target.dir, { recursive: true });
-  const linker = createLinker(target.dir, prompter.copies, prompter.imports);
+  const linker = createLinker(target.dir, prompter.copies, prompter.imports, prompter.links);
   const agents = linkRepoAgents(linker, repoDir, target.agents);
   mkdirSync(target.skillsDir, { recursive: true });
   linkRepoSkills(linker, repoDir, target.skillsDir);
