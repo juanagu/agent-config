@@ -32,6 +32,15 @@ const global = (clone, home, ...extra) => install(clone, ["--global", "--home", 
 const project = (clone, dir, ...extra) => install(clone, ["--project", dir, ...extra]);
 const claudeHome = (clone, home, ...extra) => global(clone, home, "--tool", "claude", ...extra);
 
+// An env whose PATH starts with a directory holding an executable stub of `name`.
+function withStubOnPath(t, name) {
+  const bin = freshDir(t);
+  if (process.platform === "win32") writeFileSync(join(bin, `${name}.cmd`), "@exit /b 0\r\n");
+  else writeFileSync(join(bin, name), "#!/bin/sh\nexit 0\n", { mode: 0o755 });
+  const pathKey = Object.keys(process.env).find((key) => key.toUpperCase() === "PATH") ?? "PATH";
+  return { ...process.env, [pathKey]: `${bin}${process.platform === "win32" ? ";" : ":"}${process.env[pathKey]}` };
+}
+
 const guardCommand = (clone, tool) => `node "${posix(clone)}/.agents/hooks/git-guard/git-guard.mjs" --tool ${tool}`;
 const GUARD_RELATIVE = "node .agents/hooks/git-guard/git-guard.mjs";
 
@@ -270,8 +279,11 @@ test("--yes merges the rtk hook and the CodeGraph and Context7 rules once, and k
   const claude = join(home, ".claude");
   mkdirSync(claude);
   writeJson(join(claude, "settings.json"), { permissions: { allow: ["Read"] } });
-  assert.equal(claudeHome(clone, home, "--yes").status, 0);
-  assert.equal(claudeHome(clone, home, "--yes").status, 0);
+  // --yes adds the rtk hook only when rtk is on PATH, so the run gets a stub instead of the machine's.
+  const env = withStubOnPath(t, "rtk");
+  const run = () => install(clone, ["--global", "--home", home, "--skip-skills", "--tool", "claude", "--yes"], env);
+  assert.equal(run().status, 0);
+  assert.equal(run().status, 0);
   const settings = readJson(join(claude, "settings.json"));
   assert.deepEqual(settings.permissions.allow, ["Read", "mcp__codegraph__*", "mcp__context7__*"]);
   assert.deepEqual(hookCommands(settings).filter((command) => command.includes("rtk")), ["rtk hook claude"]);

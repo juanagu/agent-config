@@ -3,7 +3,7 @@
 // payload on stdin, then the rules through Claude Code's dialect (exit 0 allows, exit 2 blocks) and each
 // other tool's deny JSON once per tool.
 import { execFileSync, spawnSync } from "node:child_process";
-import { mkdtempSync, mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { mkdtempSync, mkdirSync, readFileSync, rmSync, symlinkSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import { after, before, describe, it } from "node:test";
@@ -165,6 +165,18 @@ describe("trunk protection (any repo)", () => {
 
 describe("branch switching in a protected checkout", () => {
   it("blocks git switch", () => blocked("git switch feat/x", protectedRepo));
+  it("blocks it when the config lists the checkout through a symlink", () => {
+    const link = path.join(home, "served-link");
+    symlinkSync(protectedRepo, link, process.platform === "win32" ? "junction" : "dir");
+    const config = path.join(home, "symlinked-config.json");
+    writeFileSync(config, JSON.stringify({ protectedCheckouts: [link] }));
+    try {
+      const r = runRaw({ tool_name: "Bash", cwd: plainRepo, tool_input: { command: `git -C "${link}" switch feat/x` } }, undefined, { GIT_GUARD_CONFIG: config });
+      assert.equal(r.code, 2, r.stderr);
+    } finally {
+      rmSync(link, { force: true });
+    }
+  });
   it("blocks git checkout <branch>", () => blocked("git checkout feat/x", protectedRepo));
   it("blocks git checkout -b and switch -c", () => {
     blocked("git checkout -b feat/y", protectedRepo);

@@ -62,8 +62,11 @@ function git(dir, args) {
   }).trim();
 }
 
+// Real path, so a checkout listed through a symlink (macOS's /var is /private/var) matches git's toplevel.
 function normalize(p) {
-  return path.resolve(toNativePath(p)).replace(/\\/g, "/").replace(/\/$/, "").toLowerCase();
+  const resolved = path.resolve(toNativePath(p));
+  const real = existsSync(resolved) ? realpathSync.native(resolved) : resolved;
+  return real.replace(/\\/g, "/").replace(/\/$/, "").toLowerCase();
 }
 
 function loadProtectedCheckouts() {
