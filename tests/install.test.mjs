@@ -32,6 +32,20 @@ const global = (clone, home, ...extra) => install(clone, ["--global", "--home", 
 const project = (clone, dir, ...extra) => install(clone, ["--project", dir, ...extra]);
 const claudeHome = (clone, home, ...extra) => global(clone, home, "--tool", "claude", ...extra);
 
+// process.env with `bin` first on PATH, under whatever casing the platform's PATH key has.
+function prependToPath(bin, env = process.env) {
+  const pathKey = Object.keys(env).find((key) => key.toUpperCase() === "PATH") ?? "PATH";
+  return { ...env, [pathKey]: `${bin}${process.platform === "win32" ? ";" : ":"}${env[pathKey]}` };
+}
+
+// An env whose PATH starts with a directory holding an executable stub of `name` that does nothing.
+function withStubOnPath(t, name) {
+  const bin = freshDir(t);
+  if (process.platform === "win32") writeFileSync(join(bin, `${name}.cmd`), "@exit /b 0\r\n");
+  else writeFileSync(join(bin, name), "#!/bin/sh\nexit 0\n", { mode: 0o755 });
+  return prependToPath(bin);
+}
+
 const guardCommand = (clone, tool) => `node "${posix(clone)}/.agents/hooks/git-guard/git-guard.mjs" --tool ${tool}`;
 const GUARD_RELATIVE = "node .agents/hooks/git-guard/git-guard.mjs";
 
@@ -270,8 +284,11 @@ test("--yes merges the rtk hook and the CodeGraph and Context7 rules once, and k
   const claude = join(home, ".claude");
   mkdirSync(claude);
   writeJson(join(claude, "settings.json"), { permissions: { allow: ["Read"] } });
-  assert.equal(claudeHome(clone, home, "--yes").status, 0);
-  assert.equal(claudeHome(clone, home, "--yes").status, 0);
+  // --yes adds the rtk hook only when rtk is on PATH, so the run gets a stub instead of the machine's.
+  const env = withStubOnPath(t, "rtk");
+  const run = () => install(clone, ["--global", "--home", home, "--skip-skills", "--tool", "claude", "--yes"], env);
+  assert.equal(run().status, 0);
+  assert.equal(run().status, 0);
   const settings = readJson(join(claude, "settings.json"));
   assert.deepEqual(settings.permissions.allow, ["Read", "mcp__codegraph__*", "mcp__context7__*"]);
   assert.deepEqual(hookCommands(settings).filter((command) => command.includes("rtk")), ["rtk hook claude"]);
@@ -322,8 +339,7 @@ function stubClaudeAtRealHome(t) {
   const record = join(bin, "args.txt");
   if (process.platform === "win32") writeFileSync(join(bin, "claude.cmd"), `@echo %*> "${record}"\r\n`);
   else writeFileSync(join(bin, "claude"), `#!/bin/sh\necho "$@" > "${record}"\n`, { mode: 0o755 });
-  const pathKey = Object.keys(process.env).find((key) => key.toUpperCase() === "PATH") ?? "PATH";
-  const env = { ...process.env, HOME: home, USERPROFILE: home, [pathKey]: `${bin}${process.platform === "win32" ? ";" : ":"}${process.env[pathKey]}` };
+  const env = prependToPath(bin, { ...process.env, HOME: home, USERPROFILE: home });
   const clone = makeFixtureClone(t);
   const run = (...extra) => install(clone, ["--global", "--home", home, "--tool", "claude", "--skip-skills", "--no-rtk", "--no-codegraph", ...extra], env);
   return { home, record, run };

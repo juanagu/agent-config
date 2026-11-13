@@ -1,7 +1,7 @@
 // A throwaway clone for the installer tests: the real scripts/ beside fixture content at every
 // path the installer copies or links, so the suite needs neither `npm run build` nor the
 // real skills, and so a change to the generated files cannot break these tests by accident.
-import { cpSync, mkdirSync, mkdtempSync, writeFileSync } from "node:fs";
+import { cpSync, mkdirSync, mkdtempSync, realpathSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -35,7 +35,8 @@ for (const skill of FIXTURE_SKILLS) {
 }
 
 export function makeFixtureClone(t, { skip = [] } = {}) {
-  const dir = mkdtempSync(join(tmpdir(), "agent-config-clone-"));
+  // Real path: on macOS tmpdir() is /var/..., a symlink to the /private/var/... the installer resolves.
+  const dir = realpathSync(mkdtempSync(join(tmpdir(), "agent-config-clone-")));
   t.after(() => rmSafely(dir));
   cpSync(join(repoDir, "scripts"), join(dir, "scripts"), { recursive: true });
   for (const name of ["package.json", "skills.txt", "skills.optional.txt"]) cpSync(join(repoDir, name), join(dir, name));
@@ -48,7 +49,7 @@ export function makeFixtureClone(t, { skip = [] } = {}) {
 }
 
 export function freshDir(t, prefix = "agent-config-test-") {
-  const dir = mkdtempSync(join(tmpdir(), prefix));
+  const dir = realpathSync(mkdtempSync(join(tmpdir(), prefix)));
   t.after(() => rmSafely(dir));
   return dir;
 }
