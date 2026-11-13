@@ -10,7 +10,7 @@
       "expectations": [
         "The route declares a response schema, not only input",
         "The muted-type filtering and unread count live in a use-case under domain/, not in the controller or route",
-        "The use-case is a *UseCase class in a *.use-case.ts file, taking its repository interface in the constructor, whose only public method is execute",
+        "The use-case is a *UseCase class in a *.use-case.ts file, taking its repository interface in the constructor, whose only public method is execute, typed with a <Case>Input and a <Case>Output declared in the same file",
         "A feature-owned interface under domain/ declares exactly the two upstream calls this feature makes, and its implementation lives under data/, not api/",
         "The data/ client signals upstream failure by throwing a typed error, never by returning { ok, status }",
         "The controller does not catch errors to map them to HTTP statuses",

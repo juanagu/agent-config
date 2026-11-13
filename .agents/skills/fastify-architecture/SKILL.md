@@ -106,7 +106,7 @@ A row imports only the ticked columns. "Own" means the same feature; another fea
 - Session checks make zero network calls; a stateless service verifies the request on its own.
 - `core/` has no business meaning and imports no feature and no `shared/`. `shared/` holds no repository, no use-case and no infrastructure: code two features need that reads or writes a collection is a feature of its own with a public surface, and plumbing belongs in `core/`. No `utils/`, `helpers/` or `common/` folder anywhere: name the topic.
 - A domain type carries no field that no use-case reads, and a domain file never describes itself as a document, a collection or a row: storage shapes are `data/models`, wire shapes `api/schemas`.
-- A use-case is one case: one class per `*.use-case.ts`, named for the case with a `UseCase` suffix (`AcceptInviteUseCase`), taking the repository interfaces it uses in its constructor and exposing one public method, `execute(input)`, with the input and result types declared beside it. No other public method, and no state between calls beyond its dependencies. A second thing to do is a second use-case, never a second method; a class named `*Service` or `*Manager` in `domain/` is several use-cases waiting to be split.
+- A use-case is one case: one class per `*.use-case.ts`, named for the case with a `UseCase` suffix (`AcceptInviteUseCase`), taking the repository interfaces it uses in its constructor and exposing one public method, `execute(input: AcceptInviteInput): Promise<AcceptInviteOutput>`. `<Case>Input` and `<Case>Output` are declared in the same file: plain readonly data the use-case owns, never a model, a Fastify request or a route schema type, so `api/` maps validated input into `Input` and `Output` into its response schema. An `Output` may carry entity types and value objects; a use-case with nothing to return resolves `Promise<void>` and declares no `Output`; an expected failure is a typed error thrown from `core/errors`, never a status field on `Output`. No other public method, and no state between calls beyond its dependencies. A second thing to do is a second use-case, never a second method; a class named `*Service` or `*Manager` in `domain/` is several use-cases waiting to be split.
 - In a new or rewritten feature, a sub-folder appears with the second file of its kind, and a layer over about 15 files means the feature splits by sub-feature (§1).
 
 ## 3. BFF
@@ -183,6 +183,7 @@ Repos built on this skill's earlier layout (`service/`, `ports/`, `adapters/`, `
 | `domain/entities/invite.entity.ts` typed as the Mongo document, `_id` and all | `Invite` with what use-cases read; `InviteDocument` in `data/models/`, mapped in `data/mappers/` |
 | A use-case importing `mongodb`, `fastify` or `bullmq` | It calls a `domain/repositories` interface; `data/` implements it |
 | One `InviteService` with twenty public methods | One `*.use-case.ts` per case, each a `*UseCase` class whose only public method is `execute` |
+| `execute(workspaceId, email, role)` or `execute(request.body)` returning a document or `{ ok, status }` | `execute(input: CreateInviteInput): Promise<CreateInviteOutput>`, both plain types in the use-case file; failures thrown |
 | A use-case with `execute` plus helpers like `validate` or `notify` made public | Helpers private, or an entity rule; the class exposes `execute` alone |
 | `domain/entities/` holding one file | `domain/invite.entity.ts` flat until the second entity |
 | One `data/` of twenty-five files across checkout, plans and webhooks | Sub-features, each with the layers it needs |
@@ -202,7 +203,7 @@ Repos built on this skill's earlier layout (`service/`, `ports/`, `adapters/`, `
 7. Only `data/` and `core/database` touch the driver; `core/database` holds no repository; queries never built from raw input.
 8. Jobs: definition (`*.queue.ts`) and producer (`*.producer.ts`) apart in `data/`, processor and worker in `api/` importing only the definition, wired by `create-<feature>-worker.ts`; idempotent, explicit retry policy, payload validated.
 9. Tests: unit with faked repositories from `testing/`, repositories against a real MongoDB, routes via `inject`, jobs against real Redis.
-10. Files ~300 lines, functions ~40; one `*UseCase` class per module whose only public method is `execute`; a routes plugin that only registers is exempt.
+10. Files ~300 lines, functions ~40; one `*UseCase` class per module whose only public method is `execute(input: <Case>Input): Promise<<Case>Output>`, both plain types in that file; a routes plugin that only registers is exempt.
 11. File names kebab-case with the role suffix (`*.use-case.ts`, `*.repository.ts`, `*.controller.ts`…), test suffixes after it; `unicorn/filename-case` green.
 12. New or rewritten features: layer folders only once they hold a file, a sub-folder only from the second file of its kind, a split by sub-feature when a layer passes ~15 files; no module folders over `features/`.
 
