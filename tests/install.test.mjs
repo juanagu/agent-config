@@ -568,10 +568,13 @@ test("an earlier no to attribution is honoured under --no-optional", (t) => {
 test("a global run warns about a missing git user.email with the noreply command, and is not failed by it", (t) => {
   const clone = makeFixtureClone(t);
   const home = freshDir(t);
-  const result = claudeHome(clone, home, "--no-optional");
-  assert.equal(result.status, 0, result.stderr);
-  assert.match(result.stderr, /git has no global user\.email/);
-  assert.match(result.stderr, /git config --global user\.email "<id>\+<login>@users\.noreply\.github\.com"/);
+  for (const flag of ["--no-optional", "--yes"]) {
+    const result = claudeHome(clone, home, flag);
+    assert.equal(result.status, 0, result.stderr);
+    assert.match(result.stderr, /git has no global user\.email/);
+    assert.match(result.stderr, /git config --global user\.email "<id>\+<login>@users\.noreply\.github\.com"/);
+    assert.ok(!existsSync(join(home, ".gitconfig")), `${flag} never writes .gitconfig`);
+  }
 
   const named = freshDir(t);
   writeFileSync(join(named, ".gitconfig"), "[user]\n\temail = 1+me@users.noreply.github.com\n");
