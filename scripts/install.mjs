@@ -9,6 +9,7 @@ import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { HELP, parseArgs } from "./install/args.mjs";
 import { gitPull, hasCommand, offDefaultBranchWarning, runNode } from "./install/env.mjs";
+import { checkGitIdentity } from "./install/git-identity.mjs";
 import { installGlobal } from "./install/global.mjs";
 import { createPrompter } from "./install/prompts.mjs";
 import { installProject } from "./install/project.mjs";
@@ -46,6 +47,7 @@ async function installEverywhere(flags) {
     prompter.save();
   }
   const failed = flags.skipSkills ? [] : await installSkills(prompter, home, installed);
+  await checkGitIdentity(home, prompter);
   prompter.save();
   // Last, whatever the outcome: a warning before the pull is easily lost above the installer's output.
   const branchWarning = offDefaultBranchWarning(repoDir);
