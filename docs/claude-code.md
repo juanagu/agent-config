@@ -71,7 +71,7 @@ Lower it in a session of quick chores, and move the key to the new ID when the m
 
 - `/memory` shows `AGENTS.md` (through `CLAUDE.md`) under memory files.
 - `/agents` lists `architect-engineer`, `designer`, `code-reviewer` and the rest.
-- `~/.claude/settings.json` has `"attribution": {"commit": "", "pr": "", "sessionUrl": false}`, and `git config --global user.email` prints an address GitHub knows.
+- `~/.claude/settings.json` has `"attribution": {"commit": "", "pr": "", "sessionUrl": false}` (unless you set your own `attribution` or `includeCoAuthoredBy`, which the installer keeps), and `git config --global user.email` prints an address GitHub knows.
 - `/hooks` shows `git-guard` under `PreToolUse` and, after a global install, `audit-nudge` under `SessionStart`.
 - `AGENT_CONFIG_AUDIT_STAMP=/nonexistent node ~/Projects/agent-config/.agents/hooks/audit-nudge/audit-nudge.mjs` prints the nudge; after a `dependency-audit` run it prints nothing for a week.
 - In a scratch repo on `main`, ask Claude to run `git commit --allow-empty -m test`: it is blocked with the reason and the worktree recipe.
