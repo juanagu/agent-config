@@ -56,3 +56,4 @@ Restart Cursor or reload the window afterwards: hooks are read on start.
 - **Node must be on the `PATH` Cursor sees.** On macOS, apps launched from the Dock do not get your shell's `PATH`; start Cursor from a terminal or install Node where the system finds it. When Node is missing the hook fails open.
 - **Cloud Agents** do not copy `~/.agents/skills`; project-level `.agents/skills/` goes with the repo and works there.
 - **Background agents** inherit all tools; `readonly: true` is what keeps `code-reviewer` from editing.
+- **Commit attribution is not set by the installer.** If your version adds a co-author trailer to commits or PRs, turn it off in the tool's own settings, since commits are authored as you.

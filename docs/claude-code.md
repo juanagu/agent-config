@@ -18,7 +18,7 @@ This writes `AGENTS.md`, `CLAUDE.md`, `.claude/settings.json`, `.claude/agents/`
 npx -y github:juanagu/agent-config -- --global --tool claude
 ```
 
-It clones the repo to `~/Projects/agent-config` (or fast-forwards it), then: adds a one-line `@` import at the top of `~/.claude/CLAUDE.md` (the rest of the file is yours), links each agent into `~/.claude/agents/` and each skill into `~/.claude/skills/` (one entry each, so your own agents and skills stay beside them), creates `~/.claude/settings.json` from a template when it is missing (otherwise offers the git guard hook, or re-points an entry from an older install), offers the weekly dependency-audit nudge as a `SessionStart` hook (yes by default; `--no-audit-nudge` declines), offers Context7 for library docs (see below), and installs the third-party skills in `skills.txt`. Re-running updates everything. Flags: `--yes`, `--no-optional`, `--help`.
+It clones the repo to `~/Projects/agent-config` (or fast-forwards it), then: adds a one-line `@` import at the top of `~/.claude/CLAUDE.md` (the rest of the file is yours), links each agent into `~/.claude/agents/` and each skill into `~/.claude/skills/` (one entry each, so your own agents and skills stay beside them), creates `~/.claude/settings.json` from a template when it is missing (otherwise offers the git guard hook, or re-points an entry from an older install), adds the `attribution` keys you have not set so Claude Code never credits itself in commits or PRs (a value you set is kept), offers the weekly dependency-audit nudge as a `SessionStart` hook (yes by default; `--no-audit-nudge` declines), offers Context7 for library docs (see below), installs the third-party skills in `skills.txt`, and warns when `git config --global user.email` is unset or a hostname default, printing the command to set your GitHub noreply address (offering to run it when `gh` knows your account). Re-running updates everything. Flags: `--yes`, `--no-optional`, `--help`.
 
 Then start a new session: hooks and agents are read at session start.
 
@@ -71,6 +71,7 @@ Lower it in a session of quick chores, and move the key to the new ID when the m
 
 - `/memory` shows `AGENTS.md` (through `CLAUDE.md`) under memory files.
 - `/agents` lists `architect-engineer`, `designer`, `code-reviewer` and the rest.
+- `~/.claude/settings.json` has `"attribution": {"commit": "", "pr": "", "sessionUrl": false}`, and `git config --global user.email` prints an address GitHub knows.
 - `/hooks` shows `git-guard` under `PreToolUse` and, after a global install, `audit-nudge` under `SessionStart`.
 - `AGENT_CONFIG_AUDIT_STAMP=/nonexistent node ~/Projects/agent-config/.agents/hooks/audit-nudge/audit-nudge.mjs` prints the nudge; after a `dependency-audit` run it prints nothing for a week.
 - In a scratch repo on `main`, ask Claude to run `git commit --allow-empty -m test`: it is blocked with the reason and the worktree recipe.

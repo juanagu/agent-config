@@ -56,3 +56,4 @@ Reload VS Code afterwards.
 - **Non-zero exits other than timeouts fail closed in `preToolUse`.** The hook catches its own errors and exits 0, so a crash inside it does not block every command; a missing `node` binary would, because the shell exits 127. Keep Node installed where Copilot runs.
 - **Cloud coding agent** reads only `.github/hooks/*.json` and treats `ask` as `deny`; the guard never asks.
 - **`.github/agents/` picks up any `.md` file**, so keep notes out of that folder.
+- **Commit attribution is not set by the installer.** If your version adds a co-author trailer to commits or PRs, turn it off in the tool's own settings, since commits are authored as you.
