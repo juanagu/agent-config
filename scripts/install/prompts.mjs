@@ -17,8 +17,8 @@ export function createPrompter({ file, yes, noOptional, ask }) {
   const imports = saved.imports ?? {};
   const links = saved.links ?? {};
 
-  // An essential piece (the git-guard hook) is still added under --no-optional,
-  // unless an earlier run said no to it.
+  // An essential piece (the git-guard hook, the attribution keys) is still added under
+  // --no-optional, unless an earlier run said no to it.
   async function confirm(key, question, fallback = false, { essential = false } = {}) {
     const earlier = typeof saved[key] === "boolean" ? saved[key] : null;
     if (yes) return true;
