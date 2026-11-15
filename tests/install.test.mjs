@@ -541,6 +541,19 @@ test("attribution values the user set are kept, and only the missing keys are ad
   assert.deepEqual(readJson(join(claude, "settings.json")).attribution, { commit: "Reviewed-by: me", pr: "", sessionUrl: false });
 });
 
+test("an includeCoAuthoredBy the user set, true or false, is their choice: no attribution is added", (t) => {
+  const clone = makeFixtureClone(t);
+  for (const value of [true, false]) {
+    const home = freshDir(t);
+    mkdirSync(join(home, ".claude"));
+    writeJson(join(home, ".claude", "settings.json"), { includeCoAuthoredBy: value });
+    assert.equal(claudeHome(clone, home, "--yes", "--no-codegraph", "--no-context7").status, 0);
+    const written = readJson(join(home, ".claude", "settings.json"));
+    assert.equal(written.attribution, undefined, String(value));
+    assert.equal(written.includeCoAuthoredBy, value);
+  }
+});
+
 test("an earlier no to attribution is honoured under --no-optional", (t) => {
   const clone = makeFixtureClone(t);
   const home = freshDir(t);

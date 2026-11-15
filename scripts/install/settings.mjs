@@ -43,8 +43,10 @@ export function addHook(settings, matcher, command) {
 // Claude Code credits itself in commits and PRs unless these are set: a commit is the user's.
 export const ATTRIBUTION = { commit: "", pr: "", sessionUrl: false };
 
-// The attribution keys a settings object lacks; a value the user set, whatever it is, is theirs.
+// The attribution keys a settings object lacks; a value the user set, whatever it is, is theirs,
+// and so is the older `includeCoAuthoredBy`, set either way.
 export function missingAttribution(settings) {
+  if (typeof settings.includeCoAuthoredBy === "boolean") return [];
   const current = settings.attribution;
   if (current !== undefined && !isObject(current)) return [];
   return Object.keys(ATTRIBUTION).filter((key) => !(key in (current ?? {})));
