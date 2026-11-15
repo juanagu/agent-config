@@ -2,10 +2,5 @@
   "env": {
     "ENABLE_TOOL_SEARCH": "auto"
   },
-  "autoUpdatesChannel": "latest",
-  "attribution": {
-    "commit": "",
-    "pr": "",
-    "sessionUrl": false
-  }
+  "autoUpdatesChannel": "latest"
 }
