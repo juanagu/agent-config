@@ -47,7 +47,7 @@ async function installEverywhere(flags) {
     prompter.save();
   }
   const failed = flags.skipSkills ? [] : await installSkills(prompter, home, installed);
-  await checkGitIdentity(home, prompter);
+  await checkGitIdentity(home, prompter, { yes: flags.yes });
   prompter.save();
   // Last, whatever the outcome: a warning before the pull is easily lost above the installer's output.
   const branchWarning = offDefaultBranchWarning(repoDir);
