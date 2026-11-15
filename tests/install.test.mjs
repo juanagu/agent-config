@@ -55,6 +55,7 @@ function withStubOnPath(t, name) {
 }
 
 const guardCommand = (clone, tool) => `node "${posix(clone)}/.agents/hooks/git-guard/git-guard.mjs" --tool ${tool}`;
+const ATTRIBUTION_OFF = { commit: "", pr: "", sessionUrl: false };
 const GUARD_RELATIVE = "node .agents/hooks/git-guard/git-guard.mjs";
 
 // ---- project mode ----
@@ -354,12 +355,12 @@ test("a dangling link of the user's own, in the skills or agents folder, is left
   assert.match(result.stdout, /Left broken links the installer has no record of, in .*agents: my-agent\.md\./);
 });
 
-test("an existing settings.json that already has the hook is left byte for byte", (t) => {
+test("an existing settings.json that already has the hook and attribution is left byte for byte", (t) => {
   const clone = makeFixtureClone(t);
   const home = freshDir(t);
   const claude = join(home, ".claude");
   mkdirSync(claude);
-  writeJson(join(claude, "settings.json"), { model: "opus", hooks: { PreToolUse: [{ matcher: "Bash", hooks: [{ type: "command", command: guardCommand(clone, "claude") }] }] } });
+  writeJson(join(claude, "settings.json"), { model: "opus", attribution: ATTRIBUTION_OFF, hooks: { PreToolUse: [{ matcher: "Bash", hooks: [{ type: "command", command: guardCommand(clone, "claude") }] }] } });
   const before = readFileSync(join(claude, "settings.json"), "utf8");
   assert.equal(claudeHome(clone, home, "--no-optional").status, 0);
   assert.equal(readFileSync(join(claude, "settings.json"), "utf8"), before);
@@ -511,7 +512,73 @@ test("an earlier no to the git-guard hook is honoured under --no-optional", (t) 
   mkdirSync(join(home, ".config", "agent-config"), { recursive: true });
   writeJson(answersFile(home), { gitGuard: false });
   assert.equal(claudeHome(clone, home, "--no-optional").status, 0);
-  assert.deepEqual(readJson(join(claude, "settings.json")), {});
+  assert.deepEqual(readJson(join(claude, "settings.json")), { attribution: ATTRIBUTION_OFF });
+});
+
+test("an existing settings.json without attribution gets it under --no-optional, and a fresh one gets it too", (t) => {
+  const clone = makeFixtureClone(t);
+  const home = freshDir(t);
+  const claude = join(home, ".claude");
+  mkdirSync(claude);
+  writeJson(join(claude, "settings.json"), { model: "opus" });
+  const result = claudeHome(clone, home, "--no-optional");
+  assert.equal(result.status, 0, result.stderr);
+  assert.deepEqual(readJson(join(claude, "settings.json")).attribution, ATTRIBUTION_OFF);
+  assert.match(result.stdout, /Updated .*settings\.json/);
+
+  const fresh = freshDir(t);
+  assert.equal(claudeHome(clone, fresh, "--no-optional").status, 0);
+  assert.deepEqual(readJson(join(fresh, ".claude", "settings.json")).attribution, ATTRIBUTION_OFF);
+});
+
+test("attribution values the user set are kept, and only the missing keys are added", (t) => {
+  const clone = makeFixtureClone(t);
+  const home = freshDir(t);
+  const claude = join(home, ".claude");
+  mkdirSync(claude);
+  writeJson(join(claude, "settings.json"), { attribution: { commit: "Reviewed-by: me" } });
+  assert.equal(claudeHome(clone, home, "--yes", "--no-codegraph", "--no-context7").status, 0);
+  assert.deepEqual(readJson(join(claude, "settings.json")).attribution, { commit: "Reviewed-by: me", pr: "", sessionUrl: false });
+});
+
+test("an includeCoAuthoredBy the user set, true or false, is their choice: no attribution is added", (t) => {
+  const clone = makeFixtureClone(t);
+  for (const value of [true, false]) {
+    const home = freshDir(t);
+    mkdirSync(join(home, ".claude"));
+    writeJson(join(home, ".claude", "settings.json"), { includeCoAuthoredBy: value });
+    assert.equal(claudeHome(clone, home, "--yes", "--no-codegraph", "--no-context7").status, 0);
+    const written = readJson(join(home, ".claude", "settings.json"));
+    assert.equal(written.attribution, undefined, String(value));
+    assert.equal(written.includeCoAuthoredBy, value);
+  }
+});
+
+test("an earlier no to attribution is honoured under --no-optional", (t) => {
+  const clone = makeFixtureClone(t);
+  const home = freshDir(t);
+  mkdirSync(join(home, ".claude"));
+  writeJson(join(home, ".claude", "settings.json"), { model: "opus" });
+  mkdirSync(join(home, ".config", "agent-config"), { recursive: true });
+  writeJson(answersFile(home), { attribution: false });
+  assert.equal(claudeHome(clone, home, "--no-optional").status, 0);
+  assert.equal(readJson(join(home, ".claude", "settings.json")).attribution, undefined);
+});
+
+test("a global run warns about a missing git user.email with the noreply command, and is not failed by it", (t) => {
+  const clone = makeFixtureClone(t);
+  const home = freshDir(t);
+  for (const flag of ["--no-optional", "--yes"]) {
+    const result = claudeHome(clone, home, flag);
+    assert.equal(result.status, 0, result.stderr);
+    assert.match(result.stderr, /git has no global user\.email/);
+    assert.match(result.stderr, /git config --global user\.email "<id>\+<login>@users\.noreply\.github\.com"/);
+    assert.ok(!existsSync(join(home, ".gitconfig")), `${flag} never writes .gitconfig`);
+  }
+
+  const named = freshDir(t);
+  writeFileSync(join(named, ".gitconfig"), "[user]\n\temail = 1+me@users.noreply.github.com\n");
+  assert.doesNotMatch(claudeHome(clone, named, "--no-optional").stderr, /user\.email/);
 });
 
 test("a settings.json with a BOM is read; one that is not JSON stops the run before anything is moved or linked", (t) => {

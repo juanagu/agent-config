@@ -16,8 +16,8 @@ export const CODEGRAPH_RULE = "mcp__codegraph__*";
 
 const TEMPLATE = join(dirname(fileURLToPath(import.meta.url)), "claude-settings.template.json");
 
-// A missing settings.json starts from the template, which carries no hook: the git guard is
-// offered to a fresh file the same way as to an existing one, so one code path owns the decision.
+// A missing settings.json starts from the template, which carries no hook and no attribution: both
+// are offered to a fresh file the same way as to an existing one, so one code path owns each.
 export function readSettings(claudeDir) {
   const path = join(claudeDir, "settings.json");
   if (existsSync(path)) return { path, settings: readJson(path), created: false };
@@ -38,6 +38,23 @@ export function addHook(settings, matcher, command) {
   settings.hooks ??= {};
   settings.hooks.PreToolUse ??= [];
   settings.hooks.PreToolUse.push({ matcher, hooks: [{ type: "command", command }] });
+}
+
+// Claude Code credits itself in commits and PRs unless these are set: a commit is the user's.
+export const ATTRIBUTION = { commit: "", pr: "", sessionUrl: false };
+
+// The attribution keys a settings object lacks; a value the user set, whatever it is, is theirs,
+// and so is the older `includeCoAuthoredBy`, set either way.
+export function missingAttribution(settings) {
+  if (typeof settings.includeCoAuthoredBy === "boolean") return [];
+  const current = settings.attribution;
+  if (current !== undefined && !isObject(current)) return [];
+  return Object.keys(ATTRIBUTION).filter((key) => !(key in (current ?? {})));
+}
+
+export function addAttribution(settings, keys) {
+  settings.attribution ??= {};
+  for (const key of keys) settings.attribution[key] = ATTRIBUTION[key];
 }
 
 export function hasAllowRule(settings, rule) {

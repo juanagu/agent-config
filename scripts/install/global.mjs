@@ -103,6 +103,7 @@ function reportCopy(path, outcome) {
 async function configureSettings(repoDir, home, { path, settings: current, created }, prompter, flags) {
   const added = [
     await offerGitGuard(repoDir, current, prompter),
+    await offerAttribution(current, prompter),
     await offerRtk(current, prompter, flags),
     await offerCodegraph(current, prompter, flags),
     await offerContext7(current, prompter, flags, home),
@@ -124,6 +125,16 @@ async function offerGitGuard(repoDir, current, prompter) {
   }
   if (!(await prompter.confirm("gitGuard", "settings.json has no git-guard hook. Add it?", true, { essential: true }))) return false;
   settings.addHook(current, settings.GIT_GUARD_MATCHER, command);
+  return true;
+}
+
+// Only the keys the user has not set are added, so a trailer they chose stays.
+async function offerAttribution(current, prompter) {
+  const missing = settings.missingAttribution(current);
+  if (!missing.length) return false;
+  const question = `settings.json lets Claude Code credit itself in commits and PRs (no ${missing.join(", ")} under attribution). Turn that off?`;
+  if (!(await prompter.confirm("attribution", question, true, { essential: true }))) return false;
+  settings.addAttribution(current, missing);
   return true;
 }
 

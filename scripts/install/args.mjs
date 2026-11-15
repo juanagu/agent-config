@@ -7,7 +7,10 @@ Installs agent-config for Claude Code, Cursor, GitHub Copilot and Antigravity CL
 
 Modes (--global is the default):
   --global              link this clone into each tool's user folders, register the
-                        git-guard hook there, and install the third-party skills
+                        git-guard hook there, add Claude Code's attribution keys you
+                        have not set (no co-author credit in commits or PRs), install
+                        the third-party skills, and warn when git's global user.email
+                        is unset or a machine default (it prints the fix, never runs it)
   --project [dir]       copy the drop-in files (AGENTS.md, .agents/, and each tool's
                         folder) into a project; default: the current directory
 
