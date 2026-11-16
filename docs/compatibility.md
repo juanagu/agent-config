@@ -48,16 +48,16 @@ Antigravity's `tools` key is left out on purpose: its docs warn that an unmapped
 
 Copilot's reference types the shell tool's arguments as `unknown`; the adapter reads `toolArgs.command` and, for the PascalCase `PreToolUse` form, `tool_input.command`. If your Copilot version sends the command under another key the hook fails open, and the Copilot guide shows how to print a payload to find out.
 
-## The dependency-audit nudge
+## The session-start nudges
 
-A session-start hook, registered by the global installer only. It prints nothing unless the last `dependency-audit` run (`~/.config/agent-config/last-dependency-audit`) is missing or a week old; it reads no stdin, makes no network call and exits 0. Verified 2026-10-22.
+Two session-start hooks, registered by the global installer only: the dependency-audit nudge and the disk-space nudge (`.agents/hooks/disk-nudge/`, which prints a warning only when the home drive has under 20 GB free, `AGENT_CONFIG_DISK_MIN_GB` overriding it, and reads the drive's free space, the last-docker-prune stamp (`AGENT_CONFIG_DOCKER_PRUNE_STAMP` overrides its path; only the date it shows) and nothing else). The registration, event and answer shape below are the same for both; Copilot and Antigravity keep each under its own file (`audit-nudge.json`, `disk-nudge.json`) or group. The dependency-audit nudge prints nothing unless the last `dependency-audit` run (`~/.config/agent-config/last-dependency-audit`) is missing or a week old; it reads no stdin, makes no network call and exits 0. Verified 2026-10-22.
 
 | Tool | User-level registration | Event | How the text reaches the agent | Source |
 | --- | --- | --- | --- | --- |
 | Claude Code | `~/.claude/settings.json` | `SessionStart`, matcher `startup` | plain stdout, added as context | [Hooks](https://code.claude.com/docs/en/hooks) |
 | Cursor | `~/.cursor/hooks.json` | `sessionStart` | `{"additional_context": …}`; not run in cloud agents | [Hooks](https://cursor.com/docs/agent/hooks) |
-| GitHub Copilot | `~/.copilot/hooks/audit-nudge.json` | `sessionStart` | `{"additionalContext": …}`; plain stdout is ignored | [CLI hooks reference](https://docs.github.com/en/copilot/reference/copilot-cli-reference/cli-hooks-reference) |
-| Antigravity CLI | `~/.gemini/config/hooks.json`, under `audit-nudge` | `SessionStart` | `{"injectSteps": [{"systemMessage": {"systemMessage": …}}]}` | [Hooks](https://antigravity.google/docs/hooks?tab=cli) |
+| GitHub Copilot | `~/.copilot/hooks/audit-nudge.json`, `disk-nudge.json` | `sessionStart` | `{"additionalContext": …}`; plain stdout is ignored | [CLI hooks reference](https://docs.github.com/en/copilot/reference/copilot-cli-reference/cli-hooks-reference) |
+| Antigravity CLI | `~/.gemini/config/hooks.json`, under `audit-nudge`, `disk-nudge` | `SessionStart` | `{"injectSteps": [{"systemMessage": {"systemMessage": …}}]}` | [Hooks](https://antigravity.google/docs/hooks?tab=cli) |
 
 ## What does not port
 

@@ -32,9 +32,12 @@ Options:
   --audit-nudge, --no-audit-nudge
                         decide the weekly dependency-audit reminder at session start
                         (every tool) without asking
+  --disk-nudge, --no-disk-nudge
+                        decide the low-disk-space warning at session start (every tool)
+                        without asking
   -h, --help
 
-Answers given at a prompt or by --rtk, --codegraph, --context7 and --audit-nudge are kept in
+Answers given at a prompt or by --rtk, --codegraph, --context7, --audit-nudge and --disk-nudge are kept in
 ~/.config/agent-config/config-install.json, so a re-run asks only what it has not asked.`;
 
 const BOOLEAN_FLAGS = {
@@ -49,7 +52,7 @@ const BOOLEAN_FLAGS = {
   "-h": "help",
 };
 
-const DECISIONS = { "--rtk": ["rtk", true], "--no-rtk": ["rtk", false], "--codegraph": ["codegraph", true], "--no-codegraph": ["codegraph", false], "--context7": ["context7", true], "--no-context7": ["context7", false], "--audit-nudge": ["auditNudge", true], "--no-audit-nudge": ["auditNudge", false] };
+const DECISIONS = { "--rtk": ["rtk", true], "--no-rtk": ["rtk", false], "--codegraph": ["codegraph", true], "--no-codegraph": ["codegraph", false], "--context7": ["context7", true], "--no-context7": ["context7", false], "--audit-nudge": ["auditNudge", true], "--no-audit-nudge": ["auditNudge", false], "--disk-nudge": ["diskNudge", true], "--no-disk-nudge": ["diskNudge", false] };
 
 // The value after an option, which must exist and not be another option.
 export function requireValue(args, i) {
@@ -65,7 +68,7 @@ function optionalValue(args, i) {
 
 // npx may or may not swallow the `--` separator, so it is dropped wherever it appears.
 export function parseArgs(argv) {
-  const flags = { global: false, project: null, tools: [], force: false, home: null, update: false, yes: false, noOptional: false, ask: false, skipSkills: false, rtk: null, codegraph: null, context7: null, auditNudge: null, help: false };
+  const flags = { global: false, project: null, tools: [], force: false, home: null, update: false, yes: false, noOptional: false, ask: false, skipSkills: false, rtk: null, codegraph: null, context7: null, auditNudge: null, diskNudge: null, help: false };
   const args = argv.filter((arg) => arg !== "--");
   for (let i = 0; i < args.length; i++) {
     const arg = args[i];

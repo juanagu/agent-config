@@ -1,5 +1,5 @@
 // Global mode: one function per tool, each linking the clone into that tool's user folders and
-// registering the git-guard hook and the weekly dependency-audit nudge there. Claude Code keeps
+// registering the git-guard hook and the session-start nudges there. Claude Code keeps
 // the fuller flow (settings.json from a template, the optional rtk, CodeGraph and Context7
 // pieces); the other three get links plus a merge into their hook files.
 import { existsSync, mkdirSync, rmSync } from "node:fs";
@@ -56,13 +56,13 @@ async function installClaude(repoDir, home, target, linker, current, prompter, f
   await configureSettings(repoDir, home, current, prompter, flags);
 }
 
-// The hook files a tool keeps, each read once: the guard's, and the nudge's where that is another
-// file (Copilot). Cursor and Antigravity keep both in one file.
+// The hook files a tool keeps, each read once: the guard's, and each nudge's where that is another
+// file (Copilot). Cursor and Antigravity keep them all in one file.
 function readHookFiles(tool, target, home) {
   const files = new Map([[target.hookFile, readRegistration(target.hookFile)]]);
-  const nudgeFile = nudge.nudgeFile(tool, home);
-  if (!files.has(nudgeFile)) files.set(nudgeFile, readRegistration(nudgeFile));
-  return { files, guardFile: target.hookFile, nudgeFile };
+  const nudgeFiles = new Map(nudge.NUDGES.map((item) => [item.id, nudge.nudgeFile(item, tool, home)]));
+  for (const file of nudgeFiles.values()) if (!files.has(file)) files.set(file, readRegistration(file));
+  return { files, guardFile: target.hookFile, nudgeFiles };
 }
 
 // Cursor, Copilot and Antigravity: a user-level standards copy where the tool reads one, the
@@ -74,15 +74,20 @@ async function installRegistration(tool, repoDir, target, linker, hooks, prompte
   const guarded = settings.registerGuard(hooks.files.get(hooks.guardFile), registration);
   const next = new Map(hooks.files).set(hooks.guardFile, guarded.value);
   const changed = new Set(guarded.changed ? [hooks.guardFile] : []);
-  if (await applyNudge(tool, repoDir, next.get(hooks.nudgeFile), prompter, flags)) changed.add(hooks.nudgeFile);
-  for (const file of changed) writeHookFile(file, next.get(file), tool, file === hooks.nudgeFile);
+  const ownedBy = new Map();
+  for (const item of nudge.NUDGES) {
+    const file = hooks.nudgeFiles.get(item.id);
+    if (await applyNudge(item, tool, repoDir, next.get(file), prompter, flags)) changed.add(file);
+    ownedBy.set(file, item);
+  }
+  for (const file of changed) writeHookFile(file, next.get(file), tool, ownedBy.get(file));
 }
 
-// The nudge's own file (Copilot's) is deleted once taking the nudge out leaves nothing else in it;
-// hooks the user added there keep it.
-function writeHookFile(file, value, tool, isNudgeFile) {
+// A nudge's own file (Copilot's) is deleted once taking the nudge out leaves nothing else in it;
+// hooks the user added there keep it. `item` is the nudge a file belongs to, if any.
+function writeHookFile(file, value, tool, item) {
   const existed = existsSync(file);
-  if (isNudgeFile && nudge.NUDGE_TARGETS[tool].ownFile && nudge.onlySeedKeys(value, tool)) {
+  if (item && nudge.nudgeTarget(item, tool).ownFile && nudge.onlySeedKeys(value, item, tool)) {
     if (existed) rmSync(file);
     if (existed) console.log(`Removed ${file}.`);
     return;
@@ -107,8 +112,8 @@ async function configureSettings(repoDir, home, { path, settings: current, creat
     await offerRtk(current, prompter, flags),
     await offerCodegraph(current, prompter, flags),
     await offerContext7(current, prompter, flags, home),
-    await applyNudge("claude", repoDir, current, prompter, flags),
   ];
+  for (const item of nudge.NUDGES) added.push(await applyNudge(item, "claude", repoDir, current, prompter, flags));
   if (!created && !added.includes(true)) return;
   writeJson(path, current);
   console.log(`${created ? "Wrote" : "Updated"} ${path}.`);
@@ -198,19 +203,19 @@ function warnContext7Leftovers(home) {
   if (found.length) console.log(`Context7's own setup left ${found.join(" and ")}: they tell the agent to always query Context7, against the standards' order. Delete them (docs/claude-code.md, Library docs).`);
 }
 
-// The weekly dependency-audit nudge, for every tool: --no-audit-nudge takes it out and records the
-// no; an entry from an earlier clone is re-pointed without asking; a missing one is offered (yes
-// by default, off under --no-optional). Mutates `current`; returns whether it changed.
-async function applyNudge(tool, repoDir, current, prompter, flags) {
-  if (flags.auditNudge === false) {
-    prompter.decide("auditNudge", false);
-    return nudge.removeNudge(current, tool);
+// A session-start nudge, for every tool: --no-<name>-nudge takes it out and records the no; an
+// entry from an earlier clone is re-pointed without asking; a missing one is offered (yes by
+// default, off under --no-optional). Mutates `current`; returns whether it changed.
+async function applyNudge(item, tool, repoDir, current, prompter, flags) {
+  if (flags[item.decision] === false) {
+    prompter.decide(item.decision, false);
+    return nudge.removeNudge(current, item, tool);
   }
-  if (!nudge.hasNudge(current, tool) && !(await wantsNudge(prompter, flags))) return false;
-  return nudge.registerNudge(current, tool, repoDir);
+  if (!nudge.hasNudge(current, item, tool) && !(await wantsNudge(item, prompter, flags))) return false;
+  return nudge.registerNudge(current, item, tool, repoDir);
 }
 
-function wantsNudge(prompter, flags) {
-  if (flags.auditNudge === true) return prompter.decide("auditNudge", true);
-  return prompter.confirm("auditNudge", "Add a weekly dependency-audit reminder at session start (it reads one local date, no network)?", true);
+function wantsNudge(item, prompter, flags) {
+  if (flags[item.decision] === true) return prompter.decide(item.decision, true);
+  return prompter.confirm(item.decision, item.question, true);
 }

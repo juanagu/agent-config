@@ -18,7 +18,7 @@ This writes `AGENTS.md`, `.github/hooks/git-guard.json`, `.github/agents/*.agent
 npx -y github:juanagu/agent-config -- --global --tool copilot
 ```
 
-It clones the repo to `~/Projects/agent-config` (or fast-forwards it), links each agent into `~/.copilot/agents/` and each skill into `~/.copilot/skills/`, writes `~/.copilot/hooks/git-guard.json` and `~/.copilot/hooks/audit-nudge.json` (the weekly dependency-audit nudge, `--no-audit-nudge` to decline), and writes `~/.copilot/copilot-instructions.md` as a copy of `AGENTS.md` (Copilot has no import syntax). The copy is refreshed by each run until you edit it; after that it is left alone and the installer says so.
+It clones the repo to `~/Projects/agent-config` (or fast-forwards it), links each agent into `~/.copilot/agents/` and each skill into `~/.copilot/skills/`, writes `~/.copilot/hooks/git-guard.json` and `~/.copilot/hooks/audit-nudge.json` (the weekly dependency-audit nudge, `--no-audit-nudge` to decline) and `~/.copilot/hooks/disk-nudge.json` (the low-disk-space warning, `--no-disk-nudge` to decline), and writes `~/.copilot/copilot-instructions.md` as a copy of `AGENTS.md` (Copilot has no import syntax). The copy is refreshed by each run until you edit it; after that it is left alone and the installer says so.
 
 Reload VS Code afterwards.
 
@@ -30,6 +30,7 @@ Reload VS Code afterwards.
 | Agents | `.github/agents/*.agent.md` | `tools: [search, edit, runCommands]` for implementation agents, `[search, runCommands]` for `code-reviewer`; no `model`, so the picker's model is used. Copilot also reads `.claude/agents/`. |
 | Skills | `.agents/skills/*/SKILL.md` | Read natively alongside `.github/skills/`. Each shows up as a `/` command. |
 | Git guard | `.github/hooks/git-guard.json` → `preToolUse` | `version: 1`, camelCase event, `matcher: bash|powershell`, both a `bash` and a `powershell` command. The cloud agent runs only the `bash` one. |
+| Disk-space nudge | `~/.copilot/hooks/disk-nudge.json` → `sessionStart` (global install only) | Answers `{"additionalContext": …}` when the home drive has under 20 GB free (`AGENT_CONFIG_DISK_MIN_GB` changes it), nothing otherwise. |
 | Dependency-audit nudge | `~/.copilot/hooks/audit-nudge.json` → `sessionStart` (global install only) | Answers `{"additionalContext": …}` when the last audit is a week old, nothing otherwise; Copilot ignores plain stdout on this event. |
 
 ## Using it

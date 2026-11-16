@@ -18,7 +18,7 @@ This writes `AGENTS.md`, `.agents/hooks.json`, `.agents/agents/`, `.agents/skill
 npx -y github:juanagu/agent-config -- --global --tool antigravity
 ```
 
-It clones the repo to `~/Projects/agent-config` (or fast-forwards it), links each skill into `~/.gemini/antigravity-cli/skills/` and each agent into `~/.gemini/config/agents/`, merges the git guard and the weekly dependency-audit nudge (`--no-audit-nudge` to decline) into `~/.gemini/config/hooks.json`, and writes `~/.gemini/AGENTS.md` as a copy of the standards. The copy is refreshed by each run until you edit it; after that it is left alone and the installer says so.
+It clones the repo to `~/Projects/agent-config` (or fast-forwards it), links each skill into `~/.gemini/antigravity-cli/skills/` and each agent into `~/.gemini/config/agents/`, merges the git guard and the weekly dependency-audit nudge (`--no-audit-nudge` to decline) and the low-disk-space warning (`--no-disk-nudge`) into `~/.gemini/config/hooks.json`, and writes `~/.gemini/AGENTS.md` as a copy of the standards. The copy is refreshed by each run until you edit it; after that it is left alone and the installer says so.
 
 ## What loads where
 
@@ -28,6 +28,7 @@ It clones the repo to `~/Projects/agent-config` (or fast-forwards it), links eac
 | Agents | `.agents/agents/*.md` | `model: pro` for judgment-tier agents, `inherit` for implementation. `tools` is left out so the agent inherits the session's tools (a misspelled tool name can hang an agent). |
 | Skills | `.agents/skills/*/SKILL.md` | Each skill becomes a `/` command: `/open-pr`, `/retro`. |
 | Git guard | `.agents/hooks.json` → `PreToolUse`, matcher `run_command` | The deny answer is `{"decision":"deny","reason":…}`. |
+| Disk-space nudge | `~/.gemini/config/hooks.json` → `disk-nudge.SessionStart` (global install only) | Answers `{"injectSteps":[{"systemMessage":{"systemMessage":…}}]}` when the home drive has under 20 GB free (`AGENT_CONFIG_DISK_MIN_GB` changes it), nothing otherwise. |
 | Dependency-audit nudge | `~/.gemini/config/hooks.json` → `audit-nudge.SessionStart` (global install only) | Answers `{"injectSteps":[{"systemMessage":{"systemMessage":…}}]}` when the last audit is a week old, nothing otherwise. |
 
 ## Using it
@@ -44,7 +45,7 @@ It clones the repo to `~/Projects/agent-config` (or fast-forwards it), links eac
 ## Check it worked
 
 - Ask "what rules are loaded?": it should name `AGENTS.md`.
-- `/agents` lists the roster; `/hooks` lists `git-guard` and, after a global install, `audit-nudge`.
+- `/agents` lists the roster; `/hooks` lists `git-guard` and, after a global install, `audit-nudge` and `disk-nudge`.
 - In a scratch repo on `main`, ask it to run `git commit --allow-empty -m test`: the hook denies it with the reason.
 
 ## Gotchas

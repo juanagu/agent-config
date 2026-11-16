@@ -6,14 +6,14 @@
 // the skill's stamp.mjs.
 //
 //   node audit-nudge.mjs --tool claude|cursor|copilot|antigravity
-import { readFileSync, realpathSync } from "node:fs";
-import { resolve } from "node:path";
-import { fileURLToPath } from "node:url";
+import { readFileSync } from "node:fs";
 
 export const DUE_AFTER_DAYS = 7;
 const DAY_MS = 24 * 60 * 60 * 1000;
 // Loaded when the hook runs rather than imported, so a missing skill folder cannot crash a session.
 const STAMP_MODULE = "../../skills/dependency-audit/stamp.mjs";
+// Same reason: without the shared file the hook has nothing to say, and says it silently.
+const shared = await import("../session-answer.mjs").catch(() => null);
 
 export const NUDGE = "The weekly dependency audit is due: tell the user, and run the dependency-audit skill unless they say not now (it records the run when it finishes).";
 
@@ -26,17 +26,9 @@ export function isDue(stampText, now = Date.now()) {
   return now - last >= DUE_AFTER_DAYS * DAY_MS;
 }
 
-// How each tool takes text into the session's context at start (docs/compatibility.md).
-const ANSWERS = {
-  claude: (text) => text,
-  cursor: (text) => JSON.stringify({ additional_context: text }),
-  copilot: (text) => JSON.stringify({ additionalContext: text }),
-  antigravity: (text) => JSON.stringify({ injectSteps: [{ systemMessage: { systemMessage: text } }] }),
-};
-
 export function answer(tool, due) {
-  if (!due) return "";
-  return (ANSWERS[tool] ?? ANSWERS.claude)(NUDGE);
+  if (!due || !shared) return "";
+  return shared.answerFor(tool, NUDGE);
 }
 
 // A missing file means the audit never ran here. Any other read error stays silent: a nudge the
@@ -49,29 +41,14 @@ function readStamp(path) {
   }
 }
 
-function toolArg(argv) {
-  const at = argv.indexOf("--tool");
-  return at === -1 ? "claude" : argv[at + 1];
-}
-
 export async function run(argv = process.argv.slice(2), env = process.env, now = Date.now()) {
   const { stampPath } = await import(STAMP_MODULE);
   const stamp = readStamp(stampPath(env));
   if (!stamp) return "";
-  return answer(toolArg(argv), isDue(stamp.text, now));
+  return answer(shared?.toolArg(argv), isDue(stamp.text, now));
 }
 
-// realpath on both sides: a tool's user folder may reach this file through a junction or symlink.
-function invokedDirectly() {
-  if (!process.argv[1]) return false;
-  try {
-    return realpathSync(resolve(process.argv[1])) === realpathSync(fileURLToPath(import.meta.url));
-  } catch {
-    return false;
-  }
-}
-
-if (invokedDirectly()) {
+if (shared?.invokedDirectly(import.meta.url)) {
   try {
     const out = await run();
     if (out) process.stdout.write(`${out}\n`);
