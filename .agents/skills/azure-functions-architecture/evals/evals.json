@@ -13,7 +13,7 @@
         "The webhook validates the X-Twilio-Signature before reading the body, and is not protected only by a function key or left anonymous without it",
         "The tenant is resolved from the To number through a domain repository, with no default tenant",
         "The Service Bus producer lives in data/ behind a domain Protocol, sets message_id to a business key and uses the sender (conversation) as the session id",
-        "The consumer is idempotent (keyed write or processed-message record) and dead-letters or drops a malformed payload rather than raising it for redelivery",
+        "The consumer is idempotent (keyed write or processed-message record) and dead-letters a malformed payload explicitly (message actions or a poison queue), neither raising it for redelivery nor returning, which would complete and lose it",
         "Cosmos access uses the aio client built once in core/, with parameterised queries and a partition key that starts with the tenant",
         "Connections use managed identity (fullyQualifiedNamespace / accountEndpoint settings or DefaultAzureCredential), not keys or connection strings",
         "Tests call the handlers with a built func.HttpRequest (including a bad signature) and a built Service Bus message, with use-cases or repositories faked"

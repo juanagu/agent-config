@@ -11,7 +11,8 @@ Load `python-architecture` first: it owns the layers, the dependency table, the 
 
 ```
 apps/<app>/
-  function_app.py             the composition root: build core/ once, then app.register_functions(create_<feature>(...)) per feature
+  function_app.py             the composition root: build core/ once, then app.register_functions(create_<feature>(...)) per feature;
+                              app is df.DFApp once any feature has orchestrations, func.FunctionApp otherwise
   host.json                   runtime config: extension bundle, logging levels, retry and concurrency per trigger type
   local.settings.example.json committed, keys and no values; local.settings.json is ignored
   .funcignore                 tests/, .venv/, local settings, anything not shipped
@@ -26,7 +27,7 @@ apps/<app>/
       upstream/               the httpx.AsyncClient other services are called over
       cosmos/  service_bus/  storage/   async client factories over DefaultAzureCredential, built once per process
     features/<feature>/
-      create_<feature>.py     builds data/ and the use-cases, returns the feature's func.Blueprint (and df.Blueprint when it has orchestrations)
+      create_<feature>.py     builds data/ and the use-cases, returns the feature's one Blueprint (a df.Blueprint, a func.Blueprint subclass, when it has orchestrations)
       api/
         blueprint.py          create_blueprint(use_cases) -> func.Blueprint: the decorated triggers, each two or three lines
         schemas/              Pydantic models of request, response and message payloads
@@ -38,7 +39,7 @@ apps/<app>/
   tests/
 ```
 
-- `function_app.py` holds no route and no logic. It configures observability, builds the shared clients from `core/`, calls each feature's factory, and registers what comes back. The decorated functions live in each feature's `api/blueprint.py`, created **inside** `create_blueprint` so they close over the use-cases the factory hands them; that is how a trigger gets its dependencies without module-level globals.
+- `function_app.py` holds no route and no logic. It configures observability, builds the shared clients from `core/`, calls each feature's factory, and registers what comes back. The decorated functions live in each feature's `api/blueprint.py`, created **inside** `create_blueprint` so they close over the use-cases the factory hands them; that is how a trigger gets its dependencies without module-level globals. `create_blueprint` is a framework wrapper in the standards' size sense: it may pass 40 lines as long as each trigger only delegates in two or three lines; past about 300 lines, or ten triggers, split the Blueprint per resource (`create_leads_blueprint`, `create_documents_blueprint`), each registered by the feature's factory.
 - A trigger function is an adapter: it takes the host's input, hands it to a controller, consumer or schedule handler with the use-cases it needs, and returns what that gives back. The handler is a plain async function, testable without the host.
 - Function names are unique across the app; name them `<feature>_<action>` (`leads_create_application`), since every Blueprint lands in the same app.
 - One Function App per deployable concern (the channel webhooks, the conversation runtime, the tool gateway, a back-office API), each a workspace app with its own settings, identity and scale. Two apps share code through a workspace package, never a copied folder (`python-architecture` skill, §1).
@@ -48,12 +49,12 @@ apps/<app>/
 | Trigger | Lives in | Does | Never |
 | --- | --- | --- | --- |
 | HTTP (`@bp.route`) | `api/controllers/` via `blueprint.py` | authenticates through `core/auth`, parses body, query and `req.route_params` into a schema, calls a use-case, shapes the response | reads `req.get_json()` without a schema; catches to pick a status |
-| Service Bus (`@bp.service_bus_queue_trigger`, `..._topic_trigger`) | `api/consumers/` | validates the payload with the message's definition from `data/`, calls a use-case, lets a transient failure raise so the message is redelivered | swallows an exception; retries a malformed message |
-| Storage queue (`@bp.queue_trigger`) | `api/consumers/` | as Service Bus, for internal plumbing only (Service Bus is the business bus) | carries a business event other services consume |
+| Service Bus (`@bp.service_bus_queue_trigger`, `..._topic_trigger`) | `api/consumers/` | validates the payload with the message's definition from `data/`, calls a use-case, lets a transient failure raise so the message is redelivered, dead-letters a malformed one explicitly | swallows an exception; retries a malformed message |
+| Storage queue (`@bp.queue_trigger`) | `api/consumers/` | validates and calls a use-case like a Service Bus consumer, for internal plumbing only (Service Bus is the business bus); a malformed message goes to the poison queue through an explicit output binding | carries a business event other services consume |
 | Timer (`@bp.timer_trigger`) | `api/schedules/` | calls one use-case that does a bounded unit of work | rescans every record to decide what is due: schedule a message or a Durable timer at the moment it becomes due instead |
 | Durable orchestrator and activity (`df.Blueprint`) | `api/orchestrations/` | the orchestrator sequences activities; each activity calls one use-case | does I/O, reads the clock or randomness inside the orchestrator |
 
-- A malformed message is a permanent failure: the consumer logs it with its id and dead-letters it, never raises it back for another delivery. A transient failure (an upstream `5xx`, a timeout, a throttled database) raises, and `host.json` or the Service Bus entity's max delivery count bounds the retries.
+- A malformed message is a permanent failure: the consumer logs it with its id and dead-letters it, never raises it back for another delivery and never just returns, which completes the message and loses it. Dead-lettering is explicit: on Service Bus, bind `ServiceBusMessageActions` (the SDK-type binding from `azurefunctions-extensions-bindings-servicebus`) with automatic completion off and call its dead-letter operation with a reason; on a Storage queue, write the message to the poison queue through an output binding. Check the binding's current docs for the exact names before writing it. A transient failure (an upstream `5xx`, a timeout, a throttled database) raises, and `host.json` or the Service Bus entity's max delivery count bounds the retries.
 - Every message type has an explicit max delivery count, a dead-letter queue, and an alert on that queue's depth.
 - Ordered work per key (one conversation, one lead) uses Service Bus sessions with the key as the session id, not a lock the code takes and releases by hand.
 
@@ -79,7 +80,7 @@ apps/<app>/
 ## 5. Service Bus and scheduled work
 
 - Queue and topic names are `<domain>.<event>` (`leads.application-created`). A message's definition (name, payload schema, the subject and the session key it uses) lives in `data/producers/` beside its producer; the consumer in `api/consumers/` imports only the definition.
-- A producer implements a `domain/repositories` Protocol (`FollowUpScheduler`) and sets `message_id` to a business key, so duplicate detection drops a second publish of the same event.
+- A producer implements a `domain/repositories` Protocol (`FollowUpScheduler`) and sets `message_id` to the event's business key. That dedupes only on an entity created with duplicate detection on (it cannot be turned on later, so Terraform sets it at creation, with its window); idempotent consumers stay the guarantee either way. A message that replaces an earlier one inside the window (a follow-up cancelled and rescheduled) gets a new id, the business key plus a version, or the broker drops it as a duplicate.
 - Consumers are idempotent: the effect is keyed on the business key (an upsert, a processed-message record with a TTL) so a redelivery changes nothing.
 - Follow-ups and reminders are scheduled at the moment they become due (`scheduled_enqueue_time_utc`, or a Durable timer when the steps depend on each other), and cancelled by sequence number or a version check when the conversation moves on. A timer that rescans state every few minutes is the pattern this replaces.
 
@@ -90,7 +91,7 @@ Use them when a process waits (for a reply, a person, a callback, a deadline) an
 - Orchestrators are generator functions with no I/O: they `yield context.call_activity(...)`, read time from `context.current_utc_datetime`, and get randomness or new ids from an activity. Each activity calls one use-case.
 - Inputs and outputs of activities are small JSON-serialisable payloads (ids, not documents).
 - A change to a running orchestration's steps is versioned (a new orchestrator name or an explicit version check), so in-flight instances finish on the code they started with.
-- Instance ids are business keys (`followup-<tenant>-<lead>`), so starting the same process twice finds the running one.
+- Instance ids are business keys (`followup-<tenant>-<lead>`). Starting one is check-then-start: `get_status` on the id, and `start_new` only when there is no instance or it has finished. `start_new` on a running id does not return the running instance: depending on `overridableExistingInstanceStates` in `host.json` it replaces it or raises, so set that to `NonRunningStates` and treat the raise from a lost race as "already running".
 
 ## 7. Observability
 
@@ -106,7 +107,7 @@ Use them when a process waits (for a reply, a person, a callback, a deadline) an
   - `data/` repositories and producers run against the emulators (`@pytest.mark.integration`).
   - A smoke run starts the app with `func start` against the emulators and calls one route per feature, including a signed webhook; it runs in CI's fast tier when it fits in its minutes.
   - Orchestrators are tested by driving the generator with a fake context: the order of activities, the timer, the replay of a completed step.
-- **Shipping**: CI builds each app's package once: export the app's locked runtime dependencies (`uv export --frozen --no-dev --package <app>`), install them with the workspace packages into `.python_packages/lib/site-packages` on the runtime's Python and platform, zip, and deploy that artifact to dev and then to production. No remote build: it cannot resolve workspace packages, and the artifact promoted to production is the one tested in dev.
+- **Shipping**: CI builds each app's package once: export the app's locked runtime dependencies with `uv export --frozen --no-dev --no-editable --package <app>` (without `--no-editable` the workspace members, the app's own package included, come out as editable lines that cannot be installed into a target folder), `pip install --target .python_packages/lib/site-packages` on the runtime's Python and platform so the app's `src/` package is installed beside its dependencies, zip it with `function_app.py` and `host.json`, check the zip by importing the app package from a clean interpreter, and deploy that artifact to dev and then to production. No remote build: it cannot resolve workspace packages, and the artifact promoted to production is the one tested in dev.
 - Pin the runtime the app runs on (the Functions Python worker package where the runtime supports pinning it, the extension bundle range in `host.json`) and change it in its own PR.
 - Infrastructure (Function Apps, plans, identities, role assignments, Key Vault, networks, alerts) is Terraform in `infra/`, owned by `devops-engineer`; an app setting the code needs is added there in the same PR as the code.
 
@@ -116,7 +117,7 @@ Use them when a process waits (for a reply, a person, a callback, a deadline) an
 | --- | --- |
 | `function_app.py` holding every route, helper and query | `function_app.py` registers each feature's Blueprint; the triggers live in `api/blueprint.py` |
 | A Blueprint at module level reaching for a global client or repository | `create_blueprint(use_cases)` defines the triggers inside it, closing over what the factory built |
-| `auth_level=ANONYMOUS` on a webhook or a tool route | Signature or token validation in `core/auth` before anything reads the body |
+| `auth_level=ANONYMOUS` on a webhook or a tool route with nothing in `core/auth` checking the caller | Host level `ANONYMOUS` is right only when `core/auth` validates the signature or token before anything reads the body; switching to `AuthLevel.FUNCTION` without putting the key in the URL the provider calls breaks the webhook |
 | A seed or force-state route deployed to production | Off in production by `core/config`, or deleted |
 | `COSMOS_KEY`, `SERVICEBUS_CONNECTION_STRING` in the app settings | Managed identity with role assignments; Key Vault references for third-party secrets |
 | `os.getenv("TENANT_ID", "acme")` | The tenant resolved from the inbound number or the token; missing is a `4xx` |

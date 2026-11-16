@@ -40,7 +40,7 @@ apps/<app>/                     one deployable each: a Function App, a CLI, a co
       data/
         repositories/           implementations of domain/repositories over a database
         clients/                implementations of domain/repositories over another service, a third-party API or a model provider
-        producers/              implementations of domain/repositories that publish a message, with the message's definition beside them
+        producers/              implementations of domain/repositories that publish a message, each with its definition beside it (<event>_message.py)
         models/                 storage documents and upstream response types (Pydantic models or TypedDicts)
         mappers/                document ↔ entity, upstream response ↔ entity
       api/                      the host's inbound adapters; the host's skill names the files (`azure-functions-architecture` skill, §1)
@@ -127,11 +127,12 @@ A row imports only the ticked columns. "Own" means the same feature; another fea
 | uv | the workspace, the lock, the Python version (`.python-version`) | `uv sync --frozen` |
 | ruff | lint (at least `E F W I N B UP SIM RUF A S PL C90`) and formatting | `uv run ruff check` and `uv run ruff format --check` |
 | pyright | types, strict mode | `uv run pyright` |
-| import-linter | the dependency table: a `layers` contract per feature (`api` and `data` over `domain`), `forbidden` contracts keeping drivers, SDKs and Pydantic out of `domain`, `independence` between features except through their public surface | `uv run lint-imports` |
+| import-linter | the layers: per feature, a `layers` contract with `api` and `data` as independent siblings above `domain`, whose `ignore_imports` lists the one sanctioned crossing (`api` importing a `data/**/*_message` definition); `forbidden` contracts keeping drivers, SDKs, `httpx` and Pydantic out of `domain` | `uv run lint-imports` |
+| an architecture test | what import-linter cannot say: another feature reached only through its `__init__.py` (an `independence` contract would forbid the public surface too). A pytest that walks every module's imports with `ast` and checks them against the table in §1 | `uv run pytest tests/architecture` |
 | pytest | tests, with `integration` as a marker | `uv run pytest -m "not integration"` and `uv run pytest -m integration` |
 | pip-audit | known vulnerabilities in the locked dependencies | `uv run pip-audit` (weekly and before a release tag) |
 
-The repo's `.githooks/pre-push` runs ruff, pyright, import-linter and the unit tests (the fast tier's cheap checks); CI's fast tier runs the same plus the integration tests against emulators and the app's package build. A rule is never relaxed with `|| true` in CI or a per-line ignore to get a push through: either the code changes or the rule is changed for the whole repo in its own PR.
+The repo's `.githooks/pre-push` runs ruff, pyright, import-linter, the architecture test and the unit tests (the fast tier's cheap checks); CI's fast tier runs the same plus the integration tests against emulators and the app's package build. A rule is never relaxed with `|| true` in CI, a per-line ignore, or a new `ignore_imports` entry to get a push through: either the code changes or the rule is changed for the whole repo in its own PR.
 
 ## 5. Tests
 
@@ -170,7 +171,7 @@ Before reporting work done: ruff, pyright, import-linter, the unit and integrati
 
 1. Layering: `domain/` imports no driver, SDK, `httpx`, Pydantic, `data/` or `api/` (only `core/errors` from core); use-cases never import a use-case and take only types from another feature; `api/` reaches `data/` only for a message definition; no feature imports another's internals, only its `__init__.py`.
 2. Placement: inbound in `api/`, outbound in `data/`; storage and upstream shapes in `data/models` with one mapper; wire shapes in `api/schemas`; entities are frozen dataclasses holding only what use-cases read.
-3. `core/` is plumbing and imports no feature or `shared/`; `shared/` is cross-feature business code with two importers and no repository, use-case, infrastructure, `utils` or `helpers`; code two apps share is a workspace package, never a copy.
+3. import-linter and the architecture test green with no new `ignore_imports`; `core/` is plumbing and imports no feature or `shared/`; `shared/` is cross-feature business code with two importers and no repository, use-case, infrastructure, `utils` or `helpers`; code two apps share is a workspace package, never a copy.
 4. Every inbound payload parsed into a schema; every outbound call behind a narrow Protocol the feature owns.
 5. Errors raised typed and mapped in one place; envelope shapes unchanged unless the issue says so.
 6. Only `data/` and `core/<driver>/` touch a driver; queries parameterised; upstream calls with timeouts; consumers idempotent with a dead-letter policy.

@@ -15,7 +15,7 @@ You implement backend services in one of two stacks: Node.js + Fastify + MongoDB
 
 ## Non-negotiables
 
-Apply the **Structure rules** in `AGENTS.md` to every file you touch. The full layering, the BFF, MongoDB and BullMQ rules and the review checklist live in the `fastify-architecture` skill: **load it before writing a line**. What you never trade away:
+Apply the **Structure rules** in `AGENTS.md` to every file you touch. The full layering and review checklist live in the stack's skill: **load it before writing a line**, and only that stack's. In a Fastify repo, `fastify-architecture` holds the BFF, MongoDB and BullMQ rules, and what you never trade away there is:
 
 - Clean architecture per feature: `domain/` (entities, value objects, use-cases, repository interfaces), `data/` (their implementations, models, mappers, clients, queues) and `api/` (routes, schemas, controllers, middlewares, job processors). Each use-case is one `*UseCase` class whose only public method is `execute(input: <Case>Input): Promise<<Case>Output>`, with both types plain data in its file. Inbound goes in `api/`, outbound in `data/`; `domain/` imports neither, nor Fastify, a driver or BullMQ. A repo still on the earlier layout (`service/`, `ports/`, `adapters/`) keeps it until its own migration PR (`fastify-architecture` skill, §7): match it, never mix the two.
 - Every route validates input and output with a schema. Errors are thrown typed and mapped by the one central handler; envelope shapes are contracts.
