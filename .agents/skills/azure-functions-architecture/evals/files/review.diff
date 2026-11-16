@@ -1,0 +1,70 @@
+diff --git a/apps/channel-gateway/function_app.py b/apps/channel-gateway/function_app.py
+new file mode 100644
+--- /dev/null
++++ b/apps/channel-gateway/function_app.py
+@@ -0,0 +1,55 @@
++import json
++import os
++from datetime import datetime, timedelta, timezone
++
++import azure.durable_functions as df
++import azure.functions as func
++import httpx
++from azure.cosmos import CosmosClient
++
++app = df.DFApp()
++
++cosmos = CosmosClient(os.environ["COSMOS_URL"], credential=os.environ["COSMOS_KEY"])
++leads = cosmos.get_database_client("bots").get_container_client("leads")
++
++
++@app.route(route="twilio/inbound", methods=["POST"], auth_level=func.AuthLevel.ANONYMOUS)
++def twilio_inbound(req: func.HttpRequest) -> func.HttpResponse:
++    form = dict(req.form)
++    phone = form["From"]
++    query = f"SELECT * FROM c WHERE c.phone = '{phone}'"
++    lead = next(iter(leads.query_items(query, enable_cross_partition_query=True)), None)
++    if lead is None:
++        leads.upsert_item({"id": phone, "pk": f"acme|{phone}", "phone": phone, "messages": []})
++    return func.HttpResponse(json.dumps({"ok": True}), mimetype="application/json")
++
++
++@app.route(route="seed-conversation", methods=["POST"], auth_level=func.AuthLevel.ANONYMOUS)
++def seed_conversation(req: func.HttpRequest) -> func.HttpResponse:
++    leads.upsert_item(req.get_json())
++    return func.HttpResponse("seeded")
++
++
++@app.timer_trigger(schedule="0 */5 * * * *", arg_name="timer")
++def follow_ups(timer: func.TimerRequest) -> None:
++    now = datetime.now(timezone.utc)
++    for lead in leads.query_items("SELECT * FROM c", enable_cross_partition_query=True):
++        if lead.get("last_inbound") and now - datetime.fromisoformat(lead["last_inbound"]) > timedelta(hours=2):
++            httpx.post(os.environ["SEND_URL"], json={"to": lead["phone"], "template": "reminder"})
++
++
++@app.service_bus_queue_trigger(arg_name="msg", queue_name="outbound", connection="SERVICEBUS_CONNECTION_STRING")
++def send_outbound(msg: func.ServiceBusMessage) -> None:
++    try:
++        body = json.loads(msg.get_body())
++        httpx.post(os.environ["SEND_URL"], json=body)
++    except Exception:
++        return
++
++
++@app.orchestration_trigger(context_name="context")
++def reminder_chain(context: df.DurableOrchestrationContext):
++    lead_id = context.get_input()
++    due = datetime.now(timezone.utc) + timedelta(hours=24)
++    yield context.create_timer(due)
++    httpx.post(os.environ["SEND_URL"], json={"lead": lead_id, "template": "day-1"})
+diff --git a/apps/channel-gateway/requirements.txt b/apps/channel-gateway/requirements.txt
+new file mode 100644
+--- /dev/null
++++ b/apps/channel-gateway/requirements.txt
+@@ -0,0 +1,5 @@
++azure-functions
++azure-functions-durable
++azure-cosmos
++httpx
++../../packages/channel-core

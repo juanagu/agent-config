@@ -1,6 +1,6 @@
 ---
 name: "flutter-architecture"
-description: "The architecture every Flutter app in this setup follows: layers and the dependency rule, feature folders with a composition-root Feature class, ports in abstractions/ with vendor and in-memory adapters, Either results and sealed states, toggles at the entry widget, a token-based theme and one page shell, strict i18n, and the test layout. Invoke before writing, reviewing or planning any Dart/Flutter code (lib/, test/, pubspec.yaml), and when deciding where a new file goes. Not for Next.js/Astro (nextjs-architecture), Fastify (fastify-architecture), native Android (android-architecture), native iOS (ios-architecture) or React Native (react-native-architecture)."
+description: "The architecture every Flutter app in this setup follows: layers and the dependency rule, feature folders with a composition-root Feature class, ports in abstractions/ with vendor and in-memory adapters, Either results and sealed states, toggles at the entry widget, a token-based theme and one page shell, strict i18n, and the test layout. Invoke before writing, reviewing or planning any Dart/Flutter code (lib/, test/, pubspec.yaml), and when deciding where a new file goes. Not for Next.js/Astro (nextjs-architecture), Fastify (fastify-architecture), native Android (android-architecture), native iOS (ios-architecture), React Native (react-native-architecture), or Python (python-architecture, azure-functions-architecture)."
 ---
 
 # Flutter architecture

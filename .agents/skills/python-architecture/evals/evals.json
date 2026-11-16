@@ -1,0 +1,50 @@
+{
+  "skill_name": "python-architecture",
+  "evals": [
+    {
+      "id": 1,
+      "name": "use-case-with-outbound-port",
+      "prompt": "In our Python service (uv workspace, app `leads-api`, package `leads_api`) add a `qualify-lead` capability: given a tenant id and a phone number, load the lead from our store, ask the CRM service (`GET /applications?phone=`) how many trips the driver has, and mark the lead `qualified` when trips >= 300, `rejected` otherwise, returning the new status. The host is not decided yet, so give it a plain async controller function that takes a parsed JSON dict. There's no repo checked out here, so scaffold just the files this feature needs (plus whatever core bits you assume exist, stubbed) and unit tests.",
+      "expected_output": "A leads feature split into domain/, data/ and api/: a frozen-dataclass Lead entity, a QualifyLeadUseCase with one async execute over typing.Protocol repositories for the store and the CRM, Input/Output frozen dataclasses in the use-case module, a data/ CRM client over an async transport with a timeout that raises a typed error, a Pydantic request schema in api/ and a thin controller, snake_case modules with role suffixes, a feature_readme.md, and unit tests with in-memory fakes.",
+      "files": [],
+      "expectations": [
+        "The threshold rule lives in the domain (entity or use-case), not in the controller or the client",
+        "The use-case is a *UseCase class in a *_use_case.py module, taking its repository Protocols in __init__, whose only public method is async execute, typed with a <Case>Input and <Case>Output frozen dataclass declared in the same module",
+        "domain/ imports no pydantic, no httpx/requests and no Azure SDK",
+        "The CRM call is declared as a typing.Protocol under domain/ and implemented under data/, with an explicit timeout, raising a typed error on failure instead of returning { ok, status }",
+        "The controller parses the payload into a Pydantic schema before using it and does not catch exceptions to choose a status",
+        "The tenant id comes from the input and has no default value",
+        "Every new module is snake_case with a role suffix where the skill names one, and none shadows a standard-library module",
+        "A feature_readme.md is included",
+        "Unit tests exercise the use-case with fake classes satisfying the Protocols, no network"
+      ]
+    },
+    {
+      "id": 2,
+      "name": "review-planted-violations",
+      "prompt": "Review this PR diff for our leads-api Python service before I merge it. Be specific about what to change. The diff is in files/review.diff.",
+      "expected_output": "A review that flags: the Lead entity as a Pydantic model shaped like the Cosmos document; LeadService holding two use-cases in a one-file use_cases sub-package; the azure.cosmos import in domain; the default tenant; the f-string query; the dict return with ok/status; the controller indexing the raw payload, printing it and catching Exception into a status; the PascalCase CrmClient module using sync requests without a timeout and returning { ok, status }; the scoring feature importing the leads feature's data/ internals; shared/utils.py; and `|| true` on ruff in CI.",
+      "files": [
+        "evals/files/review.diff"
+      ],
+      "expectations": [
+        "Flags domain/lead.py as a Pydantic model shaped like the stored document (pk, _etag): the entity is a frozen dataclass of what use-cases read; the document type lives in data/models with a mapper",
+        "Flags LeadService as two use-cases (create, qualify) in one class without the *_use_case.py suffix, in a use_cases/ sub-package holding one module",
+        "Flags the use-case importing azure.cosmos: the store belongs behind a Protocol in domain/repositories, implemented in data/",
+        "Flags os.environ.get(\"TENANT_ID\", \"acme\"): no default tenant, and no environment reads outside core/config",
+        "Flags the f-string Cosmos query built from the phone number: parameterise it",
+        "Flags qualify returning a dict with ok/status instead of a typed Output and raised errors",
+        "Flags the controller reading payload[\"phone\"] without parsing into a schema",
+        "Flags print of the payload, which carries a phone number (PII)",
+        "Flags the controller catching Exception to return a status instead of raising typed errors to one mapper",
+        "Flags CrmClient.py as not snake_case with a role suffix (http_crm_client.py)",
+        "Flags the sync requests call inside an async method, with no timeout",
+        "Flags the CRM client returning { ok, status } instead of raising an UpstreamError",
+        "Flags the scoring feature importing leads' data/cosmos_lead_repository: only another feature's public surface, through its own Protocol",
+        "Flags shared/utils.py: name the topic, and shared/ needs two importers",
+        "Flags `ruff check . || true` in CI: the gate must block"
+      ]
+    }
+  ],
+  "sandbox": "Run as docs/skill-evals.md describes: skill-creator ignores this field. Copy evals/files/* into <work>/files/; build evals write their files under outputs/code/ and need no input."
+}
