@@ -9,3 +9,4 @@ One file per decision, with the alternatives it rejected. A new decision gets th
 | [0003](0003-antigravity-not-gemini.md) | Antigravity CLI is the Google target, not Gemini CLI. |
 | [0004](0004-tiers-not-models.md) | Agents name a tier (judgment, implementation), not a model. |
 | [0005](0005-fastify-three-layers.md) | Fastify features are split into domain, data and api, with core/ for infrastructure and shared/ for cross-feature business code. |
+| [0006](0006-python-on-azure-functions.md) | Python on Azure Functions is a supported backend stack, in `python-architecture` and `azure-functions-architecture`. |

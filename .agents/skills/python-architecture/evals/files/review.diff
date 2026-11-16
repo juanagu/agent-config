@@ -1,0 +1,127 @@
+diff --git a/apps/leads-api/src/leads_api/features/leads/domain/lead.py b/apps/leads-api/src/leads_api/features/leads/domain/lead.py
+new file mode 100644
+--- /dev/null
++++ b/apps/leads-api/src/leads_api/features/leads/domain/lead.py
+@@ -0,0 +1,12 @@
++from pydantic import BaseModel
++
++
++class Lead(BaseModel):
++    """Lead document as stored in the leads container."""
++
++    id: str
++    pk: str
++    _etag: str | None = None
++    phone: str
++    status: str
++    trips: int
+diff --git a/apps/leads-api/src/leads_api/features/leads/domain/use_cases/lead_service.py b/apps/leads-api/src/leads_api/features/leads/domain/use_cases/lead_service.py
+new file mode 100644
+--- /dev/null
++++ b/apps/leads-api/src/leads_api/features/leads/domain/use_cases/lead_service.py
+@@ -0,0 +1,25 @@
++import os
++
++from azure.cosmos.aio import ContainerProxy
++
++from ..lead import Lead
++
++MIN_TRIPS = 300
++
++
++class LeadService:
++    def __init__(self, container: ContainerProxy) -> None:
++        self.container = container
++
++    async def create(self, phone: str) -> Lead:
++        tenant = os.environ.get("TENANT_ID", "acme")
++        lead = Lead(id=phone, pk=f"{tenant}|{phone}", phone=phone, status="new", trips=0)
++        await self.container.upsert_item(lead.model_dump())
++        return lead
++
++    async def qualify(self, phone: str) -> dict:
++        items = self.container.query_items(f"SELECT * FROM c WHERE c.phone = '{phone}'")
++        async for item in items:
++            if item["trips"] >= MIN_TRIPS:
++                return {"ok": True, "status": "qualified"}
++        return {"ok": False, "status": "rejected"}
+diff --git a/apps/leads-api/src/leads_api/features/leads/api/leads_controller.py b/apps/leads-api/src/leads_api/features/leads/api/leads_controller.py
+new file mode 100644
+--- /dev/null
++++ b/apps/leads-api/src/leads_api/features/leads/api/leads_controller.py
+@@ -0,0 +1,12 @@
++from typing import Any
++
++from ..domain.use_cases.lead_service import LeadService
++
++
++async def create_lead(payload: dict[str, Any], service: LeadService) -> dict[str, Any]:
++    print("create lead", payload)
++    try:
++        lead = await service.create(payload["phone"])
++        return {"ok": True, "id": lead.id}
++    except Exception:
++        return {"ok": False, "status": 500}
+diff --git a/apps/leads-api/src/leads_api/features/leads/data/CrmClient.py b/apps/leads-api/src/leads_api/features/leads/data/CrmClient.py
+new file mode 100644
+--- /dev/null
++++ b/apps/leads-api/src/leads_api/features/leads/data/CrmClient.py
+@@ -0,0 +1,9 @@
++import requests
++
++
++class CrmClient:
++    async def find_application(self, phone: str) -> dict:
++        response = requests.get(f"https://crm.example.com/applications?phone={phone}")
++        if response.status_code != 200:
++            return {"ok": False, "status": response.status_code}
++        return {"ok": True, "body": response.json()}
+diff --git a/apps/leads-api/src/leads_api/features/scoring/domain/use_cases/score_lead_use_case.py b/apps/leads-api/src/leads_api/features/scoring/domain/use_cases/score_lead_use_case.py
+new file mode 100644
+--- /dev/null
++++ b/apps/leads-api/src/leads_api/features/scoring/domain/use_cases/score_lead_use_case.py
+@@ -0,0 +1,17 @@
++from dataclasses import dataclass
++
++from leads_api.features.leads.data.cosmos_lead_repository import CosmosLeadRepository
++
++
++@dataclass(frozen=True, slots=True)
++class ScoreLeadInput:
++    phone: str
++
++
++class ScoreLeadUseCase:
++    def __init__(self, leads: CosmosLeadRepository) -> None:
++        self._leads = leads
++
++    async def execute(self, command: ScoreLeadInput) -> int:
++        lead = await self._leads.get(command.phone)
++        return lead.trips // 10
+diff --git a/apps/leads-api/src/leads_api/shared/utils.py b/apps/leads-api/src/leads_api/shared/utils.py
+new file mode 100644
+--- /dev/null
++++ b/apps/leads-api/src/leads_api/shared/utils.py
+@@ -0,0 +1,6 @@
++def normalize_phone(raw: str) -> str:
++    return raw.replace("whatsapp:", "").replace(" ", "")
++
++
++def chunk(items: list, size: int) -> list[list]:
++    return [items[i : i + size] for i in range(0, len(items), size)]
+diff --git a/.github/workflows/ci.yml b/.github/workflows/ci.yml
+new file mode 100644
+--- /dev/null
++++ b/.github/workflows/ci.yml
+@@ -0,0 +1,11 @@
++name: CI
++on: [push]
++jobs:
++  checks:
++    runs-on: ubuntu-latest
++    steps:
++      - uses: actions/checkout@v4
++      - uses: astral-sh/setup-uv@v6
++      - run: uv sync
++      - run: uv run ruff check . || true
++      - run: uv run pytest

@@ -1,0 +1,47 @@
+{
+  "skill_name": "azure-functions-architecture",
+  "evals": [
+    {
+      "id": 1,
+      "name": "signed-webhook-to-service-bus",
+      "prompt": "In our Python Function App `channel-gateway` (v2 model, uv workspace, Cosmos DB and Service Bus) add the Twilio WhatsApp inbound webhook: validate it really comes from Twilio, resolve which tenant the message is for from the `To` number (a tenant's numbers are in Cosmos), and publish an `inbound-message` event to Service Bus for the conversation runtime, ordered per conversation (the sender's number). Also add the consumer side in the same app for now: a Service Bus consumer that stores the message in Cosmos and must be safe to run twice. There's no repo checked out here, so scaffold just the files this needs (plus whatever core bits you assume exist, stubbed) and tests.",
+      "expected_output": "function_app.py that only composes and registers a Blueprint built by the feature's factory; the HTTP trigger and the Service Bus trigger as thin adapters in api/ delegating to plain handlers; Twilio signature validation in core/auth before parsing; tenant resolved from the To number through a repository, never defaulted; a producer in data/ setting message_id and a session id; an idempotent consumer that dead-letters malformed messages; Cosmos access through the aio client with parameterised queries; managed-identity connections; tests that call the handlers with built func.HttpRequest and message objects.",
+      "files": [],
+      "expectations": [
+        "function_app.py contains no route or logic: it registers the Blueprint returned by the feature's factory",
+        "The triggers are defined inside a create_blueprint-style factory that receives the use-cases, not at module level over global clients",
+        "The webhook validates the X-Twilio-Signature (over the URL and the form parameters) before the body is parsed into a schema or trusted, and is not protected only by a function key or left anonymous without it",
+        "The tenant is resolved from the To number through a domain repository, with no default tenant",
+        "The Service Bus producer lives in data/ behind a domain Protocol, sets message_id to a business key and uses the sender (conversation) as the session id",
+        "The consumer is idempotent (keyed write or processed-message record) and dead-letters a malformed payload explicitly (message actions or a poison queue), neither raising it for redelivery nor returning, which would complete and lose it",
+        "Cosmos access uses the aio client built once in core/, with parameterised queries and a partition key that starts with the tenant",
+        "Connections use managed identity (fullyQualifiedNamespace / accountEndpoint settings or DefaultAzureCredential), not keys or connection strings",
+        "Tests call the handlers with a built func.HttpRequest (including a bad signature) and call the consumer handler with a payload and the message properties it reads (not the binding's message type), asserting its outcome, with use-cases or repositories faked"
+      ]
+    },
+    {
+      "id": 2,
+      "name": "review-planted-violations",
+      "prompt": "Review this PR diff for our channel-gateway Function App before I merge it. Be specific about what to change. The diff is in files/review.diff.",
+      "expected_output": "A review that flags: everything in function_app.py instead of feature Blueprints; the Cosmos key from settings instead of managed identity; a sync client at module level; the anonymous Twilio webhook without signature validation; the f-string query; the hard-coded acme tenant; the anonymous seed route; the timer scanning every lead; the consumer swallowing exceptions and not idempotent, on a connection string; the orchestrator calling datetime.now() and httpx; and requirements.txt with a relative path package relying on remote build.",
+      "files": [
+        "evals/files/review.diff"
+      ],
+      "expectations": [
+        "Flags function_app.py holding every trigger and query: it should only compose feature Blueprints, with triggers as thin adapters calling use-cases",
+        "Flags COSMOS_KEY: use managed identity (DefaultAzureCredential) and role assignments",
+        "Flags the sync CosmosClient used from triggers, and data access outside data/ repositories",
+        "Flags twilio/inbound as anonymous without X-Twilio-Signature validation",
+        "Flags the f-string query built from the From number",
+        "Flags the hard-coded acme tenant in the partition key: resolve the tenant from the To number",
+        "Flags seed-conversation as an anonymous test route reachable in production",
+        "Flags the five-minute timer scanning every lead cross-partition: schedule a message or Durable timer when the follow-up becomes due",
+        "Flags send_outbound catching Exception and returning, which loses the message instead of retrying or dead-lettering, and resends on redelivery (not idempotent)",
+        "Flags SERVICEBUS_CONNECTION_STRING: use the identity-based connection",
+        "Flags datetime.now() in the orchestrator (use context.current_utc_datetime) and the httpx call in it (belongs in an activity)",
+        "Flags requirements.txt listing ../../packages/channel-core: remote build cannot resolve it; build the package in CI from the lock"
+      ]
+    }
+  ],
+  "sandbox": "Run as docs/skill-evals.md describes: skill-creator ignores this field. Copy evals/files/* into <work>/files/; build evals write their files under outputs/code/ and need no input."
+}
