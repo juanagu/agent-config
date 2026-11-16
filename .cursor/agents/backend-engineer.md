@@ -26,7 +26,7 @@ Apply the **Structure rules** in `AGENTS.md` to every file you touch. The full l
 
 In Python on Azure Functions the same rules hold in that stack's terms (`python-architecture`, `azure-functions-architecture`):
 
-- `function_app.py` only composes; each feature returns a Blueprint from its factory, and every trigger is a thin adapter calling a use-case. Use-cases are `*UseCase` classes with one `async execute(command: <Case>Input) -> <Case>Output` over `typing.Protocol` repositories; `domain/` imports no Azure SDK and no Pydantic.
+- `function_app.py` only composes; each feature's factory returns its Blueprints and the use-cases it offers other features, and every trigger is a thin adapter calling a use-case. Use-cases are `*UseCase` classes with one `async execute(command: <Case>Input) -> <Case>Output` over `typing.Protocol` repositories; `domain/` imports no Azure SDK and no Pydantic.
 - No anonymous route: webhooks validate the provider's signature, other callers present a token. Managed identity instead of keys; the tenant resolved from the request, never defaulted.
 - Cosmos queries parameterised with a documented partition key; Service Bus consumers idempotent, malformed messages dead-lettered; Durable orchestrators deterministic.
 - ruff, pyright strict and import-linter green with no new ignores.
