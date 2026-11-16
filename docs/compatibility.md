@@ -2,7 +2,7 @@
 
 What each tool reads, where this repo puts it, and the page each row was checked against. Tool formats change often; a row is only as good as its date, so when something does not load, open the linked page first and then `CONTRIBUTING.md` says how to send the fix.
 
-Last verified: **2026-10-15**, against the pages linked below.
+Last verified: **2026-10-15**, against the pages linked below; a section that gives its own date was checked then.
 
 ## Standards file
 
@@ -61,7 +61,7 @@ Two session-start hooks, registered by the global installer only: the dependency
 
 ## Claude Code's desktop app
 
-A local session in the desktop app (`entrypoint: claude-desktop` in its transcript) reads the same `~/.claude/` and project files as the CLI; a cloud session started from the app has none of `~/.claude/`. Checked 2026-11-16 on macOS with a live session rather than a vendor page: the standards and the skill listing were in its context, and the git guard's `PreToolUse` hook ran and refused a merge on `main`. Agents and the `SessionStart` nudges were not checked. The hooks' one dependency there, `node` on the app's PATH, is a gotcha in [the Claude Code guide](claude-code.md#gotchas).
+A local session in the desktop app (`entrypoint: claude-desktop` in its transcript) reads the same `~/.claude/` and project files as the CLI. Checked 2026-11-16 on macOS with a live session in this repo rather than a vendor page: the standards and the skill listing were in its context, and the git guard registered in the project's `.claude/settings.json` ran and refused a merge on `main`. Not checked: the global registration in another repo, agents, the `SessionStart` nudges, cloud sessions and Windows. The hooks' one dependency there, `node` on the app's PATH, is a gotcha in [the Claude Code guide](claude-code.md#gotchas).
 
 ## What does not port
 
