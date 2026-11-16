@@ -840,7 +840,9 @@ test("samePath treats a trailing slash, and on Windows a case difference, as the
 
 // ---- the weekly dependency-audit nudge ----
 
-const nudgeCommand = (clone, tool) => `node "${posix(clone)}/.agents/hooks/audit-nudge/audit-nudge.mjs" --tool ${tool}`;
+const nudgeCommand = (clone, tool, name = "audit") => `node "${posix(clone)}/.agents/hooks/${name}-nudge/${name}-nudge.mjs" --tool ${tool}`;
+const diskCommand = (clone, tool) => nudgeCommand(clone, tool, "disk");
+const diskEntry = (clone) => ({ matcher: "startup", hooks: [{ type: "command", command: diskCommand(clone, "claude"), timeout: 5 }] });
 const sessionStartCommands = (settings) => (settings.hooks?.SessionStart ?? []).flatMap((entry) => entry.hooks.map((hook) => hook.command));
 
 test("Claude Code gets the nudge as a SessionStart hook once, beside the user's own, under --yes", (t) => {
@@ -852,8 +854,9 @@ test("Claude Code gets the nudge as a SessionStart hook once, beside the user's 
   writeJson(join(claude, "settings.json"), { hooks: { SessionStart: [mine] } });
   for (let i = 0; i < 2; i++) assert.equal(claudeHome(clone, home, "--yes", "--no-codegraph").status, 0);
   const settings = readJson(join(claude, "settings.json"));
-  assert.deepEqual(sessionStartCommands(settings), ["echo hello", nudgeCommand(clone, "claude")]);
+  assert.deepEqual(sessionStartCommands(settings), ["echo hello", nudgeCommand(clone, "claude"), diskCommand(clone, "claude")]);
   assert.deepEqual(settings.hooks.SessionStart[1], { matcher: "startup", hooks: [{ type: "command", command: nudgeCommand(clone, "claude"), timeout: 5 }] });
+  assert.deepEqual(settings.hooks.SessionStart[2], diskEntry(clone));
   assert.ok(hookCommands(settings).includes(guardCommand(clone, "claude")), "the git guard is still added");
 });
 
@@ -861,15 +864,16 @@ test("a run without a terminal adds the nudge by default; --no-optional and --no
   const clone = makeFixtureClone(t);
   const byDefault = freshDir(t);
   assert.equal(claudeHome(clone, byDefault, "--no-rtk", "--no-codegraph").status, 0);
-  assert.deepEqual(sessionStartCommands(readJson(join(byDefault, ".claude", "settings.json"))), [nudgeCommand(clone, "claude")]);
+  assert.deepEqual(sessionStartCommands(readJson(join(byDefault, ".claude", "settings.json"))), [nudgeCommand(clone, "claude"), diskCommand(clone, "claude")]);
 
   const core = freshDir(t);
   assert.equal(claudeHome(clone, core, "--no-optional").status, 0);
   assert.equal(readJson(join(core, ".claude", "settings.json")).hooks.SessionStart, undefined);
 
   const declined = freshDir(t);
-  assert.equal(claudeHome(clone, declined, "--no-audit-nudge", "--no-rtk", "--no-codegraph").status, 0);
+  assert.equal(claudeHome(clone, declined, "--no-audit-nudge", "--no-disk-nudge", "--no-rtk", "--no-codegraph").status, 0);
   assert.equal(answers(declined).auditNudge, false);
+  assert.equal(answers(declined).diskNudge, false);
   assert.equal(claudeHome(clone, declined).status, 0, "a later run without the flag");
   assert.equal(readJson(join(declined, ".claude", "settings.json")).hooks.SessionStart, undefined);
 });
@@ -880,10 +884,11 @@ test("a nudge entry from an earlier clone is re-pointed at this one, even under 
   const claude = join(home, ".claude");
   mkdirSync(claude);
   const old = 'node "C:/old/.agents/hooks/audit-nudge/audit-nudge.mjs" --tool claude';
-  writeJson(join(claude, "settings.json"), { hooks: { SessionStart: [{ matcher: "startup", hooks: [{ type: "command", command: old, timeout: 9 }] }] } });
+  const oldDisk = 'node "C:/old/.agents/hooks/disk-nudge/disk-nudge.mjs" --tool claude';
+  writeJson(join(claude, "settings.json"), { hooks: { SessionStart: [{ matcher: "startup", hooks: [{ type: "command", command: old, timeout: 9 }, { type: "command", command: oldDisk, timeout: 9 }] }] } });
   assert.equal(claudeHome(clone, home, "--no-optional").status, 0);
   const settings = readJson(join(claude, "settings.json"));
-  assert.deepEqual(settings.hooks.SessionStart, [{ matcher: "startup", hooks: [{ type: "command", command: nudgeCommand(clone, "claude"), timeout: 9 }] }]);
+  assert.deepEqual(settings.hooks.SessionStart, [{ matcher: "startup", hooks: [{ type: "command", command: nudgeCommand(clone, "claude"), timeout: 9 }, { type: "command", command: diskCommand(clone, "claude"), timeout: 9 }] }]);
 });
 
 test("Cursor, Copilot and Antigravity get the nudge in their own session-start shape, once, keeping the rest", (t) => {
@@ -895,16 +900,19 @@ test("Cursor, Copilot and Antigravity get the nudge in their own session-start s
   for (let i = 0; i < 2; i++) assert.equal(global(clone, home, ...tools).status, 0);
 
   const cursor = readJson(join(home, ".cursor", "hooks.json"));
-  assert.deepEqual(cursor.hooks.sessionStart, [{ command: "./mine.sh" }, { command: nudgeCommand(clone, "cursor"), timeout: 5 }]);
+  assert.deepEqual(cursor.hooks.sessionStart, [{ command: "./mine.sh" }, { command: nudgeCommand(clone, "cursor"), timeout: 5 }, { command: diskCommand(clone, "cursor"), timeout: 5 }]);
   assert.equal(cursor.hooks.beforeShellExecution[0].command, guardCommand(clone, "cursor"));
 
   const copilot = readJson(join(home, ".copilot", "hooks", "audit-nudge.json"));
   const command = nudgeCommand(clone, "copilot");
   assert.deepEqual(copilot, { version: 1, hooks: { sessionStart: [{ type: "command", bash: command, powershell: command, timeoutSec: 5 }] } });
+  const diskCopilot = diskCommand(clone, "copilot");
+  assert.deepEqual(readJson(join(home, ".copilot", "hooks", "disk-nudge.json")), { version: 1, hooks: { sessionStart: [{ type: "command", bash: diskCopilot, powershell: diskCopilot, timeoutSec: 5 }] } });
   assert.equal(readJson(join(home, ".copilot", "hooks", "git-guard.json")).hooks.sessionStart, undefined, "the guard's file stays the guard's");
 
   const antigravity = readJson(join(home, ".gemini", "config", "hooks.json"));
   assert.deepEqual(antigravity["audit-nudge"], { SessionStart: [{ type: "command", command: nudgeCommand(clone, "antigravity"), timeout: 5 }] });
+  assert.deepEqual(antigravity["disk-nudge"], { SessionStart: [{ type: "command", command: diskCommand(clone, "antigravity"), timeout: 5 }] });
   assert.equal(antigravity["git-guard"].PreToolUse[0].hooks[0].command, guardCommand(clone, "antigravity"));
 });
 
@@ -918,7 +926,7 @@ test("--no-audit-nudge takes out only the nudge's own hook from a group the user
   writeJson(join(claude, "settings.json"), { hooks: { SessionStart: [{ matcher: "startup", hooks: [nudgeHook, mine] }, { matcher: "startup", hooks: [nudgeHook] }] } });
   mkdirSync(join(home, ".gemini", "config"), { recursive: true });
   writeJson(join(home, ".gemini", "config", "hooks.json"), { "audit-nudge": { SessionStart: [{ hooks: [{ ...nudgeHook }, { type: "command", command: "./mine.sh" }] }] } });
-  const result = global(clone, home, "--tool", "claude", "--tool", "antigravity", "--no-audit-nudge", "--no-rtk", "--no-codegraph");
+  const result = global(clone, home, "--tool", "claude", "--tool", "antigravity", "--no-audit-nudge", "--no-disk-nudge", "--no-rtk", "--no-codegraph");
   assert.equal(result.status, 0, result.stderr);
   assert.deepEqual(readJson(join(claude, "settings.json")).hooks.SessionStart, [{ matcher: "startup", hooks: [mine] }]);
   assert.deepEqual(readJson(join(home, ".gemini", "config", "hooks.json"))["audit-nudge"], { SessionStart: [{ hooks: [{ type: "command", command: "./mine.sh" }] }] });
@@ -936,6 +944,25 @@ test("--no-audit-nudge keeps Copilot's nudge file when the user added hooks of t
   writeJson(file, withMine);
   assert.equal(global(clone, home, "--tool", "copilot", "--no-audit-nudge").status, 0);
   assert.deepEqual(readJson(file), { version: 1, hooks: { sessionStart: [mine], sessionEnd: [mine] } });
+  assert.ok(existsSync(join(home, ".copilot", "hooks", "disk-nudge.json")), "the disk nudge's own file is untouched");
+});
+
+test("--no-disk-nudge takes out only the disk nudge, everywhere, and records the no", (t) => {
+  const clone = makeFixtureClone(t);
+  const home = freshDir(t);
+  assert.equal(global(clone, home, "--no-rtk", "--no-codegraph").status, 0);
+  const result = global(clone, home, "--no-disk-nudge", "--no-rtk", "--no-codegraph");
+  assert.equal(result.status, 0, result.stderr);
+  assert.deepEqual(sessionStartCommands(readJson(join(home, ".claude", "settings.json"))), [nudgeCommand(clone, "claude")]);
+  assert.deepEqual(readJson(join(home, ".cursor", "hooks.json")).hooks.sessionStart, [{ command: nudgeCommand(clone, "cursor"), timeout: 5 }]);
+  assert.ok(!existsSync(join(home, ".copilot", "hooks", "disk-nudge.json")), "Copilot's disk nudge file is deleted");
+  assert.ok(existsSync(join(home, ".copilot", "hooks", "audit-nudge.json")));
+  const antigravity = readJson(join(home, ".gemini", "config", "hooks.json"));
+  assert.equal(antigravity["disk-nudge"], undefined);
+  assert.ok(antigravity["audit-nudge"]);
+  assert.equal(answers(home).diskNudge, false);
+  assert.equal(global(clone, home, "--no-rtk", "--no-codegraph").status, 0);
+  assert.deepEqual(sessionStartCommands(readJson(join(home, ".claude", "settings.json"))), [nudgeCommand(clone, "claude")], "the remembered no keeps it out");
 });
 
 test("--no-audit-nudge takes an installed nudge out of every tool's file, keeps the rest, and records the no", (t) => {
@@ -943,11 +970,11 @@ test("--no-audit-nudge takes an installed nudge out of every tool's file, keeps 
   const home = freshDir(t);
   assert.equal(global(clone, home, "--no-rtk", "--no-codegraph").status, 0);
   const claudeSettings = join(home, ".claude", "settings.json");
-  assert.deepEqual(sessionStartCommands(readJson(claudeSettings)), [nudgeCommand(clone, "claude")]);
+  assert.deepEqual(sessionStartCommands(readJson(claudeSettings)), [nudgeCommand(clone, "claude"), diskCommand(clone, "claude")]);
   const copilotNudge = join(home, ".copilot", "hooks", "audit-nudge.json");
   assert.ok(existsSync(copilotNudge));
 
-  const result = global(clone, home, "--no-audit-nudge", "--no-rtk", "--no-codegraph");
+  const result = global(clone, home, "--no-audit-nudge", "--no-disk-nudge", "--no-rtk", "--no-codegraph");
   assert.equal(result.status, 0, result.stderr);
   const settings = readJson(claudeSettings);
   assert.equal(settings.hooks.SessionStart, undefined);

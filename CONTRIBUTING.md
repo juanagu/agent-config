@@ -18,6 +18,7 @@ Node.js 22+ and `git` are the only requirements. The pre-push hook (`.githooks/p
 | Change | Edit | Then |
 | --- | --- | --- |
 | a rule | `AGENTS.md` | `npm test` |
+| the disk-space nudge and the `docker-reclaim` skill | `.agents/hooks/disk-nudge/disk-nudge.mjs`, `.agents/skills/docker-reclaim/reclaim.mjs`, the registration in `scripts/install/nudge.mjs`; tests in `tests/disk-nudge.test.mjs`, `tests/docker-reclaim.test.mjs` and `tests/install.test.mjs` | `npm test` |
 | an agent | `agents/<name>.md` (never a file under `.claude/`, `.cursor/`, `.github/agents/` or `.agents/agents/`: those are generated) | `npm run build && npm test`; for a change to its behaviour or description, run its evals before and after ([docs/agent-evals.md](docs/agent-evals.md)) |
 | a skill | `.agents/skills/<name>/` (never `.claude/skills/`) | `npm run build && npm test` |
 | how a tool's agent file is written | `scripts/build/targets.mjs` → `AGENT_TARGETS` | `npm run build && npm test` |

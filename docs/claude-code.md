@@ -18,7 +18,7 @@ This writes `AGENTS.md`, `CLAUDE.md`, `.claude/settings.json`, `.claude/agents/`
 npx -y github:juanagu/agent-config -- --global --tool claude
 ```
 
-It clones the repo to `~/Projects/agent-config` (or fast-forwards it), then: adds a one-line `@` import at the top of `~/.claude/CLAUDE.md` (the rest of the file is yours), links each agent into `~/.claude/agents/` and each skill into `~/.claude/skills/` (one entry each, so your own agents and skills stay beside them), creates `~/.claude/settings.json` from a template when it is missing (otherwise offers the git guard hook, or re-points an entry from an older install), adds the `attribution` keys you have not set, offers the weekly dependency-audit nudge as a `SessionStart` hook (yes by default; `--no-audit-nudge` declines), offers Context7 for library docs (see below), installs the third-party skills in `skills.txt`, and checks git's global `user.email` ([architecture](architecture.md#installing) has the details). Re-running updates everything. Flags: `--yes`, `--no-optional`, `--help`.
+It clones the repo to `~/Projects/agent-config` (or fast-forwards it), then: adds a one-line `@` import at the top of `~/.claude/CLAUDE.md` (the rest of the file is yours), links each agent into `~/.claude/agents/` and each skill into `~/.claude/skills/` (one entry each, so your own agents and skills stay beside them), creates `~/.claude/settings.json` from a template when it is missing (otherwise offers the git guard hook, or re-points an entry from an older install), adds the `attribution` keys you have not set, offers the weekly dependency-audit nudge as a `SessionStart` hook (yes by default; `--no-audit-nudge` declines) and a low-disk-space warning the same way (`--no-disk-nudge`), offers Context7 for library docs (see below), installs the third-party skills in `skills.txt`, and checks git's global `user.email` ([architecture](architecture.md#installing) has the details). Re-running updates everything. Flags: `--yes`, `--no-optional`, `--help`.
 
 Then start a new session: hooks and agents are read at session start.
 
@@ -30,6 +30,7 @@ Then start a new session: hooks and agents are read at session start.
 | Agents | `.claude/agents/*.md` | `model: opus` for judgment-tier agents, `sonnet` for implementation; `tools`, `effort` and `color` set. Run `/agents` to list them. |
 | Skills | `.claude/skills/*/SKILL.md` | Generated copies of `.agents/skills/`. Type `/` to see them. |
 | Git guard | `.claude/settings.json` → `hooks.PreToolUse` | Matches `Bash|PowerShell`; blocks with exit 2 and the reason on stderr. `/hooks` shows it. |
+| Disk-space nudge | `~/.claude/settings.json` → `hooks.SessionStart` (global install only) | Matcher `startup`. Prints one line telling Claude to report the free space and run `/docker-reclaim` when the home drive has under 20 GB free (`AGENT_CONFIG_DISK_MIN_GB` changes it), nothing otherwise; reads only the drive's free space. |
 | Dependency-audit nudge | `~/.claude/settings.json` → `hooks.SessionStart` (global install only) | Matcher `startup`. Prints one line telling Claude to run `/dependency-audit` when the last run is missing or a week old, nothing otherwise; never fails or touches the network. |
 
 ## Using it
@@ -72,8 +73,8 @@ Lower it in a session of quick chores, and move the key to the new ID when the m
 - `/memory` shows `AGENTS.md` (through `CLAUDE.md`) under memory files.
 - `/agents` lists `architect-engineer`, `designer`, `code-reviewer` and the rest.
 - `~/.claude/settings.json` has `"attribution": {"commit": "", "pr": "", "sessionUrl": false}` (unless you set your own `attribution` or `includeCoAuthoredBy`, which the installer keeps), and `git config --global user.email` prints an address GitHub knows.
-- `/hooks` shows `git-guard` under `PreToolUse` and, after a global install, `audit-nudge` under `SessionStart`.
-- `AGENT_CONFIG_AUDIT_STAMP=/nonexistent node ~/Projects/agent-config/.agents/hooks/audit-nudge/audit-nudge.mjs` prints the nudge; after a `dependency-audit` run it prints nothing for a week.
+- `/hooks` shows `git-guard` under `PreToolUse` and, after a global install, `audit-nudge` and `disk-nudge` under `SessionStart`.
+- `AGENT_CONFIG_AUDIT_STAMP=/nonexistent node ~/Projects/agent-config/.agents/hooks/audit-nudge/audit-nudge.mjs` prints the nudge; after a `dependency-audit` run it prints nothing for a week. `AGENT_CONFIG_DISK_MIN_GB=100000 node ~/Projects/agent-config/.agents/hooks/disk-nudge/disk-nudge.mjs` prints the disk nudge.
 - In a scratch repo on `main`, ask Claude to run `git commit --allow-empty -m test`: it is blocked with the reason and the worktree recipe.
 
 ## Gotchas

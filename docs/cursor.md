@@ -18,7 +18,7 @@ This writes `AGENTS.md`, `.cursor/hooks.json`, `.cursor/agents/`, `.agents/skill
 npx -y github:juanagu/agent-config -- --global --tool cursor
 ```
 
-It clones the repo to `~/Projects/agent-config` (or fast-forwards it), links each agent into `~/.cursor/agents/` and each skill into `~/.cursor/skills/`, and merges a `beforeShellExecution` entry (the git guard) and a `sessionStart` entry (the weekly dependency-audit nudge, `--no-audit-nudge` to decline) into `~/.cursor/hooks.json`. Cursor keeps User Rules in the app rather than in a file, so the installer prints the step you do by hand: open **Cursor Settings → Rules → User Rules** and paste the contents of `AGENTS.md` (or the sections you want everywhere; the stack sections are the ones most people change).
+It clones the repo to `~/Projects/agent-config` (or fast-forwards it), links each agent into `~/.cursor/agents/` and each skill into `~/.cursor/skills/`, and merges a `beforeShellExecution` entry (the git guard) and a `sessionStart` entry (the weekly dependency-audit nudge, `--no-audit-nudge` to decline, and the low-disk-space warning, `--no-disk-nudge`) into `~/.cursor/hooks.json`. Cursor keeps User Rules in the app rather than in a file, so the installer prints the step you do by hand: open **Cursor Settings → Rules → User Rules** and paste the contents of `AGENTS.md` (or the sections you want everywhere; the stack sections are the ones most people change).
 
 Restart Cursor or reload the window afterwards: hooks are read on start.
 
@@ -30,6 +30,7 @@ Restart Cursor or reload the window afterwards: hooks are read on start.
 | Agents | `.cursor/agents/*.md` | `model: inherit`; `readonly: true` on `code-reviewer`. Cursor also reads `.claude/agents/` when both are present; `.cursor/` wins on a name conflict. |
 | Skills | `.agents/skills/*/SKILL.md` | Read natively. Type `/` in Agent chat to pick one for a message, or Alt+Enter to apply it as a mode. |
 | Git guard | `.cursor/hooks.json` → `beforeShellExecution` | Project hooks run from the project root. No matcher: the CLIs under `protectedEnvironments` are named in local config, so the hook runs for every shell command, as it does in the other tools. |
+| Disk-space nudge | `~/.cursor/hooks.json` → `sessionStart` (global install only) | Answers `{"additional_context": …}` when the home drive has under 20 GB free (`AGENT_CONFIG_DISK_MIN_GB` changes it), nothing otherwise. |
 | Dependency-audit nudge | `~/.cursor/hooks.json` → `sessionStart` (global install only) | Answers `{"additional_context": …}` when the last audit is a week old, nothing otherwise. Cursor does not run `sessionStart` in cloud agents. |
 
 ## Using it
