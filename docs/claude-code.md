@@ -80,6 +80,6 @@ Lower it in a session of quick chores, and move the key to the new ID when the m
 ## Gotchas
 
 - **A user-level `CLAUDE.md` hides a project `AGENTS.md`.** When any `CLAUDE.md` exists in the directory chain, Claude reads only `CLAUDE.md` files. That is why this repo ships a `CLAUDE.md` whose first line imports `AGENTS.md`; keep that line when you edit it.
-- **Hooks need Node on `PATH`.** The hook fails open when `node` or `git` is missing: the command runs. It is a guard against forgetting, not a security boundary.
+- **Hooks need Node on `PATH`.** The hook fails open when `node` or `git` is missing: the command runs. It is a guard against forgetting, not a security boundary. On macOS the desktop app resolves its PATH from your shell rather than the Dock's bare `/usr/bin:/bin:/usr/sbin:/sbin`; to know whether that PATH has `node`, ask a desktop session to run `command -v node`, then run the [hook check](#check-it-worked) there. If `node` is missing, put your Node or version-manager setup in the login profile (`~/.zprofile`, `~/.bash_profile`) rather than editing the hook commands, which the installer rewrites.
 - **Tools that append to `~/.claude/CLAUDE.md`** (some MCP installers do) make the file load twice. Keep it to the one import line and move anything useful into your fork's `AGENTS.md`.
 - **Agent frontmatter must be valid YAML.** The build quotes descriptions for you; if you hand-write an agent whose description contains `: `, quote it, or the agent silently fails to load.

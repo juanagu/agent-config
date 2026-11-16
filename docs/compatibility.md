@@ -2,7 +2,7 @@
 
 What each tool reads, where this repo puts it, and the page each row was checked against. Tool formats change often; a row is only as good as its date, so when something does not load, open the linked page first and then `CONTRIBUTING.md` says how to send the fix.
 
-Last verified: **2026-10-15**, against the pages linked below.
+Last verified: **2026-10-15**, against the pages linked below; a section that gives its own date was checked then.
 
 ## Standards file
 
@@ -58,6 +58,10 @@ Two session-start hooks, registered by the global installer only: the dependency
 | Cursor | `~/.cursor/hooks.json` | `sessionStart` | `{"additional_context": …}`; not run in cloud agents | [Hooks](https://cursor.com/docs/agent/hooks) |
 | GitHub Copilot | `~/.copilot/hooks/audit-nudge.json`, `disk-nudge.json` | `sessionStart` | `{"additionalContext": …}`; plain stdout is ignored | [CLI hooks reference](https://docs.github.com/en/copilot/reference/copilot-cli-reference/cli-hooks-reference) |
 | Antigravity CLI | `~/.gemini/config/hooks.json`, under `audit-nudge`, `disk-nudge` | `SessionStart` | `{"injectSteps": [{"systemMessage": {"systemMessage": …}}]}` | [Hooks](https://antigravity.google/docs/hooks?tab=cli) |
+
+## Claude Code's desktop app
+
+A local session in the desktop app (`entrypoint: claude-desktop` in its transcript) reads the same `~/.claude/` and project files as the CLI. Checked 2026-11-16 on macOS with a live session in this repo rather than a vendor page: the standards and the skill listing were in its context, and the git guard registered in the project's `.claude/settings.json` ran and refused a merge on `main`. Not checked: the global registration in another repo, agents, the `SessionStart` nudges, cloud sessions and Windows. The hooks' one dependency there, `node` on the app's PATH, is a gotcha in [the Claude Code guide](claude-code.md#gotchas).
 
 ## What does not port
 
