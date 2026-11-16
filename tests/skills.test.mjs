@@ -90,3 +90,13 @@ for (const file of proseFiles) {
     assert.deepEqual(dangling, [], `dangling: ${dangling.join(", ")}`);
   });
 }
+
+// The Agent Skills format caps a description at 1024 characters; a tool that enforces it drops or cuts the
+// skill, and a cut loses the "Not for" clause at the end, which is what routes work to the right sibling.
+const DESCRIPTION_LIMIT = 1024;
+for (const name of skillNames) {
+  test(`${name}: its description fits the Agent Skills limit`, () => {
+    const length = (frontmatter(join(repoDir, skillFile(name))).description ?? "").length;
+    assert.ok(length <= DESCRIPTION_LIMIT, `${length} characters, limit ${DESCRIPTION_LIMIT}`);
+  });
+}

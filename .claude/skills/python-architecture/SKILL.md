@@ -1,6 +1,6 @@
 ---
 name: "python-architecture"
-description: "The architecture every Python backend in this setup follows, whatever hosts it (Azure Functions, a CLI, a container): a uv workspace of apps and shared packages, clean architecture inside feature folders split into domain/ (frozen-dataclass entities, value objects, one *UseCase class per case, Protocol repository interfaces), data/ (repository and client implementations, models, mappers, producers) and api/ (the host's inbound adapters), with core/ for app infrastructure and shared/ for cross-feature business code; Pydantic only at the boundaries, typed errors mapped in one place, ruff, pyright strict, import-linter contracts, pytest, and the test layout. Invoke before writing, reviewing or planning any Python code (*.py, pyproject.toml, uv.lock), and when deciding where a new file goes; for a Function App load azure-functions-architecture too. Not for Fastify (fastify-architecture), Next.js/Astro (nextjs-architecture), Flutter (flutter-architecture), native Android (android-architecture), native iOS (ios-architecture) or React Native (react-native-architecture); nor for what a Function App adds (triggers, bindings, Azure services), which is azure-functions-architecture's."
+description: "The architecture every Python backend in this setup follows, whatever hosts it: a uv workspace of apps and shared packages; feature folders split into domain/ (frozen-dataclass entities, value objects, one *UseCase class per case, Protocol repositories), data/ (their implementations, models, mappers, messages, producers) and api/ (the host's inbound adapters); core/ for infrastructure, shared/ for cross-feature business code; Pydantic only at the boundaries, typed errors mapped in one place, ruff, pyright strict, import-linter and pytest. Invoke before writing, reviewing or planning any Python code (*.py, pyproject.toml, uv.lock) and when deciding where a file goes. Not for Fastify (fastify-architecture), Next.js/Astro (nextjs-architecture), Flutter (flutter-architecture), native Android (android-architecture), native iOS (ios-architecture) or React Native (react-native-architecture); what a Function App adds is azure-functions-architecture, loaded with this one."
 ---
 
 # Python architecture
@@ -40,7 +40,8 @@ apps/<app>/                     one deployable each: a Function App, a CLI, a co
       data/
         repositories/           implementations of domain/repositories over a database
         clients/                implementations of domain/repositories over another service, a third-party API or a model provider
-        producers/              implementations of domain/repositories that publish a message, each with its definition beside it (<event>_message.py)
+        messages/               message definitions: name, payload schema, session key (<event>_message.py); the one data/ package api/ may import
+        producers/              implementations of domain/repositories that publish a message
         models/                 storage documents and upstream response types (Pydantic models or TypedDicts)
         mappers/                document ↔ entity, upstream response ↔ entity
       api/                      the host's inbound adapters; the host's skill names the files (`azure-functions-architecture` skill, §1)
@@ -84,7 +85,7 @@ A row imports only the ticked columns. "Own" means the same feature; another fea
 | `domain/repositories` | ✓ | | ✓ | | | | ✓ | | ✓ | public surface types |
 | `domain/use_cases` | ✓ | ✓ | ✓ | | | | ✓ | | ✓ | public surface types |
 | `data/` | ✓ | ✓ | ✓ | | ✓ | | ✓ | ✓ | ✓ | public surface |
-| `api/` | ✓ | | ✓ | ✓ | message definitions only | ✓ | ✓ | `config`, `observability`, `errors`, the host's auth and error mapping | ✓ | |
+| `api/` | ✓ | | ✓ | ✓ | `data/messages/` only | ✓ | ✓ | `config`, `observability`, `errors`, the host's auth and error mapping | ✓ | |
 | `testing/` | ✓ | ✓ | ✓ | | | | ✓ | | ✓ | |
 | `create_<feature>.py` | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | public surface |
 | `shared/` | | | | | | | ✓ | | ✓ | |
@@ -93,7 +94,7 @@ A row imports only the ticked columns. "Own" means the same feature; another fea
 
 - `domain/` imports no driver, no host SDK (`azure.functions`, `azure.cosmos`), no `httpx`, no Pydantic, nothing from `data/` or `api/`; `core/errors` is the one piece of `core/` it may use, because those classes are plain.
 - A use-case never imports another use-case. Two that need the same step share an entity rule or a repository call; a use-case that only forwards to another is deleted. To call another feature, a use-case declares the call in its own `domain/repositories` and `data/` implements it over that feature's public surface.
-- `api/` reaches `data/` only for a message's definition (its name and payload schema), so a consumer validates with the same schema the producer publishes with, without opening a connection by importing the producer.
+- `api/` reaches `data/` only for a message's definition in `data/messages/` (its name and payload schema), so a consumer validates with the same schema the producer publishes with, without opening a connection by importing the producer.
 - A controller receives use-cases (or, for a pure pass-through, a repository interface) from `create_<feature>.py`; it never builds a client or a repository itself.
 
 ## 2. Rules that fail a review
@@ -127,10 +128,10 @@ A row imports only the ticked columns. "Own" means the same feature; another fea
 | uv | the workspace, the lock, the Python version (`.python-version`) | `uv sync --frozen` |
 | ruff | lint (at least `E F W I N B UP SIM RUF A S PL C90`) and formatting | `uv run ruff check` and `uv run ruff format --check` |
 | pyright | types, strict mode | `uv run pyright` |
-| import-linter | the layers: per feature, a `layers` contract with `api` and `data` as independent siblings above `domain`, whose `ignore_imports` lists the one sanctioned crossing (`api` importing a `data/**/*_message` definition); `forbidden` contracts keeping drivers, SDKs, `httpx` and Pydantic out of `domain` | `uv run lint-imports` |
+| import-linter | the layers: per feature, a `layers` contract with `api` and `data` as independent siblings above `domain`, whose `ignore_imports` holds the one sanctioned crossing as a single wildcard entry written when the contracts are adopted (`<pkg>.features.*.api.** -> <pkg>.features.*.data.messages.**`), never an entry per message; `forbidden` contracts keeping drivers, SDKs, `httpx` and Pydantic out of `domain` | `uv run lint-imports` |
 | an architecture test | what import-linter cannot say: another feature reached only through its `__init__.py` (an `independence` contract would forbid the public surface too). A pytest that walks every module's imports with `ast` and checks them against the table in §1 | `uv run pytest tests/architecture` |
 | pytest | tests, with `integration` as a marker | `uv run pytest -m "not integration"` and `uv run pytest -m integration` |
-| pip-audit | known vulnerabilities in the locked dependencies | `uv run pip-audit` (weekly and before a release tag) |
+| pip-audit | known vulnerabilities in the locked runtime dependencies, dev tools left out as `npm audit --omit=dev` does | `uv export --frozen --no-dev --no-emit-workspace --no-hashes -o audit.txt && uvx pip-audit -r audit.txt` (weekly and before a release tag) |
 
 The repo's `.githooks/pre-push` runs ruff, pyright, import-linter, the architecture test and the unit tests (the fast tier's cheap checks); CI's fast tier runs the same plus the integration tests against emulators and the app's package build. A rule is never relaxed with `|| true` in CI, a per-line ignore, or a new `ignore_imports` entry to get a push through: either the code changes or the rule is changed for the whole repo in its own PR.
 
