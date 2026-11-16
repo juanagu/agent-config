@@ -91,7 +91,7 @@ Use them when a process waits (for a reply, a person, a callback, a deadline) an
 - Orchestrators are generator functions with no I/O: they `yield context.call_activity(...)`, read time from `context.current_utc_datetime`, and get randomness or new ids from an activity. Each activity calls one use-case.
 - Inputs and outputs of activities are small JSON-serialisable payloads (ids, not documents).
 - A change to a running orchestration's steps is versioned (a new orchestrator name or an explicit version check), so in-flight instances finish on the code they started with.
-- Instance ids are business keys (`followup-<tenant>-<lead>`). Starting one is check-then-start: `get_status` on the id, and `start_new` only when there is no instance or it has finished. `start_new` on a running id does not return the running instance: depending on `overridableExistingInstanceStates` in `host.json` it replaces it or raises, so set that to `NonRunningStates` and treat the raise from a lost race as "already running".
+- Instance ids are business keys (`followup-<tenant>-<lead>`). `start_new` on a running id does not return the running instance: depending on `overridableExistingInstanceStates` in `host.json` it replaces it or raises. Set that to `NonRunningStates`, call `start_new`, and treat its raise as "already running"; a `get_status` before it adds a round trip and still loses the race.
 
 ## 7. Observability
 
@@ -103,7 +103,8 @@ Use them when a process waits (for a reply, a person, a callback, a deadline) an
 
 - **Locally**: Core Tools (`func start` in the app's folder) with Azurite for Storage, and the Cosmos DB and Service Bus emulators in Docker, wired by a Compose file the README names. `local.settings.json` points at them; nothing local reaches a cloud resource by default.
 - **Tests**, beside python-architecture's layout:
-  - `api/` handlers are called directly with a built `func.HttpRequest(method=..., url=..., body=..., headers=..., route_params=...)` or a built `func.ServiceBusMessage`, with the use-cases faked: status, envelope, signature rejection, schema rejection.
+  - HTTP handlers are called directly with a built `func.HttpRequest(method=..., url=..., body=..., headers=..., route_params=...)`, with the use-cases faked: status, envelope, signature rejection, schema rejection.
+  - Consumer handlers take the message's body and the properties they read (id, session id, delivery count), never the binding's message type, and return an outcome (completed, or dead-lettered with a reason) or raise for a transient failure. Tests call them with a payload and assert the outcome; the trigger adapter that turns an outcome into the settle call on `ServiceBusMessageActions` gets one test of its own, with a fake actions object.
   - `data/` repositories and producers run against the emulators (`@pytest.mark.integration`).
   - A smoke run starts the app with `func start` against the emulators and calls one route per feature, including a signed webhook; it runs in CI's fast tier when it fits in its minutes.
   - Orchestrators are tested by driving the generator with a fake context: the order of activities, the timer, the replay of a completed step.

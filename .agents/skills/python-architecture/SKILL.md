@@ -29,7 +29,7 @@ apps/<app>/                     one deployable each: a Function App, a CLI, a co
     shared/                     business code two or more features import, by topic: money/, phone/, tenancy/
       <topic>/                  entities, value objects, pure rules and reference data; never a repository, a use-case or infrastructure
     features/<feature>/
-      __init__.py               the public surface: re-exports what feature_readme.md lists, in __all__; nothing else
+      __init__.py               the public surface: re-exports from domain/ only what feature_readme.md lists, in __all__
       create_<feature>.py       the feature's composition root: builds data/, the use-cases and api/ for the entrypoint
       domain/
         entities/               frozen dataclasses with the rules over them
@@ -49,7 +49,7 @@ apps/<app>/                     one deployable each: a Function App, a CLI, a co
         controllers/            read validated input → call a use-case → shape the reply
       testing/                  in-memory fakes of domain/repositories; another feature imports them from its tests only
       feature_readme.md
-  tests/                        mirrors src/: unit/, integration/
+  tests/                        unit/, integration/, api/ (§5) and architecture/ (§4)
 packages/<name>/                a library two or more apps install; the same layering inside, its own feature_readme.md
 ```
 
@@ -86,7 +86,7 @@ A row imports only the ticked columns. "Own" means the same feature; another fea
 | `domain/use_cases` | ✓ | ✓ | ✓ | | | | ✓ | | ✓ | public surface types |
 | `data/` | ✓ | ✓ | ✓ | | ✓ | | ✓ | ✓ | ✓ | public surface |
 | `api/` | ✓ | | ✓ | ✓ | `data/messages/` only | ✓ | ✓ | `config`, `observability`, `errors`, the host's auth and error mapping | ✓ | |
-| `testing/` | ✓ | ✓ | ✓ | | | | ✓ | | ✓ | |
+| `testing/` | ✓ | ✓ | ✓ | | | | ✓ | | ✓ | public surface types |
 | `create_<feature>.py` | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | public surface |
 | `shared/` | | | | | | | ✓ | | ✓ | |
 | `core/` | | | | | | | ✓ | ✓ | | |
@@ -95,6 +95,7 @@ A row imports only the ticked columns. "Own" means the same feature; another fea
 - `domain/` imports no driver, no host SDK (`azure.functions`, `azure.cosmos`), no `httpx`, no Pydantic, nothing from `data/` or `api/`; `core/errors` is the one piece of `core/` it may use, because those classes are plain.
 - A use-case never imports another use-case. Two that need the same step share an entity rule or a repository call; a use-case that only forwards to another is deleted. To call another feature, a use-case declares the call in its own `domain/repositories` and `data/` implements it over that feature's public surface.
 - `api/` reaches `data/` only for a message's definition in `data/messages/` (its name and payload schema), so a consumer validates with the same schema the producer publishes with, without opening a connection by importing the producer.
+- A feature's `__init__.py` re-exports from its `domain/` only (entities, value objects, use-case classes with their `Input` and `Output`, the Protocols it offers), never from `data/`, `api/` or `create_<feature>.py`, which the entrypoint imports by full path. Importing a feature's surface then loads no I/O and cannot close an import cycle through another feature's `data/`; two features whose domains import each other's types are one boundary drawn in the wrong place.
 - A controller receives use-cases (or, for a pure pass-through, a repository interface) from `create_<feature>.py`; it never builds a client or a repository itself.
 
 ## 2. Rules that fail a review
@@ -128,12 +129,14 @@ A row imports only the ticked columns. "Own" means the same feature; another fea
 | uv | the workspace, the lock, the Python version (`.python-version`) | `uv sync --frozen` |
 | ruff | lint (at least `E F W I N B UP SIM RUF A S PL C90`) and formatting | `uv run ruff check` and `uv run ruff format --check` |
 | pyright | types, strict mode | `uv run pyright` |
-| import-linter | the layers: per feature, a `layers` contract with `api` and `data` as independent siblings above `domain`, whose `ignore_imports` holds the one sanctioned crossing as a single wildcard entry written when the contracts are adopted (`<pkg>.features.*.api.** -> <pkg>.features.*.data.messages.**`), never an entry per message; `forbidden` contracts keeping drivers, SDKs, `httpx` and Pydantic out of `domain` | `uv run lint-imports` |
+| import-linter | the layers: per feature, a `layers` contract with `api` and `data` as independent siblings above `domain`, whose `ignore_imports` holds the one sanctioned crossing as a single wildcard entry written when the contracts are adopted (`<pkg>.features.*.api.** -> <pkg>.features.*.data.messages.**`), never an entry per message, with `unmatched_ignore_imports_alerting = "none"` on that contract because the entry matches nothing until the first consumer exists; `forbidden` contracts keeping drivers, SDKs, `httpx` and Pydantic out of `domain` | `uv run lint-imports` |
 | an architecture test | what import-linter cannot say: another feature reached only through its `__init__.py` (an `independence` contract would forbid the public surface too). A pytest that walks every module's imports with `ast` and checks them against the table in §1 | `uv run pytest tests/architecture` |
 | pytest | tests, with `integration` as a marker | `uv run pytest -m "not integration"` and `uv run pytest -m integration` |
-| pip-audit | known vulnerabilities in the locked runtime dependencies, dev tools left out as `npm audit --omit=dev` does | `uv export --frozen --no-dev --no-emit-workspace --no-hashes -o audit.txt && uvx pip-audit -r audit.txt` (weekly and before a release tag) |
+| pip-audit | known vulnerabilities in the locked runtime dependencies, dev tools left out as `npm audit --omit=dev` does | `req="$(mktemp)" && uv export --frozen --no-dev --no-emit-workspace --no-hashes -o "$req" && uvx pip-audit --no-deps --disable-pip -r "$req"` (weekly and before a release tag; the pins are exact, so nothing is installed to resolve them) |
 
-The repo's `.githooks/pre-push` runs ruff, pyright, import-linter, the architecture test and the unit tests (the fast tier's cheap checks); CI's fast tier runs the same plus the integration tests against emulators and the app's package build. A rule is never relaxed with `|| true` in CI, a per-line ignore, or a new `ignore_imports` entry to get a push through: either the code changes or the rule is changed for the whole repo in its own PR.
+The repo's `.githooks/pre-push` runs ruff, pyright, import-linter, the architecture test and the unit tests (the fast tier's cheap checks); CI's fast tier runs the same plus the integration tests against emulators and the app's package build. A rule is never relaxed with `|| true` in CI, a per-line ignore that §2 does not allow (one in `domain/`, or one without a rule code and a reason), or a new `ignore_imports` entry to get a push through: either the code changes or the rule is changed for the whole repo in its own PR.
+
+`uv sync` has no lifecycle hook like npm's `prepare`, so the README's setup command (`make setup` or `just setup`) runs `uv sync` and installs the hook the way `templates/install-git-hooks.mjs` does: a shim at `$(git rev-parse --git-common-dir)/hooks/pre-push`, shared by every worktree, that runs the current worktree's `.githooks/pre-push` when it exists (`hook="$(git rev-parse --show-toplevel)/.githooks/pre-push"; [ -f "$hook" ] || exit 0; exec sh "$hook" "$@"`). Never `core.hooksPath`. The hook itself copies `templates/pre-push`'s change detection and replaces its npm block with the commands above.
 
 ## 5. Tests
 
@@ -180,5 +183,5 @@ Before reporting work done: ruff, pyright, import-linter, the unit and integrati
 8. One `*UseCase` class per module exposing `async execute(command: <Case>Input) -> <Case>Output`, both frozen dataclasses in that module.
 9. Types: fully annotated, pyright strict green, no `Any`/`cast`/ignore in `domain/`; async end to end.
 10. Tests: unit with fakes from `testing/`, repositories against an emulator, controllers with a built request, consumers on redelivery and a bad payload.
-11. Files ~300 lines, functions ~40; snake_case modules with the role suffix; ruff, pyright and import-linter green with no new ignores.
+11. Files ~300 lines, functions ~40; snake_case modules with the role suffix; ruff, pyright and import-linter green with no new ignores beyond the coded, reasoned ones §2 allows outside `domain/`.
 12. New or rewritten features: layer folders only once they hold a file, a sub-package only from the second module of its kind, a split by sub-feature when a layer passes ~15 modules.
