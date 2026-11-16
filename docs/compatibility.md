@@ -61,7 +61,7 @@ Two session-start hooks, registered by the global installer only: the dependency
 
 ## Claude Code's desktop app
 
-A local session in the desktop app (`entrypoint: claude-desktop` in its transcript) reads the same `~/.claude/` and project files as the CLI, so the standards, skills, agents and hooks load unchanged. The hooks call a bare `node`, and an app launched from the Dock starts with only `/usr/bin:/bin:/usr/sbin:/sbin` on its PATH; the app resolves the login shell's environment instead (`[CCD] Resolved … login-shell env vars` in `~/Library/Logs/Claude/main.log`), so `node` is found when `zsh -lc 'command -v node'` finds it. When it isn't, the hooks fail open: write the absolute path to `node` into the hook commands. A cloud session started from the app has none of `~/.claude/`. Verified 2026-11-16 on macOS: the git guard refused `git merge --abort` on `main` in a desktop session.
+A local session in the desktop app (`entrypoint: claude-desktop` in its transcript) reads the same `~/.claude/` and project files as the CLI; a cloud session started from the app has none of `~/.claude/`. Checked 2026-11-16 on macOS with a live session rather than a vendor page: the standards and the skill listing were in its context, and the git guard's `PreToolUse` hook ran and refused a merge on `main`. Agents and the `SessionStart` nudges were not checked. The hooks' one dependency there, `node` on the app's PATH, is a gotcha in [the Claude Code guide](claude-code.md#gotchas).
 
 ## What does not port
 
