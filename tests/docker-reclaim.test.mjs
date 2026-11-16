@@ -169,7 +169,7 @@ test("on Windows prune ends with an fstrim of the Docker disk, and a failure is 
   const deps = fakeDeps();
   assert.match(prune(deps).text, /wsl fstrim -av: ok/);
   assert.deepEqual(deps.wslCalls, [TRIM_COMMAND]);
-  assert.deepEqual(TRIM_COMMAND, ["-d", "docker-desktop", "-u", "root", "-e", "fstrim", "-av"]);
+  assert.deepEqual(TRIM_COMMAND, ["-d", "docker-desktop", "-u", "root", "-e", "sh", "-c", "fstrim -av"]);
   const result = prune(fakeDeps({ wsl: "hung" }));
   assert.ok(result.ok);
   assert.match(result.text, /Warning: wsl fstrim did not run \(timed out after 300s\)/);

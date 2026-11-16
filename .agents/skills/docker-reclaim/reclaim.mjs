@@ -24,7 +24,8 @@ export const DF_TIMEOUT_MS = 120_000;
 export const MIN_OLDER_THAN_HOURS = 24;
 // A disk image this many times larger than what Docker uses is mostly space only compact returns.
 export const OVERSIZE_FACTOR = 2;
-export const TRIM_COMMAND = ["-d", "docker-desktop", "-u", "root", "-e", "fstrim", "-av"];
+// Through sh: `wsl -e` runs without a shell, and fstrim (in /sbin) is not on its search path.
+export const TRIM_COMMAND = ["-d", "docker-desktop", "-u", "root", "-e", "sh", "-c", "fstrim -av"];
 const PRUNE_TIMEOUT_MS = 10 * 60_000;
 const TRIM_TIMEOUT_MS = 5 * 60_000;
 const GB = 1024 ** 3;
