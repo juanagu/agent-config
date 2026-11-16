@@ -7,7 +7,7 @@ import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { mkdtempSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
-import { answer, DEFAULT_MIN_FREE_GB, freeGbAt, isSnoozed, minFreeGb, nudgeText, run, SNOOZE_HOURS } from "../.agents/hooks/disk-nudge/disk-nudge.mjs";
+import { answer, DEFAULT_MIN_FREE_GB, freeGbAt, minFreeGb, nudgeText, run, validStamp } from "../.agents/hooks/disk-nudge/disk-nudge.mjs";
 
 const repoDir = dirname(dirname(fileURLToPath(import.meta.url)));
 const HOOK = join(repoDir, ".agents", "hooks", "disk-nudge", "disk-nudge.mjs");
@@ -47,35 +47,29 @@ const HOUR = 60 * 60 * 1000;
 const NOW = Date.parse("2026-11-15T12:00:00Z");
 const iso = (offsetMs) => new Date(NOW + offsetMs).toISOString();
 
-test("a prune within 24 hours snoozes the nudge; older, missing, garbage or far-future stamps do not", () => {
-  assert.equal(SNOOZE_HOURS, 24);
-  assert.equal(isSnoozed(iso(-1 * HOUR), NOW), true);
-  assert.equal(isSnoozed(iso(-23 * HOUR), NOW), true);
-  assert.equal(isSnoozed(iso(-24 * HOUR), NOW), false);
-  assert.equal(isSnoozed(iso(-72 * HOUR), NOW), false);
-  assert.equal(isSnoozed(null, NOW), false);
-  assert.equal(isSnoozed("", NOW), false);
-  assert.equal(isSnoozed("not a date", NOW), false);
-  assert.equal(isSnoozed(iso(2 * HOUR), NOW), true, "a little ahead (clock skew) still counts as recent");
-  assert.equal(isSnoozed(iso(30 * HOUR), NOW), false, "a stamp far in the future is wrong, not a snooze");
+test("validStamp keeps a past date and drops missing, garbage and future ones", () => {
+  assert.equal(validStamp(iso(-HOUR), NOW), iso(-HOUR));
+  assert.equal(validStamp(null, NOW), null);
+  assert.equal(validStamp("not a date", NOW), null);
+  assert.equal(validStamp(iso(30 * HOUR), NOW), null);
 });
 
-test("a snoozed nudge prints nothing even when the drive is low", () => {
-  assert.equal(answer("claude", 5, 20, true), "");
-  assert.equal(answer("claude", 5, 20, false), nudgeText(5));
-});
-
-test("run() reads the prune stamp from AGENT_CONFIG_DOCKER_PRUNE_STAMP", () => {
+test("run() never goes quiet because of the stamp: a fresh one still nudges and names its date", () => {
   const dir = mkdtempSync(join(tmpdir(), "disk-nudge-"));
   const stamp = join(dir, "stamp");
   const env = { AGENT_CONFIG_DOCKER_PRUNE_STAMP: stamp };
-  assert.equal(run(["--tool", "claude"], env, statOf(5), dir, NOW), nudgeText(5), "no stamp: nudges");
-  writeFileSync(stamp, `${iso(-2 * HOUR)}\n`);
-  assert.equal(run(["--tool", "claude"], env, statOf(5), dir, NOW), "", "pruned two hours ago: silent");
-  writeFileSync(stamp, `${iso(-48 * HOUR)}\n`);
-  assert.equal(run(["--tool", "claude"], env, statOf(5), dir, NOW), nudgeText(5, iso(-48 * HOUR)), "pruned two days ago: nudges");
+  const nudge = (free = 5) => run(["--tool", "claude"], env, statOf(free), dir, NOW);
+  assert.equal(nudge(), nudgeText(5), "no stamp: nudges");
+  writeFileSync(stamp, `${iso(-2 * HOUR)}
+`);
+  assert.equal(nudge(), nudgeText(5, iso(-2 * HOUR)), "pruned two hours ago: nudges with the date");
+  assert.equal(nudge(0.5), nudgeText(0.5, iso(-2 * HOUR)), "a disk that dropped right after a prune still nudges");
+  assert.equal(nudge(50), "", "above the threshold: silent");
   writeFileSync(stamp, "garbage");
-  assert.equal(run(["--tool", "claude"], env, statOf(5), dir, NOW), nudgeText(5), "garbage: nudges");
+  assert.equal(nudge(), nudgeText(5), "garbage: nudges without a date");
+  writeFileSync(stamp, `${iso(60 * HOUR)}
+`);
+  assert.equal(nudge(), nudgeText(5), "future stamp: nudges without a date");
 });
 
 test("each tool gets its own answer shape", () => {
@@ -118,9 +112,9 @@ test("without its sibling files a copy of either hook exits 0 and prints nothing
   }
 });
 
-test("a nudge that fires past the snooze names the last prune date; without a stamp it does not", () => {
+test("a nudge names the last prune date; without a stamp it does not", () => {
   const date = iso(-72 * HOUR);
   assert.match(nudgeText(5, date), new RegExp(`last docker prune: ${date}`));
   assert.doesNotMatch(nudgeText(5), /last docker prune/);
-  assert.match(answer("claude", 5, 20, false, date), new RegExp(date));
+  assert.match(answer("claude", 5, 20, date), new RegExp(date));
 });

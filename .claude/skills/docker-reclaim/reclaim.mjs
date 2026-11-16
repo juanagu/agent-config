@@ -88,12 +88,24 @@ export function freeBytes(deps) {
   return info.bavail * info.bsize;
 }
 
-// `docker system df --format json` prints one object per line (older versions, a JSON array).
+// `docker system df --format json` prints one object per line (older versions, a JSON array); a line that is not JSON is skipped.
 export function parseDf(text) {
   const trimmed = text.trim();
   if (!trimmed) return [];
-  if (trimmed.startsWith("[")) return JSON.parse(trimmed);
-  return trimmed.split(/\r?\n/).filter(Boolean).map((line) => JSON.parse(line));
+  if (trimmed.startsWith("[")) {
+    try {
+      return JSON.parse(trimmed);
+    } catch {
+      return [];
+    }
+  }
+  return trimmed.split(/\r?\n/).flatMap((line) => {
+    try {
+      return line.trim() ? [JSON.parse(line)] : [];
+    } catch {
+      return [];
+    }
+  });
 }
 
 // Docker prints sizes like "120GB" or "1.5kB" in decimal units; NaN when it is not one.
@@ -156,7 +168,7 @@ export function trim(deps) {
   return { ok: true, text: `wsl fstrim -av: ok\n${result.stdout.trim()}` };
 }
 
-// The disk nudge stays quiet for a day after this. A stamp that cannot be written is no reason to fail.
+// Records the run for `report` and the disk nudge's text. A stamp that cannot be written is no reason to fail.
 function recordPrune(deps) {
   try {
     deps.stamp();
@@ -182,7 +194,7 @@ export function prune(deps, olderThan = DEFAULT_OLDER_THAN) {
   const after = freeBytes(deps);
   lines.push("docker system df after:", ...systemDf(deps), `Free space after: ${formatGb(after)} (${formatGb(after - before)} gained on the drive)`);
   if (deps.platform === "win32") lines.push("Windows only gets the space back after `compact`: run it and follow its steps.");
-  if (!succeeded) lines.push("Every prune step failed: nothing was freed and the disk nudge is not snoozed.");
+  if (!succeeded) lines.push("Every prune step failed: nothing was recorded.");
   return { ok: succeeded > 0, text: lines.join("\n") };
 }
 

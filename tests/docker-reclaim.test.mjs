@@ -123,6 +123,10 @@ test("parseDf reads one object per line or a JSON array", () => {
   assert.equal(parseDf(DF).length, 2);
   assert.equal(parseDf(`[${DF.split("\n").join(",")}]`).length, 2);
   assert.deepEqual(parseDf("  "), []);
+  const [first, second] = DF.split("\n");
+  const noisy = [first, "WARNING: not json", second].join("\n");
+  assert.equal(parseDf(noisy).length, 2, "a non-JSON line is skipped");
+  assert.deepEqual(parseDf("[broken"), []);
 });
 
 test("compact prints the steps with the real path, for both ways, and runs nothing", () => {
@@ -223,7 +227,7 @@ test("prune stamps when at least one step succeeded, and neither stamps nor repo
   const failed = fakeDeps({ pruneFails: "all" });
   const result = prune(failed);
   assert.equal(result.ok, false);
-  assert.equal(failed.stamps.length, 0, "nothing freed, so the nudge is not snoozed");
+  assert.equal(failed.stamps.length, 0, "every step failed, so nothing is recorded");
   assert.match(result.text, /Every prune step failed/);
 });
 

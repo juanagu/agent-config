@@ -1,6 +1,6 @@
 // The date of the last prune: the one definition of where it lives, written here by
-// `reclaim.mjs prune` and read by the session-start disk nudge (.agents/hooks/disk-nudge/), which
-// stays quiet for a day after it.
+// `reclaim.mjs prune` and read by `report` and the session-start disk nudge (.agents/hooks/disk-nudge/)
+// for the date they show; it silences nothing.
 import { mkdirSync, writeFileSync } from "node:fs";
 import { homedir } from "node:os";
 import { dirname, join } from "node:path";
