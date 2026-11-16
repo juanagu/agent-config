@@ -38,39 +38,40 @@ export function nudgeCommand(nudge, repoDir, tool) {
 // Where each tool registers a session-start hook, and the entry's shape (docs/compatibility.md).
 // `file` is under the home directory; `path` is the hook array inside it; `root` holds keys a new
 // file needs; `ownFile` marks a file the installer creates for the nudge alone, deleted when
-// taking the nudge out leaves nothing of the user's in it.
+// taking the nudge out leaves nothing of the user's in it. Copilot's file name and Antigravity's
+// group key are named after the nudge, so nudgeTarget fills those two in.
+const TARGETS = {
+  claude: {
+    file: [".claude", "settings.json"],
+    path: ["hooks", "SessionStart"],
+    entry: (command) => ({ matcher: "startup", hooks: [{ type: "command", command, timeout: TIMEOUT_SECONDS }] }),
+  },
+  cursor: {
+    file: [".cursor", "hooks.json"],
+    path: ["hooks", "sessionStart"],
+    root: { version: 1 },
+    entry: (command) => ({ command, timeout: TIMEOUT_SECONDS }),
+  },
+  copilot: {
+    path: ["hooks", "sessionStart"],
+    root: { version: 1 },
+    ownFile: true,
+    entry: (command) => ({ type: "command", bash: command, powershell: command, timeoutSec: TIMEOUT_SECONDS }),
+  },
+  antigravity: {
+    file: [".gemini", "config", "hooks.json"],
+    entry: (command) => ({ type: "command", command, timeout: TIMEOUT_SECONDS }),
+  },
+};
+
+const PER_NUDGE = {
+  copilot: (nudge) => ({ file: [".copilot", "hooks", nudge.file] }),
+  antigravity: (nudge) => ({ path: [nudge.group, "SessionStart"] }),
+};
+
 export function nudgeTarget(nudge, tool) {
-  switch (tool) {
-    case "claude":
-      return {
-        file: [".claude", "settings.json"],
-        path: ["hooks", "SessionStart"],
-        entry: (command) => ({ matcher: "startup", hooks: [{ type: "command", command, timeout: TIMEOUT_SECONDS }] }),
-      };
-    case "cursor":
-      return {
-        file: [".cursor", "hooks.json"],
-        path: ["hooks", "sessionStart"],
-        root: { version: 1 },
-        entry: (command) => ({ command, timeout: TIMEOUT_SECONDS }),
-      };
-    case "copilot":
-      return {
-        file: [".copilot", "hooks", nudge.file],
-        path: ["hooks", "sessionStart"],
-        root: { version: 1 },
-        ownFile: true,
-        entry: (command) => ({ type: "command", bash: command, powershell: command, timeoutSec: TIMEOUT_SECONDS }),
-      };
-    case "antigravity":
-      return {
-        file: [".gemini", "config", "hooks.json"],
-        path: [nudge.group, "SessionStart"],
-        entry: (command) => ({ type: "command", command, timeout: TIMEOUT_SECONDS }),
-      };
-    default:
-      throw new Error(`Unknown tool ${tool}.`);
-  }
+  if (!TARGETS[tool]) throw new Error(`Unknown tool ${tool}.`);
+  return { ...TARGETS[tool], ...PER_NUDGE[tool]?.(nudge) };
 }
 
 export const nudgeFile = (nudge, tool, home) => join(home, ...nudgeTarget(nudge, tool).file);

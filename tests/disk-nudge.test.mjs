@@ -5,7 +5,9 @@ import assert from "node:assert/strict";
 import { spawnSync } from "node:child_process";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
-import { answer, DEFAULT_MIN_FREE_GB, freeGbAt, minFreeGb, nudgeText, run } from "../.agents/hooks/disk-nudge/disk-nudge.mjs";
+import { mkdtempSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { answer, DEFAULT_MIN_FREE_GB, freeGbAt, isSnoozed, minFreeGb, nudgeText, run, SNOOZE_HOURS } from "../.agents/hooks/disk-nudge/disk-nudge.mjs";
 
 const repoDir = dirname(dirname(fileURLToPath(import.meta.url)));
 const HOOK = join(repoDir, ".agents", "hooks", "disk-nudge", "disk-nudge.mjs");
@@ -36,7 +38,44 @@ test("the text names the amount, the skill, the user and the volume rule", () =>
   assert.match(text, /8\.0 GB/);
   assert.match(text, /docker-reclaim/);
   assert.match(text, /tell the user/);
-  assert.match(text, /Never delete volumes/);
+  assert.match(text, /never delete volumes/);
+  assert.match(text, /only when Docker's images or build cache/);
+  assert.match(text, /compact step/);
+});
+
+const HOUR = 60 * 60 * 1000;
+const NOW = Date.parse("2026-11-15T12:00:00Z");
+const iso = (offsetMs) => new Date(NOW + offsetMs).toISOString();
+
+test("a prune within 24 hours snoozes the nudge; older, missing, garbage or far-future stamps do not", () => {
+  assert.equal(SNOOZE_HOURS, 24);
+  assert.equal(isSnoozed(iso(-1 * HOUR), NOW), true);
+  assert.equal(isSnoozed(iso(-23 * HOUR), NOW), true);
+  assert.equal(isSnoozed(iso(-24 * HOUR), NOW), false);
+  assert.equal(isSnoozed(iso(-72 * HOUR), NOW), false);
+  assert.equal(isSnoozed(null, NOW), false);
+  assert.equal(isSnoozed("", NOW), false);
+  assert.equal(isSnoozed("not a date", NOW), false);
+  assert.equal(isSnoozed(iso(2 * HOUR), NOW), true, "a little ahead (clock skew) still counts as recent");
+  assert.equal(isSnoozed(iso(30 * HOUR), NOW), false, "a stamp far in the future is wrong, not a snooze");
+});
+
+test("a snoozed nudge prints nothing even when the drive is low", () => {
+  assert.equal(answer("claude", 5, 20, true), "");
+  assert.equal(answer("claude", 5, 20, false), nudgeText(5));
+});
+
+test("run() reads the prune stamp from AGENT_CONFIG_DOCKER_PRUNE_STAMP", () => {
+  const dir = mkdtempSync(join(tmpdir(), "disk-nudge-"));
+  const stamp = join(dir, "stamp");
+  const env = { AGENT_CONFIG_DOCKER_PRUNE_STAMP: stamp };
+  assert.equal(run(["--tool", "claude"], env, statOf(5), dir, NOW), nudgeText(5), "no stamp: nudges");
+  writeFileSync(stamp, `${iso(-2 * HOUR)}\n`);
+  assert.equal(run(["--tool", "claude"], env, statOf(5), dir, NOW), "", "pruned two hours ago: silent");
+  writeFileSync(stamp, `${iso(-48 * HOUR)}\n`);
+  assert.equal(run(["--tool", "claude"], env, statOf(5), dir, NOW), nudgeText(5), "pruned two days ago: nudges");
+  writeFileSync(stamp, "garbage");
+  assert.equal(run(["--tool", "claude"], env, statOf(5), dir, NOW), nudgeText(5), "garbage: nudges");
 });
 
 test("each tool gets its own answer shape", () => {
@@ -53,7 +92,7 @@ test("run() applies the env override to the home drive's free space", () => {
 });
 
 function runHook(minGb, ...args) {
-  return spawnSync(process.execPath, [HOOK, ...args], { encoding: "utf8", env: { ...process.env, AGENT_CONFIG_DISK_MIN_GB: minGb }, timeout: 10_000 });
+  return spawnSync(process.execPath, [HOOK, ...args], { encoding: "utf8", env: { ...process.env, AGENT_CONFIG_DISK_MIN_GB: minGb, AGENT_CONFIG_DOCKER_PRUNE_STAMP: join(tmpdir(), "agent-config-no-such-prune-stamp") }, timeout: 10_000 });
 }
 
 test("as a script: a huge threshold prints the nudge, a tiny one prints nothing, both exit 0", () => {
@@ -65,4 +104,16 @@ test("as a script: a huge threshold prints the nudge, a tiny one prints nothing,
   const fine = runHook("0.000001");
   assert.equal(fine.status, 0);
   assert.equal(fine.stdout, "");
+});
+
+test("without its sibling files a copy of either hook exits 0 and prints nothing", async () => {
+  const { copyFileSync } = await import("node:fs");
+  for (const name of ["disk-nudge", "audit-nudge"]) {
+    const dir = mkdtempSync(join(tmpdir(), "lone-hook-"));
+    const copy = join(dir, `${name}.mjs`);
+    copyFileSync(join(repoDir, ".agents", "hooks", name, `${name}.mjs`), copy);
+    const result = spawnSync(process.execPath, [copy, "--tool", "claude"], { encoding: "utf8", env: { ...process.env, AGENT_CONFIG_DISK_MIN_GB: "100000000" }, timeout: 10_000 });
+    assert.equal(result.status, 0, name);
+    assert.equal(result.stdout, "", name);
+  }
 });

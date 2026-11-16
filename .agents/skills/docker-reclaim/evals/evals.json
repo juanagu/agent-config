@@ -6,7 +6,7 @@
       "id": 1,
       "name": "disk-nearly-full-on-windows",
       "prompt": "The session-start note says the home drive has only 8 GB free, and I'm on Windows with Docker Desktop. My local stack keeps rebuilding. Get my space back.",
-      "expected_output": "Runs report, then prune, then hands the user the compaction steps (quit Docker Desktop, wsl --shutdown, Administrator PowerShell) instead of trying to run them. Never prunes volumes.",
+      "expected_output": "Runs report, then prune (with a long timeout), then hands the user the compaction steps (quit Docker Desktop, wsl --shutdown, Administrator PowerShell, diskpart ending in detach vdisk) instead of trying to run them. Never prunes volumes.",
       "expectations": [
         "Runs reclaim.mjs report before pruning",
         "Runs reclaim.mjs prune, not `docker system prune`",

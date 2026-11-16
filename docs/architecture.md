@@ -14,7 +14,7 @@ agent-config/
 │   ├── skills/<name>/        skills, Agent Skills standard (canonical copy)
 │   ├── hooks/git-guard/      the git guard: core + one adapter per tool
 │   ├── hooks/audit-nudge/    the weekly dependency-audit reminder (session start)
-│   ├── hooks/disk-nudge/     the low-disk-space warning (session start)
+│   ├── hooks/disk-nudge/     the low-disk-space warning (session start; session-answer.mjs beside it is shared with audit-nudge)
 │   ├── hooks.json            Antigravity CLI hook registration    (generated)
 │   └── agents/<name>.md      Antigravity CLI subagents             (generated)
 ├── .claude/
