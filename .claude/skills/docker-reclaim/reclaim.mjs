@@ -37,7 +37,8 @@ const DOCKER_UNITS = { b: 1, kb: 1e3, mb: 1e6, gb: 1e9, tb: 1e12, pb: 1e15 };
 export const pruneSteps = (olderThan = DEFAULT_OLDER_THAN) => [
   ["image", "prune", "-f"],
   ["image", "prune", "-a", "-f", "--filter", `until=${olderThan}`],
-  ["builder", "prune", "-f", "--filter", `until=${olderThan}`],
+  // -a: without it builder prune removes only dangling cache, which is rarely where the space is.
+  ["builder", "prune", "-a", "-f", "--filter", `until=${olderThan}`],
 ];
 
 // Docker Desktop's disk images on Windows; whichever exist are what grows and what compact shrinks.
@@ -49,7 +50,9 @@ export const vhdxCandidates = (env, home = homedir()) => {
 export const formatGb = (bytes) => `${(bytes / GB).toFixed(1)} GB`;
 
 function runCommand(program, args, timeout) {
-  const result = spawnSync(program, args, { encoding: "utf8", timeout, maxBuffer: 64 * 1024 * 1024 });
+  // WSL_UTF8: wsl.exe writes its own messages in UTF-16 unless told otherwise, which garbles a failure's reason.
+  const env = { ...process.env, WSL_UTF8: "1" };
+  const result = spawnSync(program, args, { encoding: "utf8", timeout, env, maxBuffer: 64 * 1024 * 1024 });
   const missing = result.error?.code === "ENOENT";
   const timedOut = result.error?.code === "ETIMEDOUT" || (result.status === null && result.signal === "SIGTERM");
   return { ok: result.status === 0, missing, timedOut, stdout: result.stdout ?? "", stderr: result.stderr ?? "" };
@@ -212,7 +215,8 @@ function windowsSteps(deps) {
   for (const path of targets) {
     lines.push(
       `   ${path}`,
-      `   a) With the Hyper-V module:  Optimize-VHD -Path "${path}" -Mode Full`,
+      // Full mode needs the image mounted read-only; unmounted it silently falls back to a mode that frees little.
+      `   a) With the Hyper-V module:  Mount-VHD -Path "${path}" -ReadOnly; Optimize-VHD -Path "${path}" -Mode Full; Dismount-VHD -Path "${path}"`,
       "   b) Without it, in diskpart (the sequence must end with detach vdisk):",
       `        select vdisk file="${path}"`,
       "        attach vdisk readonly",

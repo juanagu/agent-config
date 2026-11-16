@@ -60,7 +60,7 @@ test("the prune list is the safe set, with the age as a named constant, and neve
   assert.deepEqual(pruneSteps(), [
     ["image", "prune", "-f"],
     ["image", "prune", "-a", "-f", "--filter", "until=168h"],
-    ["builder", "prune", "-f", "--filter", "until=168h"],
+    ["builder", "prune", "-a", "-f", "--filter", "until=168h"],
   ]);
   for (const hours of ["168h", "1h"]) {
     for (const step of pruneSteps(hours)) {
@@ -134,7 +134,7 @@ test("compact prints the steps with the real path, for both ways, and runs nothi
   const deps = fakeDeps({ existing: [disk, main_] });
   const { text } = compact(deps);
   for (const path of [disk, main_]) {
-    assert.ok(text.includes(`Optimize-VHD -Path "${path}" -Mode Full`), path);
+    assert.ok(text.includes(`Mount-VHD -Path "${path}" -ReadOnly; Optimize-VHD -Path "${path}" -Mode Full; Dismount-VHD -Path "${path}"`), path);
     for (const line of [`select vdisk file="${path}"`, "attach vdisk readonly", "compact vdisk", "detach vdisk"]) assert.ok(text.includes(line), line);
   }
   assert.match(text, /wsl --shutdown/);
