@@ -18,8 +18,8 @@ const STAMP_MODULE = "../../skills/docker-reclaim/stamp.mjs";
 const stampModule = await import(STAMP_MODULE).catch(() => null);
 const shared = await import("../session-answer.mjs").catch(() => null);
 
-export const nudgeText = (freeGb) =>
-  `The home drive has only ${freeGb.toFixed(1)} GB free: tell the user. If Docker is installed, run the docker-reclaim skill's report; prune only when Docker's images or build cache are what holds the space, and never delete volumes. If a prune already ran and the space is still low on Windows, remind the user of the skill's compact step (their elevated shell) instead of pruning again.`;
+export const nudgeText = (freeGb, lastPrune = null) =>
+  `The home drive has only ${freeGb.toFixed(1)} GB free${lastPrune ? ` (last docker prune: ${lastPrune})` : ""}: tell the user. If Docker is installed, run the docker-reclaim skill's report; prune only when Docker's images or build cache are what holds the space, and never delete volumes. If a prune already ran and the space is still low on Windows, remind the user of the skill's compact step (their elevated shell) instead of pruning again.`;
 
 // The threshold in GB from AGENT_CONFIG_DISK_MIN_GB; anything that is not a positive number
 // falls back to the default rather than silencing the nudge.
@@ -37,9 +37,12 @@ export function isSnoozed(stampText, now = Date.now()) {
   return now - last < SNOOZE_HOURS * HOUR_MS;
 }
 
-export function answer(tool, freeGb, minGb = DEFAULT_MIN_FREE_GB, snoozed = false) {
+// The stamp's date when it parses, for the nudge text; null otherwise.
+export const validStamp = (stampText) => (Number.isNaN(Date.parse(String(stampText ?? "").trim())) ? null : String(stampText).trim());
+
+export function answer(tool, freeGb, minGb = DEFAULT_MIN_FREE_GB, snoozed = false, lastPrune = null) {
   if (!(freeGb < minGb) || snoozed || !shared) return "";
-  return shared.answerFor(tool, nudgeText(freeGb));
+  return shared.answerFor(tool, nudgeText(freeGb, lastPrune));
 }
 
 export function freeGbAt(path, stat = statfsSync) {
@@ -56,8 +59,8 @@ function readStamp(env, home) {
 }
 
 export function run(argv = process.argv.slice(2), env = process.env, stat = statfsSync, home = homedir(), now = Date.now()) {
-  const snoozed = stampModule ? isSnoozed(readStamp(env, home), now) : false;
-  return answer(shared?.toolArg(argv), freeGbAt(home, stat), minFreeGb(env), snoozed);
+  const stamp = stampModule ? readStamp(env, home) : null;
+  return answer(shared?.toolArg(argv), freeGbAt(home, stat), minFreeGb(env), isSnoozed(stamp, now), validStamp(stamp));
 }
 
 if (shared?.invokedDirectly(import.meta.url)) {

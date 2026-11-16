@@ -73,7 +73,7 @@ test("run() reads the prune stamp from AGENT_CONFIG_DOCKER_PRUNE_STAMP", () => {
   writeFileSync(stamp, `${iso(-2 * HOUR)}\n`);
   assert.equal(run(["--tool", "claude"], env, statOf(5), dir, NOW), "", "pruned two hours ago: silent");
   writeFileSync(stamp, `${iso(-48 * HOUR)}\n`);
-  assert.equal(run(["--tool", "claude"], env, statOf(5), dir, NOW), nudgeText(5), "pruned two days ago: nudges");
+  assert.equal(run(["--tool", "claude"], env, statOf(5), dir, NOW), nudgeText(5, iso(-48 * HOUR)), "pruned two days ago: nudges");
   writeFileSync(stamp, "garbage");
   assert.equal(run(["--tool", "claude"], env, statOf(5), dir, NOW), nudgeText(5), "garbage: nudges");
 });
@@ -116,4 +116,11 @@ test("without its sibling files a copy of either hook exits 0 and prints nothing
     assert.equal(result.status, 0, name);
     assert.equal(result.stdout, "", name);
   }
+});
+
+test("a nudge that fires past the snooze names the last prune date; without a stamp it does not", () => {
+  const date = iso(-72 * HOUR);
+  assert.match(nudgeText(5, date), new RegExp(`last docker prune: ${date}`));
+  assert.doesNotMatch(nudgeText(5), /last docker prune/);
+  assert.match(answer("claude", 5, 20, false, date), new RegExp(date));
 });

@@ -30,7 +30,7 @@ Then start a new session: hooks and agents are read at session start.
 | Agents | `.claude/agents/*.md` | `model: opus` for judgment-tier agents, `sonnet` for implementation; `tools`, `effort` and `color` set. Run `/agents` to list them. |
 | Skills | `.claude/skills/*/SKILL.md` | Generated copies of `.agents/skills/`. Type `/` to see them. |
 | Git guard | `.claude/settings.json` → `hooks.PreToolUse` | Matches `Bash|PowerShell`; blocks with exit 2 and the reason on stderr. `/hooks` shows it. |
-| Disk-space nudge | `~/.claude/settings.json` → `hooks.SessionStart` (global install only) | Matcher `startup`. Prints one line telling Claude to report the free space and run `/docker-reclaim` when the home drive has under 20 GB free (`AGENT_CONFIG_DISK_MIN_GB` changes it), nothing otherwise; reads only the drive's free space. |
+| Disk-space nudge | `~/.claude/settings.json` → `hooks.SessionStart` (global install only) | Matcher `startup`. Prints one line telling Claude to report the free space, run the `docker-reclaim` skill's report and prune only if Docker's images or build cache are the cause, when the home drive has under 20 GB free (`AGENT_CONFIG_DISK_MIN_GB` changes it), nothing otherwise; also reads the last-docker-prune stamp (`AGENT_CONFIG_DOCKER_PRUNE_STAMP` changes its path) and stays quiet for 24 hours after a prune. |
 | Dependency-audit nudge | `~/.claude/settings.json` → `hooks.SessionStart` (global install only) | Matcher `startup`. Prints one line telling Claude to run `/dependency-audit` when the last run is missing or a week old, nothing otherwise; never fails or touches the network. |
 
 ## Using it

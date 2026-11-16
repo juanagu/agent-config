@@ -3,7 +3,7 @@
 // Docker is injected, so none of this needs it installed.
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { join } from "node:path";
+import { isAbsolute, join, parse } from "node:path";
 import { compact, DEFAULT_OLDER_THAN, DF_TIMEOUT_MS, main, parseCli, parseDf, parseSize, prune, pruneSteps, report, TRIM_COMMAND, trim, vhdxCandidates } from "../.agents/skills/docker-reclaim/reclaim.mjs";
 
 const GB = 1024 ** 3;
@@ -13,7 +13,7 @@ const DF = [
 ].map((row) => JSON.stringify(row)).join("\n");
 
 // A fake host: docker answers from `replies` by its first words, and every call is recorded.
-function fakeDeps({ platform = "win32", engine = "up", existing = [], free = [5 * GB, 9 * GB], df = "ok", fileSize = 300 * GB, wsl = "ok", stampFails = false } = {}) {
+function fakeDeps({ platform = "win32", engine = "up", existing = [], free = [5 * GB, 9 * GB], df = "ok", fileSize = 300 * GB, wsl = "ok", stampFails = false, pruneFails = [], lastPrune = null } = {}) {
   const calls = [];
   const timeouts = [];
   const wslCalls = [];
@@ -31,6 +31,7 @@ function fakeDeps({ platform = "win32", engine = "up", existing = [], free = [5 
     statfs: () => ({ bavail: free[Math.min(reads++, free.length - 1)], bsize: 1 }),
     exists: (path) => existing.includes(path),
     fileSize: () => fileSize,
+    lastPrune: () => lastPrune,
     stamp() {
       if (stampFails) throw new Error("read-only");
       stamps.push(true);
@@ -48,6 +49,7 @@ function fakeDeps({ platform = "win32", engine = "up", existing = [], free = [5 
         return { ok: engine === "up", stdout: "27.0\n", stderr: "permission denied on /var/run/docker.sock\nsecond line" };
       }
       if (args[0] === "system") return df === "ok" ? { ok: true, stdout: DF, stderr: "" } : { ok: false, timedOut: true, stdout: "", stderr: "" };
+      if (pruneFails === "all" || pruneFails.includes(args.join(" "))) return { ok: false, stdout: "", stderr: "boom" };
       return { ok: true, stdout: "Total reclaimed space: 1GB\n", stderr: "" };
     },
   };
@@ -212,4 +214,38 @@ test("parseSize reads Docker's decimal sizes", () => {
 test("vhdxCandidates falls back to the injected home, not the real one", () => {
   const [disk] = vhdxCandidates({}, join("injected", "home"));
   assert.ok(disk.startsWith(join("injected", "home", "AppData")));
+});
+
+test("prune stamps when at least one step succeeded, and neither stamps nor reports ok when all failed", () => {
+  const partial = fakeDeps({ pruneFails: [pruneSteps()[0].join(" ")] });
+  assert.equal(prune(partial).ok, true);
+  assert.equal(partial.stamps.length, 1);
+  const failed = fakeDeps({ pruneFails: "all" });
+  const result = prune(failed);
+  assert.equal(result.ok, false);
+  assert.equal(failed.stamps.length, 0, "nothing freed, so the nudge is not snoozed");
+  assert.match(result.text, /Every prune step failed/);
+});
+
+test("prune runs docker system df once, after the steps", () => {
+  const deps = fakeDeps();
+  const { text } = prune(deps);
+  assert.equal(deps.calls.filter((args) => args[0] === "system").length, 1);
+  assert.doesNotMatch(text, /df before/);
+  assert.match(text, /docker system df after:/);
+});
+
+test("report prints the last prune date from the stamp, or never", () => {
+  assert.match(report(fakeDeps({ lastPrune: "2026-11-14T10:00:00.000Z" })).text, /Last docker prune: 2026-11-14T10:00:00.000Z/);
+  assert.match(report(fakeDeps()).text, /Last docker prune: never/);
+});
+
+test("compact prints the absolute path of reclaim.mjs and the drive of the disk image", () => {
+  const [disk] = vhdxCandidates(fakeDeps().env);
+  const { text } = compact(fakeDeps({ existing: [disk] }));
+  const command = /node "([^"]+reclaim.mjs)" trim/.exec(text);
+  assert.ok(command, "quoted node command");
+  assert.ok(isAbsolute(command[1]), command[1]);
+  assert.ok(text.includes(`Free space on ${parse(disk).root || "the drive that holds the disk image"} grows`));
+  assert.doesNotMatch(text, /on C: grows/);
 });

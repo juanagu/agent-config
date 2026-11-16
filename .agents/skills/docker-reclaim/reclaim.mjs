@@ -9,18 +9,18 @@
 //
 // `report`, `prune` and `trim` talk to docker or wsl; `compact` only prints what the user runs,
 // because compacting a Windows disk needs an elevated shell an agent cannot open. Node built-ins only.
-import { existsSync, realpathSync, statSync, statfsSync } from "node:fs";
+import { existsSync, readFileSync, realpathSync, statSync, statfsSync } from "node:fs";
 import { homedir } from "node:os";
-import { join, resolve } from "node:path";
+import { join, parse, resolve } from "node:path";
 import { spawnSync } from "node:child_process";
 import { fileURLToPath } from "node:url";
-import { writeStamp } from "./stamp.mjs";
+import { stampPath, writeStamp } from "./stamp.mjs";
 
 export const DEFAULT_OLDER_THAN = "168h";
 export const ENGINE_TIMEOUT_MS = 15_000;
 // `docker system df` walks every image and cache record, which takes far longer than a liveness check.
 export const DF_TIMEOUT_MS = 120_000;
-// `until` filters by creation time, so a shorter age would also take what was built today.
+// Image `until` filters by creation time, so a shorter age would also take images built today; build cache goes by last use.
 export const MIN_OLDER_THAN_HOURS = 24;
 // A disk image this many times larger than what Docker uses is mostly space only compact returns.
 export const OVERSIZE_FACTOR = 2;
@@ -66,13 +66,23 @@ export function realDeps() {
     docker: (args, timeout) => runCommand("docker", args, timeout),
     wsl: (args, timeout) => runCommand("wsl", args, timeout),
     stamp: () => writeStamp(),
+    lastPrune: () => readStampText(),
   };
+}
+
+function readStampText() {
+  try {
+    return readFileSync(stampPath(), "utf8").trim() || null;
+  } catch {
+    return null;
+  }
 }
 
 // Why a call failed: a timeout says so (stderr is empty then), otherwise stderr's first line.
 const failureReason = (result, timeoutMs) =>
   result.timedOut ? `timed out after ${timeoutMs / 1000}s` : result.stderr.trim().split(/\r?\n/)[0] || "no error output";
 
+// Duplicated from .agents/hooks/disk-nudge: this skill folder is copied or linked on its own, so it cannot import from the hooks folder.
 export function freeBytes(deps) {
   const info = deps.statfs(deps.home);
   return info.bavail * info.bsize;
@@ -130,7 +140,7 @@ function vhdxLines(deps, df) {
 }
 
 export function report(deps) {
-  const lines = [`Free space on the home drive: ${formatGb(freeBytes(deps))}`];
+  const lines = [`Free space on the home drive: ${formatGb(freeBytes(deps))}`, `Last docker prune: ${deps.lastPrune?.() || "never"}`];
   const down = engineStatus(deps);
   if (down) return { ok: false, text: [...lines, down].join("\n") };
   const df = dfRows(deps);
@@ -159,18 +169,21 @@ export function prune(deps, olderThan = DEFAULT_OLDER_THAN) {
   const down = engineStatus(deps);
   if (down) return { ok: false, text: down };
   const before = freeBytes(deps);
-  const lines = [`Free space before: ${formatGb(before)}`, "docker system df before:", ...systemDf(deps)];
+  const lines = [`Free space before: ${formatGb(before)}`];
+  let succeeded = 0;
   for (const args of pruneSteps(olderThan)) {
     const result = deps.docker(args, PRUNE_TIMEOUT_MS);
+    if (result.ok) succeeded += 1;
     const tail = result.ok ? result.stdout.trim().split(/\r?\n/).pop() : failureReason(result, PRUNE_TIMEOUT_MS);
     lines.push(`docker ${args.join(" ")}: ${result.ok ? "ok" : "FAILED"}${tail ? ` (${tail})` : ""}`);
   }
-  recordPrune(deps);
+  if (succeeded) recordPrune(deps);
   if (deps.platform === "win32") lines.push(trim(deps).text);
   const after = freeBytes(deps);
   lines.push("docker system df after:", ...systemDf(deps), `Free space after: ${formatGb(after)} (${formatGb(after - before)} gained on the drive)`);
   if (deps.platform === "win32") lines.push("Windows only gets the space back after `compact`: run it and follow its steps.");
-  return { ok: true, text: lines.join("\n") };
+  if (!succeeded) lines.push("Every prune step failed: nothing was freed and the disk nudge is not snoozed.");
+  return { ok: succeeded > 0, text: lines.join("\n") };
 }
 
 function windowsSteps(deps) {
@@ -178,7 +191,7 @@ function windowsSteps(deps) {
   const targets = found.length ? found : [vhdxCandidates(deps.env, deps.home)[0]];
   const lines = [
     "Compacting is yours to do: it needs an elevated shell, which an agent cannot open.",
-    "1. Trim first, while Docker still runs: `node reclaim.mjs trim` (a prune already ran it; skip this if it printed ok).",
+    `1. Trim first, while Docker still runs: \`node "${fileURLToPath(import.meta.url)}" trim\` (a prune already ran it; skip this if it printed ok).`,
     "2. Quit Docker Desktop (tray icon, Quit Docker Desktop).",
     "3. In any terminal: wsl --shutdown",
     "4. Open PowerShell as Administrator and run, for each disk image below, one of:",
@@ -199,7 +212,7 @@ function windowsSteps(deps) {
   }
   lines.push(
     "5. Start Docker Desktop only once every check printed False: a disk image left attached to Windows makes Docker fail to start with ERROR_SHARING_VIOLATION.",
-    "   Free space on C: grows by what the prune freed inside the disk image.",
+    `   Free space on ${parse(targets[0]).root || "the drive that holds the disk image"} grows by what the prune freed inside the disk image.`,
   );
   return lines;
 }
@@ -219,7 +232,7 @@ export function parseCli(argv) {
   if (!["report", "prune", "trim", "compact"].includes(command)) throw new Error("Usage: reclaim.mjs report | prune [--older-than <hours>h] | trim | compact");
   if (!DURATION.test(olderThan ?? "")) throw new Error("--older-than takes hours, like 72h.");
   if (parseInt(olderThan, 10) < MIN_OLDER_THAN_HOURS) {
-    throw new Error(`--older-than must be at least ${MIN_OLDER_THAN_HOURS}h: the filter goes by creation time, so less would also remove what was built today.`);
+    throw new Error(`--older-than must be at least ${MIN_OLDER_THAN_HOURS}h: the image filter goes by creation time, so less would also remove images built today.`);
   }
   return { command, olderThan };
 }
@@ -232,6 +245,7 @@ export function main(argv, deps = realDeps()) {
   return compact(deps);
 }
 
+// Duplicated from .agents/hooks/session-answer.mjs: this skill folder is copied or linked on its own, so it cannot import from the hooks folder.
 function invokedDirectly() {
   if (!process.argv[1]) return false;
   try {
