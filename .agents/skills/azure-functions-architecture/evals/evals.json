@@ -10,7 +10,7 @@
       "expectations": [
         "function_app.py contains no route or logic: it registers the Blueprint returned by the feature's factory",
         "The triggers are defined inside a create_blueprint-style factory that receives the use-cases, not at module level over global clients",
-        "The webhook validates the X-Twilio-Signature before reading the body, and is not protected only by a function key or left anonymous without it",
+        "The webhook validates the X-Twilio-Signature (over the URL and the form parameters) before the body is parsed into a schema or trusted, and is not protected only by a function key or left anonymous without it",
         "The tenant is resolved from the To number through a domain repository, with no default tenant",
         "The Service Bus producer lives in data/ behind a domain Protocol, sets message_id to a business key and uses the sender (conversation) as the session id",
         "The consumer is idempotent (keyed write or processed-message record) and dead-letters a malformed payload explicitly (message actions or a poison queue), neither raising it for redelivery nor returning, which would complete and lose it",

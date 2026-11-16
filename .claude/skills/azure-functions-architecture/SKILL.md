@@ -11,7 +11,7 @@ Load `python-architecture` first: it owns the layers, the dependency table, the 
 
 ```
 apps/<app>/
-  function_app.py             the composition root: build core/ once, then app.register_functions(create_<feature>(...)) per feature;
+  function_app.py             the composition root: build core/ once, then app.register_functions(bp) for each Blueprint create_<feature>(...) returns;
                               app is df.DFApp once any feature has orchestrations, func.FunctionApp otherwise
   host.json                   runtime config: extension bundle, logging levels, retry and concurrency per trigger type
   local.settings.example.json committed, keys and no values; local.settings.json is ignored
@@ -27,10 +27,10 @@ apps/<app>/
       upstream/               the httpx.AsyncClient other services are called over
       cosmos/  service_bus/  storage/   async client factories over DefaultAzureCredential, built once per process
     features/<feature>/
-      create_<feature>.py     builds data/ and the use-cases, returns the feature's one Blueprint (a df.Blueprint, a func.Blueprint subclass, when it has orchestrations)
+      create_<feature>.py     builds data/ and the use-cases, returns the feature's Blueprints, one per feature or sub-feature (a df.Blueprint, a func.Blueprint subclass, when it has orchestrations)
       api/
         blueprint.py          create_blueprint(use_cases) -> func.Blueprint: the decorated triggers, each two or three lines
-        schemas/              Pydantic models of request, response and message payloads
+        schemas/              Pydantic models of request and response bodies (message payloads live in data/messages/)
         controllers/          one module per resource: parse → use-case → response, raising typed errors
         consumers/            Service Bus and queue handlers: validate the message → call a use-case
         schedules/            timer handlers: call a use-case, never scan and decide inline
@@ -39,7 +39,7 @@ apps/<app>/
   tests/
 ```
 
-- `function_app.py` holds no route and no logic. It configures observability, builds the shared clients from `core/`, calls each feature's factory, and registers what comes back. The decorated functions live in each feature's `api/blueprint.py`, created **inside** `create_blueprint` so they close over the use-cases the factory hands them; that is how a trigger gets its dependencies without module-level globals. `create_blueprint` is a framework wrapper in the standards' size sense: it may pass 40 lines as long as each trigger only delegates in two or three lines; past about 300 lines, or ten triggers, the feature is due to split by sub-feature (`python-architecture` skill, §1), each sub-feature with its own factory and Blueprint registered by `function_app.py`.
+- `function_app.py` holds no route and no logic. It configures observability, builds the shared clients from `core/`, calls each feature's factory, and registers what comes back. The decorated functions live in each feature's `api/blueprint.py`, created **inside** `create_blueprint` so they close over the use-cases the factory hands them; that is how a trigger gets its dependencies without module-level globals. `create_blueprint` is a framework wrapper in the standards' size sense: it may pass 40 lines as long as each trigger only delegates in two or three lines; past about 300 lines, or ten triggers, the feature is due to split by sub-feature (`python-architecture` skill, §1), each sub-feature with its own factory and Blueprint, and the parent's factory returns them all for `function_app.py` to register.
 - A trigger function is an adapter: it takes the host's input, hands it to a controller, consumer or schedule handler with the use-cases it needs, and returns what that gives back. The handler is a plain async function, testable without the host.
 - Function names are unique across the app; name them `<feature>_<action>` (`leads_create_application`), since every Blueprint lands in the same app.
 - One Function App per deployable concern (the channel webhooks, the conversation runtime, the tool gateway, a back-office API), each a workspace app with its own settings, identity and scale. Two apps share code through a workspace package, never a copied folder (`python-architecture` skill, §1).
@@ -91,7 +91,7 @@ Use them when a process waits (for a reply, a person, a callback, a deadline) an
 - Orchestrators are generator functions with no I/O: they `yield context.call_activity(...)`, read time from `context.current_utc_datetime`, and get randomness or new ids from an activity. Each activity calls one use-case.
 - Inputs and outputs of activities are small JSON-serialisable payloads (ids, not documents).
 - A change to a running orchestration's steps is versioned (a new orchestrator name or an explicit version check), so in-flight instances finish on the code they started with.
-- Instance ids are business keys (`followup-<tenant>-<lead>`). `start_new` on a running id does not return the running instance: depending on `overridableExistingInstanceStates` in `host.json` it replaces it or raises. Set that to `NonRunningStates`, call `start_new`, and treat its raise as "already running"; a `get_status` before it adds a round trip and still loses the race.
+- Instance ids are business keys (`followup-<tenant>-<lead>`), and a start is idempotent: `get_status` first, and an instance that exists in any state, finished included, means this start already happened, so skip it (a new process for the same key uses a new id, the key plus a version). Otherwise `start_new` with `overridableExistingInstanceStates` set to `NonRunningStates` in `host.json`, treating its raise as the race lost to a concurrent start. Without the check, `NonRunningStates` lets a redelivered message restart a completed instance and repeat its effects.
 
 ## 7. Observability
 
@@ -118,7 +118,7 @@ Use them when a process waits (for a reply, a person, a callback, a deadline) an
 | --- | --- |
 | `function_app.py` holding every route, helper and query | `function_app.py` registers each feature's Blueprint; the triggers live in `api/blueprint.py` |
 | A Blueprint at module level reaching for a global client or repository | `create_blueprint(use_cases)` defines the triggers inside it, closing over what the factory built |
-| `auth_level=ANONYMOUS` on a webhook or a tool route with nothing in `core/auth` checking the caller | Host level `ANONYMOUS` is right only when `core/auth` validates the signature or token before anything reads the body; switching to `AuthLevel.FUNCTION` without putting the key in the URL the provider calls breaks the webhook |
+| `auth_level=ANONYMOUS` on a webhook or a tool route with nothing in `core/auth` checking the caller | Host level `ANONYMOUS` is right only when `core/auth` validates the signature or token before the body is parsed or trusted; switching to `AuthLevel.FUNCTION` without putting the key in the URL the provider calls breaks the webhook |
 | A seed or force-state route deployed to production | Off in production by `core/config`, or deleted |
 | `COSMOS_KEY`, `SERVICEBUS_CONNECTION_STRING` in the app settings | Managed identity with role assignments; Key Vault references for third-party secrets |
 | `os.getenv("TENANT_ID", "acme")` | The tenant resolved from the inbound number or the token; missing is a `4xx` |
@@ -133,7 +133,7 @@ Use them when a process waits (for a reply, a person, a callback, a deadline) an
 
 Copy `python-architecture`'s checklist, then add:
 
-1. `function_app.py` only composes: observability, `core/` clients, one `register_functions` per feature; every trigger lives in a feature's `api/blueprint.py`, created inside its factory, and delegates to a plain handler.
+1. `function_app.py` only composes: observability, `core/` clients, a `register_functions` for each Blueprint a feature's factory returns; every trigger lives in a feature's `api/blueprint.py`, created inside its factory, and delegates to a plain handler.
 2. No anonymous route: webhooks validate the provider's signature, people and services present a token or, inside the platform, a function key at least; no test-only route reachable in production.
 3. Managed identity for Cosmos DB, Service Bus, Storage and Key Vault; third-party secrets as Key Vault references; no key or connection string in code, examples or Terraform outputs.
 4. Tenant resolved at the edge from the request; no default tenant.
