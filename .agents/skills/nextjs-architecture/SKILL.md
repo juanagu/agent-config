@@ -53,6 +53,7 @@ The feature-shape rule is in the standards (Feature folders). Here a small featu
 
 - Route- or session-dependent chrome lives in a route-group layout such as `app/(app)/layout.tsx`, never the root layout: shared layouts don't re-render on soft navigation, so a root layout that branches on route or session goes stale and `router.refresh()` won't fix it.
 - After a client mutation that changes Server Component output (sign-in/out, locale, a setting), call `router.refresh()` **after** any `router.push()`; a refresh still pending when a navigation is dispatched is discarded.
+- **Client state seeded from props for an entity the user can switch without leaving the route** (the active brand, account or workspace: drafts, a revision, a staged upload) is keyed on that entity's id at its parent (`key={brand.id}`), so a switch remounts it, rather than reset in an effect that watches the prop. Why: the route doesn't change and new props re-render the subtree, so `useState` keeps the old entity's values, and its next write lands on the new one.
 - Guest-only and signed-in-only routes are guarded in `proxy.ts`/`middleware.ts` from one `isSession` validator shared with `getSession()`.
 - Anything that renders on more than one route is checked against every route's existing shell for duplicated branding or redundant controls.
 
@@ -121,3 +122,4 @@ Before reporting work done: lint, typecheck, unit tests, the e2e specs the chang
 7. Files ~300 lines, functions ~40, components ~200.
 8. File names kebab-case, framework-reserved names excepted; `unicorn/filename-case` green.
 9. The feature-shape rule in the standards holds: `components/` and `hooks/` only from the second file, a split by sub-feature past ~15 files per layer folder, no module folders over `features/`.
+10. Client state seeded from props for an entity the user can switch on the same route is keyed on that entity's id (§2), and a Playwright spec switches the entity after an edit and checks that the write goes to the new one.
